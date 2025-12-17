@@ -1,0 +1,5 @@
+{
+  "name": "Fodda Contextual Demo",
+  "description": "A vertical-specific research assistant demo for Retail, Sports, and Beauty, powered by Gemini and grounded in curated datasets.",
+  "requestFramePermissions": []
+}
