@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Article, Trend } from '../types';
+import { Article, Trend, Vertical } from '../types';
 
 interface EvidenceDrawerProps {
   articles: Article[];
   trends: Trend[];
+  vertical: Vertical;
   isOpen: boolean;
   onClose: () => void;
   isLoading: boolean;
   onTrendLearnMore: (trendName: string) => void;
   highlightedItem?: { type: 'trend' | 'article', id: string } | null;
+  hasMessages: boolean;
 }
 
 const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; isHighlighted: boolean }> = ({ trend, onLearnMore, isHighlighted }) => {
@@ -40,8 +42,6 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
         <p className={`text-xs text-stone-600 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
           {trend.summary}
         </p>
-        
-        {/* Expand/Collapse Toggle */}
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center text-[10px] text-stone-400 hover:text-stone-600 font-medium mt-2 focus:outline-none"
@@ -60,7 +60,6 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
         </button>
       </div>
 
-      {/* Learn More Action - Only visible when expanded */}
       {isExpanded && (
         <div className="mt-4 pt-3 border-t border-stone-200/50 animate-fade-in-up">
           <button 
@@ -75,12 +74,9 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
   );
 };
 
-export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends, isOpen, onClose, isLoading, onTrendLearnMore, highlightedItem }) => {
-  
-  // Use isOpen directly for scroll logic, assuming checking logic is handled upstream or doesn't matter if hidden
+export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends, vertical, isOpen, onClose, isLoading, onTrendLearnMore, highlightedItem, hasMessages }) => {
   useEffect(() => {
     if (highlightedItem && isOpen && !isLoading) {
-      // Small timeout to ensure DOM transition is complete if it was just opened
       setTimeout(() => {
         const elementId = `${highlightedItem.type}-${highlightedItem.id}`;
         const element = document.getElementById(elementId);
@@ -93,7 +89,6 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm z-40 md:hidden"
@@ -101,19 +96,16 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
         />
       )}
 
-      {/* Drawer Container */}
       <div className={`
         fixed inset-y-0 right-0 z-50 w-80 h-full bg-white border-l border-stone-200 shadow-xl overflow-y-auto flex flex-col transition-transform duration-300 ease-in-out
         md:relative md:translate-x-0 md:shadow-none md:z-10
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>
-        {/* Header - Fixed Height h-16 to match ChatInterface */}
         <div className="h-16 px-6 border-b border-stone-100 bg-stone-50/50 sticky top-0 z-10 backdrop-blur-sm flex justify-between items-center shrink-0">
           <div className="flex flex-col justify-center">
             <h2 className="font-serif font-bold text-lg text-stone-900 leading-none">Evidence</h2>
-            <p className="text-[10px] text-stone-500 mt-1 leading-none">Source material used</p>
+            <p className="text-[10px] text-stone-500 mt-1 leading-none">Grounding Graph</p>
           </div>
-           {/* Mobile Close Button */}
           <button onClick={onClose} className="md:hidden p-2 text-stone-400 hover:text-stone-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -129,12 +121,17 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
                <div>
                   <div className="h-3 w-24 bg-stone-200 rounded mb-4"></div>
                   <div className="h-24 bg-stone-100 rounded-lg mb-3"></div>
-                  <div className="h-24 bg-stone-100 rounded-lg"></div>
                </div>
              </div>
           ) : (
             <>
-              {trends.length === 0 && articles.length === 0 && (
+              {!hasMessages && (
+                  <div className="text-center py-10 px-4 opacity-60">
+                      <p className="text-sm text-stone-400 font-medium italic leading-relaxed">Evidence for the results of this {vertical} graph will be displayed here</p>
+                  </div>
+              )}
+
+              {hasMessages && trends.length === 0 && articles.length === 0 && (
                   <div className="text-center py-10 text-stone-400">
                       <p className="text-sm italic">No specific evidence retrieved for the last query.</p>
                   </div>
@@ -202,6 +199,19 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
               )}
             </>
           )}
+        </div>
+
+        {/* Demo Capability Box (Moved here) */}
+        <div className="p-6 mt-auto border-t border-stone-100 bg-stone-50/30">
+          <div className="bg-white p-3.5 rounded-lg border border-stone-200 shadow-sm">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-1.5 h-1.5 bg-fodda-accent rounded-full"></div>
+              <h3 className="font-serif font-bold text-stone-800 text-xs">Demo Capability</h3>
+            </div>
+            <p className="text-[10px] text-stone-500 leading-relaxed font-medium">
+              This demo proves how structured context improves LLM accuracy. Every insight and example above is grounded in the PSFK-curated {vertical} dataset, preventing hallucinations and ensuring traceable, expert-led intelligence.
+            </p>
+          </div>
         </div>
       </div>
     </>

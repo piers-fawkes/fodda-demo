@@ -20,7 +20,6 @@ const App: React.FC = () => {
   
   // State for the Evidence Drawer
   // Logic: Show evidence for the latest assistant message. 
-  // If processing a new query, we treat the evidence as 'loading' or empty to indicate refresh.
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
   
   // If processing, we don't show the OLD evidence, we show loading state in the drawer.
@@ -44,8 +43,7 @@ const App: React.FC = () => {
 
     setMessages(prev => [...prev, userMsg]);
     setIsProcessing(true);
-    setHighlightedItem(null); // Reset highlight on new query
-    // On mobile, if sending message, we typically stay in chat, but Evidence might be relevant soon.
+    setHighlightedItem(null); 
     
     try {
       // 1. Retrieve Context
@@ -66,7 +64,6 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, assistantMsg]);
     } catch (err) {
       console.error(err);
-      // Fallback error message
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -78,25 +75,20 @@ const App: React.FC = () => {
     }
   };
 
-  // Triggered when user clicks "Learn More" in the Evidence Drawer
   const handleTrendLearnMore = (trendName: string) => {
     handleSendMessage(`Tell me more about the trend "${trendName}" and share examples.`);
-    // On mobile, close evidence to show chat response
     setIsEvidenceOpen(false);
   };
 
-  // Triggered when user clicks a link in the Chat Interface
   const handleAnchorClick = (type: 'trend' | 'article', id: string) => {
     setHighlightedItem({ type, id });
-    setIsEvidenceOpen(true); // Open drawer on click (crucial for mobile)
+    setIsEvidenceOpen(true); 
     
-    // Auto-clear highlight after 3 seconds for visual cleanliness, 
-    // though the scroll position remains.
     setTimeout(() => setHighlightedItem(null), 3000);
   };
 
   return (
-    <div className="flex h-screen w-screen bg-stone-100 overflow-hidden font-sans relative">
+    <div className="flex h-screen h-[100dvh] w-screen bg-stone-100 overflow-hidden font-sans relative">
       <Sidebar 
         currentVertical={currentVertical} 
         onVerticalChange={handleVerticalChange}
@@ -122,11 +114,13 @@ const App: React.FC = () => {
         <EvidenceDrawer 
           articles={currentEvidence}
           trends={currentTrends}
+          vertical={currentVertical}
           isOpen={isEvidenceOpen}
           onClose={() => setIsEvidenceOpen(false)}
           isLoading={isProcessing}
           onTrendLearnMore={handleTrendLearnMore}
           highlightedItem={highlightedItem}
+          hasMessages={messages.length > 0}
         />
       </main>
     </div>

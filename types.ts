@@ -1,7 +1,7 @@
 export enum Vertical {
+  Beauty = 'Beauty',
   Retail = 'Retail',
   Sports = 'Sports',
-  Beauty = 'Beauty',
 }
 
 export interface Trend {

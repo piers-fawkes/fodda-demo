@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Fodda Intelligence Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Fodda - Demo</title>
+    <meta name="description" content="Fodda structures curated insights into AI-ready knowledge graphs that can be queried with traceable sources." />
+    <!-- Favicon using a representation of the purple watercolor blotch -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23663399' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%23663399' stop-opacity='0.2'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23g)'/%3E%3Cpath d='M50 10 Q 60 15 70 10 T 90 20 Q 85 40 95 60 T 80 90 Q 50 85 20 95 T 5 60 Q 15 30 10 10 Z' fill='%23663399' opacity='0.4' transform='rotate(15 50 50)'/%3E%3C/svg%3E" />
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +60,19 @@
       }
     </script>
     <style>
+      /* Fix for Mobile Safari dynamic height and layout shifts */
+      html, body {
+        height: 100%;
+        height: 100dvh;
+        overflow: hidden;
+        position: fixed; /* Prevents background scrolling when keyboard is open */
+        width: 100%;
+      }
+      #root {
+        height: 100%;
+        height: 100dvh;
+        overflow: hidden;
+      }
       /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
         width: 6px;
@@ -72,6 +88,14 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #a8a29e; 
       }
+      /* Prevent elastic bounce in Safari */
+      .no-bounce {
+        overscroll-behavior: none;
+      }
+      /* Safe padding for iOS home indicator */
+      .safe-pb {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
     </style>
   <script type="importmap">
 {
@@ -85,7 +109,7 @@
 }
 </script>
 </head>
-  <body class="bg-stone-100 text-stone-900 antialiased h-screen w-screen overflow-hidden selection:bg-stone-200 selection:text-stone-900">
+  <body class="bg-stone-100 text-stone-900 antialiased h-screen w-screen overflow-hidden selection:bg-stone-200 selection:text-stone-900 no-bounce">
     <div id="root" class="h-full w-full"></div>
   </body>
 </html>
