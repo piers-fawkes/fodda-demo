@@ -1,5 +1,7 @@
+
 import React from 'react';
-import { Vertical } from '../types';
+// Update: Align types with shared/types
+import { Vertical } from '../shared/types';
 import { SUGGESTED_QUESTIONS } from '../constants';
 
 interface SidebarProps {

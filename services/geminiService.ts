@@ -1,5 +1,7 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { RetrievalResult, Vertical, Trend, Article } from '../types';
+// Update: Use shared types to stay aligned with shared dataService
+import { RetrievalResult, Vertical } from '../shared/types';
 
 const getSystemInstruction = (vertical: Vertical): string => {
   return `
@@ -84,15 +86,17 @@ const formatContext = (data: RetrievalResult): string => {
   if (data.trends.length > 0) {
     contextString += "TRENDS DATASET:\n";
     data.trends.forEach(t => {
-      contextString += `TrendID: ${t.id}\nName: ${t.name}\nSummary: ${t.summary}\n---\n`;
+      // Fix: Use correct Trend property names (trendId, trendName, trendDescription)
+      contextString += `TrendID: ${t.trendId}\nName: ${t.trendName}\nSummary: ${t.trendDescription}\n---\n`;
     });
   }
 
   if (data.articles.length > 0) {
     contextString += "\nARTICLES DATASET:\n";
     data.articles.forEach(a => {
-      const trendIds = a.trendIds.join(", ");
-      contextString += `ArticleID: ${a.id}\nLinkedTrendIDs: ${trendIds}\nTitle: ${a.title}\nSourceURL: ${a.sourceUrl}\nSnippet: ${a.snippet}\n---\n`;
+      // Fix: Use correct Article property names (articleId, trendIds, snippet)
+      const trendIds = (a.trendIds || []).join(", ");
+      contextString += `ArticleID: ${a.articleId}\nLinkedTrendIDs: ${trendIds}\nTitle: ${a.title}\nSourceURL: ${a.sourceUrl}\nSnippet: ${a.snippet || a.summary || ""}\n---\n`;
     });
   }
 
@@ -118,8 +122,9 @@ export const generateResponse = async (
     const contextBlock = formatContext(retrievedData);
     const fullPrompt = `${contextBlock}\n\nUSER QUESTION: ${query}`;
 
+    // Updated: Using gemini-3-flash-preview as recommended for text synthesis tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: fullPrompt,
       config: {
         systemInstruction: getSystemInstruction(vertical),

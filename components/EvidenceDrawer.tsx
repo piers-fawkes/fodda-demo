@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { Article, Trend, Vertical } from '../types';
+// Update: Align types with shared/types
+import { Article, Trend, Vertical } from '../shared/types';
 
 interface EvidenceDrawerProps {
   articles: Article[];
@@ -24,7 +26,8 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
 
   return (
     <div 
-      id={`trend-${trend.id}`}
+      // Fix: Access trendId
+      id={`trend-${trend.trendId}`}
       className={`p-4 rounded-lg border transition-all duration-500
         ${isHighlighted 
           ? 'bg-purple-50 border-fodda-accent shadow-md ring-1 ring-fodda-accent/20' 
@@ -33,14 +36,17 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
     >
       <div className="flex justify-between items-start mb-2">
         <span className="text-[10px] font-mono text-fodda-accent bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100/50">
-          ID: {trend.id}
+          {/* Fix: Access trendId */}
+          ID: {trend.trendId}
         </span>
       </div>
-      <h4 className="text-sm font-semibold text-stone-800 leading-tight mb-2">{trend.name}</h4>
+      {/* Fix: Access trendName */}
+      <h4 className="text-sm font-semibold text-stone-800 leading-tight mb-2">{trend.trendName}</h4>
       
       <div className={`relative`}>
+        {/* Fix: Access trendDescription */}
         <p className={`text-xs text-stone-600 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
-          {trend.summary}
+          {trend.trendDescription}
         </p>
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
@@ -63,7 +69,8 @@ const TrendCard: React.FC<{ trend: Trend; onLearnMore: (name: string) => void; i
       {isExpanded && (
         <div className="mt-4 pt-3 border-t border-stone-200/50 animate-fade-in-up">
           <button 
-            onClick={() => onLearnMore(trend.name)}
+            // Fix: Access trendName
+            onClick={() => onLearnMore(trend.trendName)}
             className="w-full text-center text-xs font-medium text-fodda-accent hover:text-white hover:bg-fodda-accent py-1.5 rounded transition-colors duration-200 border border-fodda-accent/20 hover:border-fodda-accent"
           >
             Learn more about this trend
@@ -146,10 +153,10 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
                   <div className="space-y-4">
                     {trends.map((trend) => (
                       <TrendCard 
-                        key={trend.id} 
+                        key={trend.trendId} 
                         trend={trend} 
                         onLearnMore={onTrendLearnMore}
-                        isHighlighted={highlightedItem?.type === 'trend' && highlightedItem?.id === trend.id}
+                        isHighlighted={highlightedItem?.type === 'trend' && highlightedItem?.id === trend.trendId}
                       />
                     ))}
                   </div>
@@ -164,11 +171,12 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
                   </h3>
                   <div className="space-y-4">
                     {articles.map((article) => {
-                      const isHighlighted = highlightedItem?.type === 'article' && highlightedItem?.id === article.id;
+                      // Fix: Access articleId
+                      const isHighlighted = highlightedItem?.type === 'article' && highlightedItem?.id === article.articleId;
                       return (
                         <div 
-                          key={article.id} 
-                          id={`article-${article.id}`}
+                          key={article.articleId} 
+                          id={`article-${article.articleId}`}
                           className={`group p-4 rounded-lg border transition-all duration-500
                             ${isHighlighted 
                               ? 'bg-purple-50 border-fodda-accent shadow-md ring-1 ring-fodda-accent/20' 
@@ -176,7 +184,8 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
                             }`}
                         >
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-mono text-stone-400">ID: {article.id}</span>
+                            {/* Fix: Access articleId */}
+                            <span className="text-[10px] font-mono text-stone-400">ID: {article.articleId}</span>
                             <a 
                               href={article.sourceUrl} 
                               target="_blank" 
@@ -190,7 +199,8 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
                           <h4 className="text-sm font-medium text-stone-900 leading-snug mb-2 group-hover:text-fodda-accent transition-colors">
                             {article.title}
                           </h4>
-                          <p className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded italic leading-relaxed border border-stone-100">"{article.snippet}"</p>
+                          {/* Fix: Access snippet or summary */}
+                          <p className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded italic leading-relaxed border border-stone-100">"{article.snippet || article.summary || ""}"</p>
                         </div>
                       )
                     })}

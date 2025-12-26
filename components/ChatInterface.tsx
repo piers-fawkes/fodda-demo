@@ -1,6 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Message, Vertical } from '../types';
+// Update: Align types with shared/types
+import { Message, Vertical } from '../shared/types';
 import { SUGGESTED_QUESTIONS } from '../constants';
 
 interface ChatInterfaceProps {
@@ -202,23 +204,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isProces
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                    </svg>
                 </div>
-                <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2 tracking-tight">Explore the {vertical} Graph</h2>
-                <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
+                <h2 className="font-serif text-2xl md:text-3xl font-bold text-stone-900 mb-2 tracking-tight">Explore the {vertical} Graph</h2>
+                <p className="text-stone-500 text-sm md:text-xs max-w-sm mx-auto leading-relaxed">
                    Structured intelligence grounded in curated datasets. Choose a starter inquiry or type your own below.
                 </p>
              </div>
 
              <div className="w-full max-w-xl mx-auto space-y-3">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-3 text-center">Suggested Inquiries</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-3 text-center">Suggested Inquiries</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                    {suggestions.map((q, i) => (
                       <button
                          key={i}
                          onClick={() => onSendMessage(q)}
-                         className="group text-left px-4 py-3 bg-white border border-stone-200 rounded-xl hover:border-fodda-accent/40 hover:shadow-lg hover:bg-purple-50/10 transition-all duration-300 animate-fade-in-up"
+                         className="group text-left px-4 py-3 md:py-3 bg-white border border-stone-200 rounded-xl hover:border-fodda-accent/40 hover:shadow-lg hover:bg-purple-50/10 transition-all duration-300 animate-fade-in-up"
                          style={{ animationDelay: `${200 + (i * 100)}ms`, animationFillMode: 'forwards' }}
                       >
-                         <span className="text-xs font-medium text-stone-600 group-hover:text-stone-900 leading-tight block">"{q}"</span>
+                         <span className="text-sm md:text-xs font-medium text-stone-600 group-hover:text-stone-900 leading-tight block">"{q}"</span>
                       </button>
                    ))}
                 </div>

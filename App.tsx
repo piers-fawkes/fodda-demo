@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
-import { Vertical, Message } from './types';
+// Import from shared/types to align with dataService and resolve reported errors
+import { Vertical, Message } from './shared/types';
 import { Sidebar } from './components/Sidebar';
 import { ChatInterface } from './components/ChatInterface';
 import { EvidenceDrawer } from './components/EvidenceDrawer';
-import { dataService } from './services/dataService';
+// Fix: Import from shared/dataService as recommended by the deprecation warning in services/dataService
+import { dataService } from './shared/dataService';
 import { generateResponse } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -47,7 +50,8 @@ const App: React.FC = () => {
     
     try {
       // 1. Retrieve Context
-      const retrievedData = dataService.retrieve(text, currentVertical);
+      // Fix: Await the asynchronous retrieve call from the shared DataService
+      const retrievedData = await dataService.retrieve(text, currentVertical);
       
       // 2. Generate Answer via Gemini
       const responseText = await generateResponse(text, currentVertical, retrievedData);

@@ -1,12 +1,13 @@
+
 import { Vertical, Trend, Article } from './types';
 
 // Initial Suggested Questions per vertical
 export const SUGGESTED_QUESTIONS: Record<Vertical, string[]> = {
   [Vertical.Retail]: [
-    "What are retailers doing right now to adapt stores for omnichannel shoppers?",
-    "How are retailers using stores beyond just selling products?",
-    "What’s changing in retail loyalty or membership strategies?",
-    "How are retailers responding to margin pressure?"
+    "What retail trends are shaping how brands use physical stores today?",
+    "What’s changing in how retailers use technology to engage customers in-store?",
+    "What trends are influencing how retailers think about convenience and speed?",
+    "What are retailers experimenting with to create more differentiated shopping experiences?"
   ],
   [Vertical.Sports]: [
     "What’s changing in how fans engage with sports outside of live games?",
@@ -30,7 +31,7 @@ export const MOCK_TRENDS: Trend[] = [
   { id: "5369", vertical: Vertical.Retail, name: "Premium Prepared-Food Programs", summary: "Grocers, convenience chains and quick-service operators expand chef partnerships, higher-quality ready-to-eat meals and premium private-label items to capture additional dayparts." },
   { id: "5370", vertical: Vertical.Retail, name: "Targeted Store Expansion and Format Pilots", summary: "Well-funded operators accelerate new store openings and pilot distinct formats—flagship locations, experience-focused stores and takeout-only footprints—to secure local catchment." },
   { id: "5372", vertical: Vertical.Retail, name: "Geo-Triggered Commerce Enabled by Marketplaces", summary: "Marketplaces, real-time discovery tools and rapid last-mile logistics are integrated to trigger offers and fulfillment when consumers are nearby." },
-  { id: "5373", vertical: Vertical.Retail, name: "Service-First Retail Stores", summary: "Retailers prioritize in-store services—repairs, clinics, click-and-collect, specialist consultations—and local programming to drive habitual visits and increase customer lifetime value." },
+  { id: "5373", vertical: Vertical.Retail, name: "Service-First Retail Stores", summary: "Retailers prioritize in-store services—repairs, clinics, click-and-collect, specialist consultations—to drive habitual visits and increase customer lifetime value." },
   { id: "5374", vertical: Vertical.Retail, name: "Retail-Integrated Resale and Curated Pre-Owned Assortments", summary: "Retailers adopt standardized refurbishment, grading and quality-control processes and curate pre-owned drops so second-hand inventory can be sold alongside new products." },
   { id: "5422", vertical: Vertical.Retail, name: "Airport Retail & Passenger Experience Elevation", summary: "Airports become experiential retail and service platforms (luxury flagships, meet & greet, autonomous delivery, immersive activations) to monetize dwell time." },
   { id: "5602", vertical: Vertical.Retail, name: "Background AI Agents for Revenue Ops", summary: "Background AI agents for on-site revenue operations and storefront automation that recommend or execute pricing, transfers, and next-best-actions at SKU-level." },
@@ -58,7 +59,7 @@ export const MOCK_TRENDS: Trend[] = [
   { id: "5556", vertical: Vertical.Sports, name: "Tech Partnerships Upgrading Live Sports Operations", summary: "Venue and rights-holder tech partnerships integrate payments, mobility, remote production and analytics to reduce costs, create sponsorable inventory, and improve fan experience." },
   { id: "5560", vertical: Vertical.Sports, name: "Eventized Fitness", summary: "Fitness packaged as ticketed, social entertainment—touring competitions, social sports venues and fitness cruises—monetized via sponsorships, F&B and ticketing." },
   { id: "5564", vertical: Vertical.Sports, name: "Human-Led, Tech-Enabled Coaching", summary: "Human coaching scaled with AI, sensors and AR to deliver measurable, cross-channel training while preserving human relationships." },
-  { id: "5573", vertical: Vertical.Sports, name: "Modular & Multifunctional Sports Infrastructure", summary: "Flexible venue and equipment systems enable rapid reconfiguration, mixed-use programming and integrated data capture for year-round monetization." },
+  { id: "5573", vertical: Vertical.Sports, name: "Modular & Multifunctional Sports Infrastructure", summary: "Flexible venue and equipment systems enable capital-efficient mixed-use programming and year-round monetization." },
   { id: "5575", vertical: Vertical.Sports, name: "Adaptive & Inclusive Fitness Equipment", summary: "Adaptive and inclusive equipment/apparel designs broaden accessibility across institutions and everyday users." },
 
   // --- BEAUTY (From Dataset) ---
@@ -124,7 +125,7 @@ export const MOCK_ARTICLES: Article[] = [
   { id: "9355", vertical: Vertical.Sports, trendIds: ["5456"], title: "Genius Sports Boosts Fan Insights", sourceUrl: "https://www.sportspro.com/news/genius-sports-innovation-lab-fan-data-sponsorship-september-2025/", snippet: "Genius Sports acquired Sports Innovation Lab to enhance fan data and sponsorship insights, integrating its research tools into Genius's media products." },
   { id: "1464", vertical: Vertical.Sports, trendIds: ["5458"], title: "Life Time Unveils Arden Hills Transformation", sourceUrl: "https://athletechnews.com/life-time-revives-former-arden-hills-club-with-eighth-california-location/", snippet: "Life Time has launched its eighth California location... nearly 80,000 square feet of upgraded fitness facilities, an outdoor beach club, and a Kids Academy." },
   { id: "2997", vertical: Vertical.Sports, trendIds: ["5458"], title: "Nervous System Recovery Tech Gains Momentum", sourceUrl: "https://athletechnews.com/shiftwaves-recovery-tech-turns-heads-at-the-atn-summit/", snippet: "Shiftwave's nervous system recovery technology... requires no additional staffing or space, is now implemented in resorts and wellness centers." },
-  { id: "4938", vertical: Vertical.Sports, trendIds: ["5459", "5575"], title: "ASICS Launches Inclusive PE Uniform", sourceUrl: "https://www.trendwatching.com/innovations/a-reimagined-pe-kit-by-asics-responds-to-girls-dropping-out-of-sports", snippet: "ASICS launched the Undropped Kit, a PE uniform designed with Inclusive Sportswear and Mind, to address discomfort with traditional gym attire." },
+  { id: "4938", vertical: Vertical.Sports, trendIds: ["5459", "5575"], title: "ASICS Launches Inclusive PE Uniform", sourceUrl: "https://www.trendwatching.com/innovations/a-reimagived-pe-kit-by-asics-responds-to-girls-dropping-out-of-sports", snippet: "ASICS launched the Undropped Kit, a PE uniform designed with Inclusive Sportswear and Mind, to address discomfort with traditional gym attire." },
   { id: "11494", vertical: Vertical.Sports, trendIds: ["5556"], title: "CHEQ - in-venue mobile ordering", sourceUrl: "https://www.cheqplease.com/pepsi", snippet: "CHEQ delivers mobile ordering... technology that powers friction-free purchases at stadiums... Reported results include a 28% lift in average ticket size." },
   { id: "10599", vertical: Vertical.Sports, trendIds: ["5556"], title: "OZ Sports - Smart stadium infrastructure", sourceUrl: "https://oz.com/", snippet: "OZ Sports builds AI-driven stadium infrastructure that delivers high-end, multi-camera 4K broadcasts with no on-site crew." },
   { id: "11989", vertical: Vertical.Sports, trendIds: ["5560"], title: "ATHX Games and Adidas Ink Global Deal", sourceUrl: "https://athletechnews.com/athx-games-global-expansion-adidas-partnership/", snippet: "ATHX Games partners with Adidas for a four-year global deal, launching a European tour in 2026 with fitness events and expanding its affiliate gym network." },
@@ -139,8 +140,8 @@ export const MOCK_ARTICLES: Article[] = [
   { id: "12200", vertical: Vertical.Sports, trendIds: ["5462", "5573"], title: "Social Padel Clubs and Artisanal Coffee Culture", sourceUrl: "https://athletechnews.com/the-rise-of-social-sports-clubs-padel-pickleball-and-premium-coffee/", snippet: "New multi-use sports venues are prioritizing artisanal coffee and cafe spaces to foster community, making 'sporting social clubs' a high-growth revenue segment." },
 
   // --- BEAUTY (From Dataset) ---
-  { id: "9501", vertical: Vertical.Beauty, trendIds: ["5389"], title: "Aroma Wearable Tech Launch", sourceUrl: "https://www.fragrantica.com", snippet: "New wearable jewelry released that releases periodic bursts of signature scents to maintain personal fragrance levels throughout the day." },
-  { id: "9502", vertical: Vertical.Beauty, trendIds: ["5392"], title: "Neuroscience-Backed Perfume Research", sourceUrl: "https://www.beautytech.com", snippet: "A major fragrance house uses brainwave tracking to identify which scent notes correlate most highly with stress reduction and focus." },
-  { id: "9503", vertical: Vertical.Beauty, trendIds: ["5558"], title: "The Rise of One-Step Serums", sourceUrl: "https://www.skincareexpert.com", snippet: "Brands are consolidating 5-step routines into single 'hero' serums containing stabilized Vitamin C, Retinol, and Peptides." },
-  { id: "9600", vertical: Vertical.Beauty, trendIds: ["5563"], title: "Cafe-Integrated Beauty Concept Stores", sourceUrl: "https://www.beautytech.com/cafe-retail-beauty-overlap", snippet: "Beauty retailers are launching 'wellness cafes' inside clinics, serving mood-boosting coffee and beverages alongside aesthetic treatments." },
+  { id: "9501", vertical: Vertical.Beauty, trendIds: ["5389"], title: "Aroma Wearable Tech Launch", sourceUrl: "https://www.fragrantica.com", snippet: "New wearable jewelry released that releases periodic bursts of signature scents." },
+  { id: "9502", vertical: Vertical.Beauty, trendIds: ["5392"], title: "Neuroscience-Backed Perfume Research", sourceUrl: "https://www.beautytech.com", snippet: "Major fragrance house uses brainwave tracking to identify which scent notes correlate most highly with stress reduction and focus." },
+  { id: "9503", vertical: Vertical.Beauty, trendIds: ["5558"], title: "The Rise of One-Step Serums", sourceUrl: "https://www.skincareexpert.com", snippet: "Brands are consolidating routines into single 'hero' serums to maximize convenience and conversion." },
+  { id: "9600", vertical: Vertical.Beauty, trendIds: ["5563"], title: "Cafe-Integrated Beauty Concept Stores", sourceUrl: "https://www.beautytech.com/cafe-retail-beauty-overlap", snippet: "Beauty retailers are launching 'wellness cafes' inside clinics serving mood-boosting beverages." },
 ];

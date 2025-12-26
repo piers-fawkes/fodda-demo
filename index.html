@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -5,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Fodda - Demo</title>
     <meta name="description" content="Fodda structures curated insights into AI-ready knowledge graphs that can be queried with traceable sources." />
-    <!-- Favicon using a representation of the purple watercolor blotch -->
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23663399' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%23663399' stop-opacity='0.2'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23g)'/%3E%3Cpath d='M50 10 Q 60 15 70 10 T 90 20 Q 85 40 95 60 T 80 90 Q 50 85 20 95 T 5 60 Q 15 30 10 10 Z' fill='%23663399' opacity='0.4' transform='rotate(15 50 50)'/%3E%3C/svg%3E" />
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,98 +18,50 @@
           extend: {
             colors: {
               stone: {
-                50: '#fafaf9',
-                100: '#f5f5f4',
-                200: '#e7e5e4',
-                300: '#d6d3d1',
-                400: '#a8a29e',
-                500: '#78716c',
-                600: '#57534e',
-                700: '#44403c',
-                800: '#292524',
-                900: '#1c1917',
+                50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
+                400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
+                800: '#292524', 900: '#1c1917',
               },
-              'fodda-accent': '#663399', // Purple
+              'fodda-accent': '#663399',
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               serif: ['Playfair Display', 'serif'],
             },
-            animation: {
-              'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
-            },
+            animation: { 'fade-in-up': 'fadeInUp 0.6s ease-out forwards' },
             keyframes: {
               fadeInUp: {
                 '0%': { opacity: '0', transform: 'translateY(10px)' },
                 '100%': { opacity: '1', transform: 'translateY(0)' },
               }
             },
-            typography: (theme) => ({
-              DEFAULT: {
-                css: {
-                  color: theme('colors.stone.800'),
-                  h1: { fontFamily: theme('fontFamily.serif') },
-                  h2: { fontFamily: theme('fontFamily.serif') },
-                  h3: { fontFamily: theme('fontFamily.serif') },
-                  strong: { color: theme('colors.stone.900'), fontWeight: '600' },
-                  a: { color: theme('colors.fodda-accent'), textDecoration: 'none' },
-                },
-              },
-            }),
           },
         },
       }
     </script>
     <style>
-      /* Fix for Mobile Safari dynamic height and layout shifts */
-      html, body {
-        height: 100%;
-        height: 100dvh;
-        overflow: hidden;
-        position: fixed; /* Prevents background scrolling when keyboard is open */
-        width: 100%;
-      }
-      #root {
-        height: 100%;
-        height: 100dvh;
-        overflow: hidden;
-      }
-      /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #d6d3d1; 
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #a8a29e; 
-      }
-      /* Prevent elastic bounce in Safari */
-      .no-bounce {
-        overscroll-behavior: none;
-      }
-      /* Safe padding for iOS home indicator */
-      .safe-pb {
-        padding-bottom: env(safe-area-inset-bottom);
-      }
+      html, body { height: 100%; height: 100dvh; overflow: hidden; position: fixed; width: 100%; }
+      #root { height: 100%; height: 100dvh; overflow: hidden; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+      .no-bounce { overscroll-behavior: none; }
+      .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-    "react-markdown": "https://esm.sh/react-markdown@9?bundle"
+    "react-markdown": "https://esm.sh/react-markdown@9?bundle",
+    "express": "https://esm.sh/express@^5.2.1",
+    "neo4j-driver": "https://esm.sh/neo4j-driver@^6.0.1",
+    "cors": "https://esm.sh/cors@^2.8.5"
   }
 }
 </script>
-</head>
+  </head>
   <body class="bg-stone-100 text-stone-900 antialiased h-screen w-screen overflow-hidden selection:bg-stone-200 selection:text-stone-900 no-bounce">
     <div id="root" class="h-full w-full"></div>
   </body>
