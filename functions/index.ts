@@ -10,16 +10,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.get("/api/debug/env", (_req, res) => {
-  res.json({
-    hasUri: Boolean(process.env.NEO4J_URI),
-    hasUser: Boolean(process.env.NEO4J_USER),
-    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
-    database: process.env.NEO4J_DATABASE || null,
-  });
-});
-
-
 /**
  * Middleware & CORS
  */
@@ -68,6 +58,16 @@ app.get("/__deploy_check", (req, res) => {
     status: "ready"
   });
 });
+
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
+
 
 /**
  * 2) GET /api/neo4j/health
