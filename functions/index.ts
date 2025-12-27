@@ -173,10 +173,6 @@ app.get("*", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`STARTUP api-v1 listening on ${PORT}`);
-});
 const PORT = Number(process.env.PORT || 8080);
 
 app.listen(PORT, "0.0.0.0", () => {
