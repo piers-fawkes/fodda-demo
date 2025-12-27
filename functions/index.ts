@@ -59,16 +59,6 @@ app.get("/__deploy_check", (req, res) => {
   });
 });
 
-app.get("/api/debug/env", (_req, res) => {
-  res.json({
-    hasUri: Boolean(process.env.NEO4J_URI),
-    hasUser: Boolean(process.env.NEO4J_USER),
-    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
-    database: process.env.NEO4J_DATABASE || null,
-  });
-});
-
-
 /**
  * 2) GET /api/neo4j/health
  */
@@ -154,4 +144,28 @@ app.post("/api/query", async (req, res) => {
   } finally {
     if (session) await session.close();
   }
+});
+
+/**
+ * Serve Frontend Static Files
+ * This assumes the frontend has been built into the 'dist' folder.
+ */
+const distPath = path.join(__dirname, "../dist");
+// Fix: Use 'as any' to avoid TypeScript overload mismatch error for express.static middleware on line 153.
+app.use(express.static(distPath) as any);
+
+// Fallback to index.html for client-side routing
+app.get("*", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"), (err) => {
+    if (err) {
+      // If index.html is missing (e.g. during dev without build), 
+      // just let the user know we're in API mode or it's not built.
+      res.status(404).send("Frontend assets not found. Run 'npm run build' first.");
+    }
+  });
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`STARTUP api-v1 listening on ${PORT}`);
 });
