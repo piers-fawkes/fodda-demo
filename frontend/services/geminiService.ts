@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { RetrievalResult, Vertical } from '../../shared/types';
 
@@ -27,14 +26,14 @@ TONE: Factual, professional, no jargon.
 
 const formatContext = (data: RetrievalResult): string => {
   if (!data.ok || data.rows.length === 0) {
-    return "CONTEXT DATA: [EMPTY]. No matching records found in the Knowledge Graph.";
+    return "CONTEXT DATA: [EMPTY]. No matching records in the Fodda Knowledge Graph.";
   }
   
-  let ctx = "CONTEXT DATA (From Knowledge Graph):\n\n";
+  let ctx = "CONTEXT DATA (From Fodda Graph):\n\n";
   data.rows.forEach(row => {
     ctx += `TREND: ${row.trendName} (ID: ${row.trendId})\n`;
     ctx += `DESCRIPTION: ${row.trendDescription}\n`;
-    ctx += `EVIDENCE ARTICLES:\n`;
+    ctx += `EVIDENCE:\n`;
     row.evidence.forEach(a => {
       ctx += `- [${a.articleId}] ${a.title} (Source: ${a.sourceUrl})\n`;
     });
@@ -62,9 +61,9 @@ export const generateResponse = async (
       }
     });
     
-    return response.text || "No synthesis available.";
+    return response.text || "No synthesis available for the provided query.";
   } catch (error) {
     console.error("Gemini Error:", error);
-    return "The intelligence engine encountered a processing error.";
+    return "The intelligence engine encountered an error. Please check your data connectivity.";
   }
 };

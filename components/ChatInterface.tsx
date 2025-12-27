@@ -15,7 +15,8 @@ interface ChatInterfaceProps {
   onToggleEvidence: () => void;
 }
 
-const StaggeredMessageContent: React.FC<{ content: string; isNew: boolean; onAnchorClick?: (type: 'trend' | 'article', id: string) => void }> = ({ content, isNew, onAnchorClick }) => {
+// Added messageId to the props type definition to match its usage in ChatInterface and resolve the reported error.
+const StaggeredMessageContent: React.FC<{ messageId: string; content: string; isNew: boolean; onAnchorClick?: (type: 'trend' | 'article', id: string) => void }> = ({ messageId, content, isNew, onAnchorClick }) => {
   const sections = useMemo(() => {
     if (!content) return [];
     return content.split(/(?=\n#|(?<=^)#)/g);
@@ -55,16 +56,12 @@ const StaggeredMessageContent: React.FC<{ content: string; isNew: boolean; onAnc
 
   if (!isNew) {
     return (
-       <ReactMarkdown 
-        className="prose prose-sm max-w-none 
-          prose-p:text-stone-600 prose-p:leading-relaxed
-          prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4
-          prose-strong:text-stone-900 prose-strong:font-semibold
-          prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500"
-        components={markdownComponents}
-      >
-        {content}
-      </ReactMarkdown>
+      /* Fix: Moved className from ReactMarkdown to a wrapping div to resolve TypeScript errors with newer ReactMarkdown versions */
+      <div className="prose prose-sm max-w-none prose-p:text-stone-600 prose-p:leading-relaxed prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4 prose-strong:text-stone-900 prose-strong:font-semibold prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500">
+        <ReactMarkdown components={markdownComponents}>
+          {content}
+        </ReactMarkdown>
+      </div>
     );
   }
 
@@ -76,16 +73,12 @@ const StaggeredMessageContent: React.FC<{ content: string; isNew: boolean; onAnc
           className="opacity-0 animate-fade-in-up"
           style={{ animationDelay: `${index * 400}ms`, animationFillMode: 'forwards' }}
         >
-          <ReactMarkdown 
-            className="prose prose-sm max-w-none 
-              prose-p:text-stone-600 prose-p:leading-relaxed
-              prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4
-              prose-strong:text-stone-900 prose-strong:font-semibold
-              prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500"
-            components={markdownComponents}
-          >
-            {section}
-          </ReactMarkdown>
+          {/* Fix: Moved className from ReactMarkdown to a wrapping div to resolve TypeScript errors with newer ReactMarkdown versions */}
+          <div className="prose prose-sm max-w-none prose-p:text-stone-600 prose-p:leading-relaxed prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4 prose-strong:text-stone-900 prose-strong:font-semibold prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500">
+            <ReactMarkdown components={markdownComponents}>
+              {section}
+            </ReactMarkdown>
+          </div>
         </div>
       ))}
     </div>
@@ -243,6 +236,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isProces
                    <div className="h-1 bg-fodda-accent w-full"></div>
                    <div className="p-4 md:p-5">
                       <StaggeredMessageContent 
+                        messageId={msg.id}
                         content={msg.content} 
                         isNew={shouldAnimate} 
                         onAnchorClick={onAnchorClick}

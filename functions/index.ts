@@ -1,25 +1,31 @@
+
 import express from "express";
 import cors from "cors";
-import neo4j, { Driver } from "neo4j-driver";
+import path from "path";
+import { fileURLToPath } from "url";
+import neo4j, { Driver, Session } from "neo4j-driver";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 /**
- * Middleware
+ * Middleware & CORS
  */
 app.use(
   cors({
-    origin: true, // tighten later to your UI origin(s)
+    origin: true,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     maxAge: 86400,
-  })
+  }) as any
 );
-app.options("*", cors()); // respond to preflight
-app.use(express.json({ limit: "5mb" }));
+app.options("*", cors());
+app.use(express.json({ limit: "5mb" }) as any);
 
 /**
- * Env + Neo4j driver
+ * Neo4j Configuration
  */
 const NEO4J_URI = process.env.NEO4J_URI;
 const NEO4J_USER = process.env.NEO4J_USER;
@@ -30,44 +36,37 @@ let driver: Driver | null = null;
 
 function getDriver(): Driver {
   if (driver) return driver;
-
   if (!NEO4J_URI || !NEO4J_USER || !NEO4J_PASSWORD) {
-    // Fail fast. Better to error loudly than silently run a broken API.
-    throw new Error(
-      "Missing Neo4j env vars. Required: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD"
-    );
+    console.error("CRITICAL: Missing Neo4j credentials in environment variables.");
+    throw new Error("NEO4J_AUTH_MISSING");
   }
-
   driver = neo4j.driver(
     NEO4J_URI,
     neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
     { disableLosslessIntegers: true }
   );
-
   return driver;
 }
 
 /**
- * 1) Deploy check
+ * 1) GET /__deploy_check
  */
-app.get("/__deploy_check", (_req, res) => {
+app.get("/__deploy_check", (req, res) => {
   res.json({
     deployCheck: "api-v1",
     time: new Date().toISOString(),
-    status: "ready",
+    status: "ready"
   });
 });
 
 /**
- * 2) Neo4j health check
+ * 2) GET /api/neo4j/health
  */
-app.get("/api/neo4j/health", async (_req, res) => {
+app.get("/api/neo4j/health", async (req, res) => {
   try {
     const d = getDriver();
-
-    // Fast connectivity check
     await d.verifyConnectivity();
-
+    
     const session = d.session({ database: NEO4J_DATABASE });
     try {
       await session.run("RETURN 1 AS ok");
@@ -76,45 +75,36 @@ app.get("/api/neo4j/health", async (_req, res) => {
       await session.close();
     }
   } catch (e: any) {
+    console.error("[Health Check Failed]", e.message);
     res.status(500).json({
       ok: false,
-      error: e?.message ?? String(e),
-      hint: "Check Cloud Run env vars: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, (optional) NEO4J_DATABASE",
+      error: e?.message ?? "Failed to connect to Neo4j",
+      hint: "Verify NEO4J_URI, USER, and PASSWORD are set correctly."
     });
   }
 });
 
 /**
  * 3) POST /api/query
- * Request body:
- * { q: string, vertical?: string|null, limit?: number }
  */
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
-  const verticalRaw = req.body?.vertical;
-  const vertical =
-    verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
-      ? null
-      : String(verticalRaw).trim();
-
+  const vertical = req.body?.vertical || null;
   const limitNum = Number(req.body?.limit ?? 10);
   const limit = Math.min(Math.max(Number.isFinite(limitNum) ? limitNum : 10, 1), 50);
 
-  let session: neo4j.Session | null = null;
+  let session: Session | null = null;
 
   try {
     const d = getDriver();
     session = d.session({ database: NEO4J_DATABASE });
 
-    // Safe Cypher: do not string-interpolate clauses.
-    // - If q is empty, return latest trends by trendId (or change to lastSeen if you prefer).
-    // - If vertical is provided, filter.
     const cypher = `
       MATCH (t:Trend)
-      WHERE
-        ($q = "" OR
-          toLower(t.trendName) CONTAINS toLower($q) OR
-          toLower(coalesce(t.trendDescription,"")) CONTAINS toLower($q)
+      WHERE 
+        ($q = "" OR 
+          toLower(t.trendName) CONTAINS toLower($q) OR 
+          toLower(coalesce(t.trendDescription, "")) CONTAINS toLower($q)
         )
         AND ($vertical IS NULL OR t.vertical = $vertical)
       WITH t
@@ -126,7 +116,7 @@ app.post("/api/query", async (req, res) => {
       ORDER BY a.publishedAt DESC
 
       WITH t, collect(a)[0..5] AS evidence
-      RETURN
+      RETURN 
         t.trendId AS trendId,
         t.trendName AS trendName,
         t.trendDescription AS trendDescription,
@@ -149,16 +139,33 @@ app.post("/api/query", async (req, res) => {
 
     res.json({ ok: true, rows });
   } catch (e: any) {
-    res.status(500).json({ ok: false, error: e?.message ?? String(e) });
+    console.error("[Query Error]", e.message);
+    res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
   } finally {
     if (session) await session.close();
   }
 });
 
 /**
- * Start server (Cloud Run)
+ * Serve Frontend Static Files
+ * This assumes the frontend has been built into the 'dist' folder.
  */
-const PORT = Number(process.env.PORT ?? 8080);
+const distPath = path.join(__dirname, "../dist");
+// Fix: Use 'as any' to avoid TypeScript overload mismatch error for express.static middleware on line 153.
+app.use(express.static(distPath) as any);
+
+// Fallback to index.html for client-side routing
+app.get("*", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"), (err) => {
+    if (err) {
+      // If index.html is missing (e.g. during dev without build), 
+      // just let the user know we're in API mode or it's not built.
+      res.status(404).send("Frontend assets not found. Run 'npm run build' first.");
+    }
+  });
+});
+
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`STARTUP api-v1 listening on ${PORT}`);
 });

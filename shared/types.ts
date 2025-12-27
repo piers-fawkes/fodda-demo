@@ -1,4 +1,3 @@
-
 export enum Vertical {
   Beauty = 'Beauty',
   Retail = 'Retail',
@@ -15,25 +14,22 @@ export interface KnowledgeGraph {
 
 export interface Article {
   articleId: string;
-  id?: string; // Alias for articleId used in some components
   title: string;
   sourceUrl: string;
   publishedAt?: string;
   summary?: string;
-  snippet?: string; // Used in UI components
+  snippet?: string; // Alias for summary used in UI
   publication?: string;
-  vertical?: Vertical; // Used in constants and admin portal
-  trendIds: string[]; // Used for linking
+  trendIds?: string[];
+  // Added vertical to fix shared/constants.ts errors
+  vertical?: Vertical;
 }
 
 export interface Trend {
   trendId: string;
-  id?: string; // Alias for trendId used in some components
   trendName: string;
-  name?: string; // Alias for trendName used in constants
   trendDescription: string;
-  summary?: string; // Alias for trendDescription used in constants
-  vertical?: Vertical; // Used in constants and admin portal
+  vertical?: string;
   evidence?: Article[];
 }
 
@@ -47,7 +43,6 @@ export interface QueryResultRow {
 export interface RetrievalResult {
   ok: boolean;
   rows: QueryResultRow[];
-  // Legacy compatibility helpers
   trends: Trend[];
   articles: Article[];
 }

@@ -1,4 +1,3 @@
-
 import { Trend, Article, RetrievalResult, KnowledgeGraph, Vertical, QueryResultRow } from './types';
 import { API_ENDPOINTS } from './apiConfig';
 
@@ -10,7 +9,6 @@ const INITIAL_GRAPHS: KnowledgeGraph[] = [
 
 class DataService {
   private graphs: KnowledgeGraph[] = INITIAL_GRAPHS;
-  private isBrowser = typeof window !== 'undefined';
 
   public getGraphs(): KnowledgeGraph[] { return this.graphs; }
 
@@ -27,27 +25,23 @@ class DataService {
       const result = await response.json();
       const rows: QueryResultRow[] = result.rows || [];
 
-      // Flatten for legacy compatibility in UI components
+      // Map rows to Trend objects for the UI
       const trends: Trend[] = rows.map(r => ({
         trendId: r.trendId,
-        id: r.trendId, // Alias
         trendName: r.trendName,
-        name: r.trendName, // Alias
-        trendDescription: r.trendDescription,
-        summary: r.trendDescription // Alias
+        trendDescription: r.trendDescription
       }));
 
+      // Flatten unique articles from all rows
       const articles: Article[] = [];
       const seenArticles = new Set();
       rows.forEach(r => {
         r.evidence.forEach(a => {
           if (!seenArticles.has(a.articleId)) {
-            const articleWithAliases = {
+            articles.push({
               ...a,
-              id: a.articleId, // Alias
-              snippet: a.summary || "" // Alias
-            };
-            articles.push(articleWithAliases);
+              snippet: a.summary || "" // UI expects 'snippet'
+            });
             seenArticles.add(a.articleId);
           }
         });
@@ -60,18 +54,6 @@ class DataService {
     }
   }
 
-  // Fix: Added missing importTrends method used by AdminPortal
-  public async importTrends(vertical: string, trends: Trend[]): Promise<any> {
-    console.log(`Importing ${trends.length} trends for ${vertical}`);
-    return Promise.resolve({ ok: true });
-  }
-
-  // Fix: Added missing importArticles method used by AdminPortal
-  public async importArticles(vertical: string, articles: Article[]): Promise<any> {
-    console.log(`Importing ${articles.length} articles for ${vertical}`);
-    return Promise.resolve({ ok: true });
-  }
-
   public async checkHealth(): Promise<{ ok: boolean; details?: any }> {
     const url = API_ENDPOINTS.HEALTH;
     try {
@@ -81,6 +63,17 @@ class DataService {
     } catch (e) {
       return { ok: false };
     }
+  }
+
+  // Admin methods remain as placeholders for future backend implementation
+  public async importTrends(vertical: string, trends: Trend[]): Promise<any> {
+    console.log(`[Stub] Importing ${trends.length} trends to ${vertical}`);
+    return { ok: true };
+  }
+
+  public async importArticles(vertical: string, articles: Article[]): Promise<any> {
+    console.log(`[Stub] Importing ${articles.length} articles to ${vertical}`);
+    return { ok: true };
   }
 }
 

@@ -55,12 +55,12 @@ const StaggeredMessageContent: React.FC<{
     <div className="space-y-1">
       {sections.map((section, index) => (
         <div key={index} className={isNew ? "opacity-0 animate-fade-in-up" : ""} style={isNew ? { animationDelay: `${index * 300}ms`, animationFillMode: 'forwards' } : {}}>
-          <ReactMarkdown 
-            className="prose prose-sm max-w-none prose-p:text-stone-600 prose-p:leading-relaxed prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4 prose-strong:text-stone-900 prose-strong:font-semibold prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500" 
-            components={markdownComponents}
-          >
-            {section}
-          </ReactMarkdown>
+          {/* Fix: Moved className from ReactMarkdown to a wrapping div to resolve TypeScript errors with newer ReactMarkdown versions */}
+          <div className="prose prose-sm max-w-none prose-p:text-stone-600 prose-p:leading-relaxed prose-li:text-stone-600 prose-ul:pl-4 prose-ol:pl-4 prose-strong:text-stone-900 prose-strong:font-semibold prose-blockquote:border-l-2 prose-blockquote:border-fodda-accent prose-blockquote:bg-stone-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-stone-500">
+            <ReactMarkdown components={markdownComponents}>
+              {section}
+            </ReactMarkdown>
+          </div>
         </div>
       ))}
     </div>
