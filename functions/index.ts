@@ -169,3 +169,12 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`STARTUP api-v1 listening on ${PORT}`);
 });
+
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
