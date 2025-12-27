@@ -62,6 +62,15 @@ app.get("/__deploy_check", (req, res) => {
 /**
  * 2) GET /api/neo4j/health
  */
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
+
 app.get("/api/neo4j/health", async (req, res) => {
   try {
     const d = getDriver();
@@ -167,5 +176,10 @@ app.get("*", (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
+  console.log(`STARTUP api-v1 listening on ${PORT}`);
+});
+const PORT = Number(process.env.PORT || 8080);
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`STARTUP api-v1 listening on ${PORT}`);
 });
