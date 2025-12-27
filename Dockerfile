@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install deps first (better caching)
 COPY package*.json ./
-RUN npm ci --omit=dev=false
+RUN npm install
 
 # Copy the rest of the repo
 COPY . .
