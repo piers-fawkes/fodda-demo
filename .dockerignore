@@ -1,1 +1,10 @@
-��^�j�W�v+-��|"�
+te .dockerignore:
+
+node_modules
+dist
+.vite
+.git
+.gitignore
+*.log
+.env
+.env.*
