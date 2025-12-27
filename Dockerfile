@@ -1,21 +1,21 @@
-# Use a trusted Node runtime image
+# Use a trusted Node.js base image
 FROM node:22-slim
 
+# Set working directory
 WORKDIR /app
 
-# Install deps first (better caching)
+# Copy package manifests first (for layer caching)
 COPY package*.json ./
-# API-only service: no frontend build needed
-# RUN npm run build
 
-# Copy the rest of the repo
+# Install dependencies (no lockfile required)
+RUN npm install
+
+# Copy the rest of the application
 COPY . .
 
-# Optional: build the Vite UI (won't hurt API-only, but may fail if Vite config is incomplete)
-# If this fails, comment it out.
-RUN npm run build
-
+# Cloud Run listens on PORT
 ENV PORT=8080
 EXPOSE 8080
 
+# Start the API server
 CMD ["npm", "start"]
