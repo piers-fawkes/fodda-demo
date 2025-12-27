@@ -10,6 +10,16 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
+
+
 /**
  * Middleware & CORS
  */
@@ -162,19 +172,5 @@ app.get("*", (req, res) => {
       // just let the user know we're in API mode or it's not built.
       res.status(404).send("Frontend assets not found. Run 'npm run build' first.");
     }
-  });
-});
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`STARTUP api-v1 listening on ${PORT}`);
-});
-
-app.get("/api/debug/env", (_req, res) => {
-  res.json({
-    hasUri: Boolean(process.env.NEO4J_URI),
-    hasUser: Boolean(process.env.NEO4J_USER),
-    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
-    database: process.env.NEO4J_DATABASE || null,
   });
 });
