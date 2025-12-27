@@ -155,22 +155,3 @@ app.post("/api/query", async (req, res) => {
     if (session) await session.close();
   }
 });
-
-/**
- * Serve Frontend Static Files
- * This assumes the frontend has been built into the 'dist' folder.
- */
-const distPath = path.join(__dirname, "../dist");
-// Fix: Use 'as any' to avoid TypeScript overload mismatch error for express.static middleware on line 153.
-app.use(express.static(distPath) as any);
-
-// Fallback to index.html for client-side routing
-app.get("*", (req, res) => {
-  res.sendFile(path.join(distPath, "index.html"), (err) => {
-    if (err) {
-      // If index.html is missing (e.g. during dev without build), 
-      // just let the user know we're in API mode or it's not built.
-      res.status(404).send("Frontend assets not found. Run 'npm run build' first.");
-    }
-  });
-});
