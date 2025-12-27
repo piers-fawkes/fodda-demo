@@ -5,7 +5,8 @@ WORKDIR /app
 
 # Install deps first (better caching)
 COPY package*.json ./
-RUN npm install
+# API-only service: no frontend build needed
+# RUN npm run build
 
 # Copy the rest of the repo
 COPY . .
