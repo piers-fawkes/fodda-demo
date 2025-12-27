@@ -47,7 +47,14 @@ function getDriver(): Driver {
   );
   return driver;
 }
-
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
 /**
  * 1) GET /__deploy_check
  */
@@ -62,14 +69,6 @@ app.get("/__deploy_check", (req, res) => {
 /**
  * 2) GET /api/neo4j/health
  */
-app.get("/api/debug/env", (_req, res) => {
-  res.json({
-    hasUri: Boolean(process.env.NEO4J_URI),
-    hasUser: Boolean(process.env.NEO4J_USER),
-    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
-    database: process.env.NEO4J_DATABASE || null,
-  });
-});
 
 app.get("/api/neo4j/health", async (req, res) => {
   try {
