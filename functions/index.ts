@@ -99,13 +99,17 @@ app.get("/api/neo4j/health", async (_req, res) => {
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
 
-  const verticalRaw = req.body?.vertical;
-  const vertical =
-    verticalRaw === null ||
-    verticalRaw === undefined ||
-    String(verticalRaw).trim() === ""
-      ? null
-      : String(verticalRaw).trim();
+const verticalRaw = req.body?.vertical;
+let vertical =
+  verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
+    ? null
+    : String(verticalRaw).trim().toLowerCase();
+
+// normalize common variants
+if (vertical === "sport") vertical = "sports";
+if (vertical === "beauty") vertical = "beauty";
+if (vertical === "retail") vertical = "retail";
+
 
   const limit = Math.min(
     Math.max(parseInt(String(req.body?.limit ?? "10"), 10) || 10, 1),
