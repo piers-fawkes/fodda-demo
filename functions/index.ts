@@ -97,12 +97,23 @@ app.get("/api/neo4j/health", async (req, res) => {
  */
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
-  const vertical = req.body?.vertical || null;
-  const limitNum = Number(req.body?.limit ?? 10);
+
+  // vertical: allow null/empty string
+  const verticalRaw = req.body?.vertical;
+  const vertical =
+    verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
+      ? null
+      : String(verticalRaw).trim();
+
+  // limit: force a real integer (Neo4j requires LIMIT to be an integer)
   const limit = Math.min(
-  Math.max(parseInt(req.body?.limit, 10) || 10, 1),
-  50
-);
+    Math.max(parseInt(String(req.body?.limit ?? "10"), 10) || 10, 1),
+    50
+  );
+
+  // ... your Neo4j session + cypher run continues below
+});
+
 
   let session: Session | null = null;
 
