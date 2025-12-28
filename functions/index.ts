@@ -1,3 +1,96 @@
+
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import neo4j, { Driver, Session } from "neo4j-driver";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+
+/**
+ * Middleware & CORS
+ */
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    maxAge: 86400,
+  }) as any
+);
+app.options("*", cors());
+app.use(express.json({ limit: "5mb" }) as any);
+
+/**
+ * Neo4j Configuration
+ */
+const NEO4J_URI = process.env.NEO4J_URI;
+const NEO4J_USER = process.env.NEO4J_USER;
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD;
+const NEO4J_DATABASE = process.env.NEO4J_DATABASE || "neo4j";
+
+let driver: Driver | null = null;
+
+function getDriver(): Driver {
+  if (driver) return driver;
+  if (!NEO4J_URI || !NEO4J_USER || !NEO4J_PASSWORD) {
+    console.error("CRITICAL: Missing Neo4j credentials in environment variables.");
+    throw new Error("NEO4J_AUTH_MISSING");
+  }
+  driver = neo4j.driver(
+    NEO4J_URI,
+    neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
+    { disableLosslessIntegers: true }
+  );
+  return driver;
+}
+app.get("/api/debug/env", (_req, res) => {
+  res.json({
+    hasUri: Boolean(process.env.NEO4J_URI),
+    hasUser: Boolean(process.env.NEO4J_USER),
+    hasPassword: Boolean(process.env.NEO4J_PASSWORD),
+    database: process.env.NEO4J_DATABASE || null,
+  });
+});
+/**
+ * 1) GET /__deploy_check
+ */
+app.get("/__deploy_check", (req, res) => {
+  res.json({
+    deployCheck: "api-v1",
+    time: new Date().toISOString(),
+    status: "ready"
+  });
+});
+
+/**
+ * 2) GET /api/neo4j/health
+ */
+
+app.get("/api/neo4j/health", async (req, res) => {
+  try {
+    const d = getDriver();
+    await d.verifyConnectivity();
+    
+    const session = d.session({ database: NEO4J_DATABASE });
+    try {
+      await session.run("RETURN 1 AS ok");
+      res.json({ ok: true, database: "connected" });
+    } finally {
+      await session.close();
+    }
+  } catch (e: any) {
+    console.error("[Health Check Failed]", e.message);
+    res.status(500).json({
+      ok: false,
+      error: e?.message ?? "Failed to connect to Neo4j",
+      hint: "Verify NEO4J_URI, USER, and PASSWORD are set correctly."
+    });
+  }
+});
 /**
  * 3) POST /api/query
  */
