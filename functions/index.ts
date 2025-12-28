@@ -137,14 +137,15 @@ CALL {
 
   // Path B: brand entity match (e.g. Nike)
   WITH $q AS q, $vertical AS vertical, $limit AS limit
-  MATCH (b:Brand)
-  WHERE toLower(b.name) = toLower(q)
-  MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
+MATCH (b:Brand)
+WHERE ('|' + toLower(b.name) + '|') CONTAINS ('|' + toLower($q) + '|')
+MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
   WHERE (vertical IS NULL OR t.vertical = vertical)
   WITH t, count(DISTINCT a) AS score
   RETURN t, score
   ORDER BY score DESC
   LIMIT toInteger(limit)
+  
 }
 WITH t, max(score) AS score
 ORDER BY score DESC, t.trendId DESC
