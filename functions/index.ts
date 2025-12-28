@@ -143,7 +143,10 @@ AND (
 MATCH (b:Brand)
 WHERE ('|' + toLower(b.name) + '|') CONTAINS ('|' + toLower($q) + '|')
 MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
-  WHERE (vertical IS NULL OR t.vertical = vertical)
+WHERE (
+  vertical IS NULL OR
+  toLower(trim(vertical)) IN [v IN split(coalesce(t.vertical,""), ",") | toLower(trim(v))]
+)
   WITH t, count(DISTINCT a) AS score
   RETURN t, score
   ORDER BY score DESC
