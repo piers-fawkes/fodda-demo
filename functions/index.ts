@@ -131,7 +131,7 @@ CALL {
     AND (vertical IS NULL OR t.vertical = vertical)
   RETURN t, 0 AS score
   ORDER BY t.trendId DESC
-  LIMIT toInteger(limit)
+  LIMIT toInteger($limit)
 
   UNION
 
@@ -144,7 +144,7 @@ MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
   WITH t, count(DISTINCT a) AS score
   RETURN t, score
   ORDER BY score DESC
-  LIMIT toInteger(limit)
+  LIMIT toInteger($limit)
   
 }
 WITH t, max(score) AS score
