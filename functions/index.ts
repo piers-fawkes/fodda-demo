@@ -119,32 +119,49 @@ app.post("/api/query", async (req, res) => {
     session = d.session({ database: NEO4J_DATABASE });
 
     const cypher = `
-      MATCH (t:Trend)
-      WHERE 
-        ($q = "" OR 
-          toLower(t.trendName) CONTAINS toLower($q) OR 
-          toLower(coalesce(t.trendDescription, "")) CONTAINS toLower($q)
-        )
-        AND ($vertical IS NULL OR t.vertical = $vertical)
-      WITH t
-      ORDER BY t.trendId DESC
-      LIMIT toInteger($limit)
+CALL {
+  // Path A: text search in trend fields
+  WITH $q AS q, $vertical AS vertical, $limit AS limit
+  MATCH (t:Trend)
+  WHERE
+    (q = "" OR
+      toLower(t.trendName) CONTAINS toLower(q) OR
+      toLower(coalesce(t.trendDescription,"")) CONTAINS toLower(q)
+    )
+    AND (vertical IS NULL OR t.vertical = vertical)
+  RETURN t, 0 AS score
+  ORDER BY t.trendId DESC
+  LIMIT toInteger(limit)
 
-      OPTIONAL MATCH (a:Article)-[:EVIDENCE_FOR]->(t)
-      WITH t, a
-      ORDER BY a.publishedAt DESC
+  UNION
 
-      WITH t, collect(a)[0..5] AS evidence
-      RETURN 
-        t.trendId AS trendId,
-        t.trendName AS trendName,
-        t.trendDescription AS trendDescription,
-        [e IN evidence | {
-          articleId: e.articleId,
-          title: e.title,
-          sourceUrl: e.sourceUrl,
-          publishedAt: e.publishedAt
-        }] AS evidence
+  // Path B: brand entity match (e.g. Nike)
+  WITH $q AS q, $vertical AS vertical, $limit AS limit
+  MATCH (b:Brand)
+  WHERE toLower(b.name) = toLower(q)
+  MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
+  WHERE (vertical IS NULL OR t.vertical = vertical)
+  WITH t, count(DISTINCT a) AS score
+  RETURN t, score
+  ORDER BY score DESC
+  LIMIT toInteger(limit)
+}
+WITH t, max(score) AS score
+ORDER BY score DESC, t.trendId DESC
+LIMIT toInteger($limit)
+
+OPTIONAL MATCH (a2:Article)-[:EVIDENCE_FOR]->(t)
+WITH t, collect(a2)[0..5] AS evidence
+RETURN
+  t.trendId AS trendId,
+  t.trendName AS trendName,
+  t.trendDescription AS trendDescription,
+  [e IN evidence | {
+    articleId: e.articleId,
+    title: e.title,
+    sourceUrl: e.sourceUrl,
+    publishedAt: e.publishedAt
+  }] AS evidence;
     `;
 
     const result = await session.run(cypher, { q, vertical, limit });
