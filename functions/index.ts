@@ -99,7 +99,10 @@ app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
   const vertical = req.body?.vertical || null;
   const limitNum = Number(req.body?.limit ?? 10);
-  const limit = Math.min(Math.max(Number.isFinite(limitNum) ? limitNum : 10, 1), 50);
+  const limit = Math.min(
+  Math.max(parseInt(req.body?.limit, 10) || 10, 1),
+  50
+);
 
   let session: Session | null = null;
 
