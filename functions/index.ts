@@ -128,7 +128,10 @@ CALL {
       toLower(t.trendName) CONTAINS toLower(q) OR
       toLower(coalesce(t.trendDescription,"")) CONTAINS toLower(q)
     )
-    AND (vertical IS NULL OR t.vertical = vertical)
+    AND (
+  $vertical IS NULL OR
+  toLower(trim(coalesce(t.vertical,""))) = toLower(trim($vertical))
+)
   RETURN t, 0 AS score
   ORDER BY t.trendId DESC
   LIMIT toInteger($limit)
