@@ -99,17 +99,16 @@ app.get("/api/neo4j/health", async (_req, res) => {
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
 
-const verticalRaw = req.body?.vertical;
-let vertical =
-  verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
-    ? null
-    : String(verticalRaw).trim().toLowerCase();
+  const verticalRaw = req.body?.vertical;
+  let vertical =
+    verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
+      ? null
+      : String(verticalRaw).trim().toLowerCase();
 
-// normalize common variants
-if (vertical === "sport") vertical = "sports";
-if (vertical === "beauty") vertical = "beauty";
-if (vertical === "retail") vertical = "retail";
-
+  // normalize common variants
+  if (vertical === "sport") vertical = "sports";
+  if (vertical === "beauty") vertical = "beauty";
+  if (vertical === "retail") vertical = "retail";
 
   const limit = Math.min(
     Math.max(parseInt(String(req.body?.limit ?? "10"), 10) || 10, 1),
@@ -132,10 +131,10 @@ CALL {
       toLower(t.trendName) CONTAINS toLower(q) OR
       toLower(coalesce(t.trendDescription,"")) CONTAINS toLower(q)
     )
-AND (
-  $vertical IS NULL OR
-  toLower(trim($vertical)) IN [v IN split(coalesce(t.vertical,""), ",") | toLower(trim(v))]
-)
+  AND (
+    $vertical IS NULL OR
+    toLower(trim($vertical)) IN [v IN split(coalesce(t.vertical,""), ",") | toLower(trim(v))]
+  )
   RETURN t, 0 AS score
   ORDER BY t.trendId DESC
   LIMIT toInteger($limit)
@@ -144,18 +143,17 @@ AND (
 
   // Path B: brand entity match (e.g. Nike)
   WITH $q AS q, $vertical AS vertical, $limit AS limit
-MATCH (b:Brand)
-WHERE ('|' + toLower(b.name) + '|') CONTAINS ('|' + toLower($q) + '|')
-MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
-WHERE (
-  vertical IS NULL OR
-  toLower(trim(vertical)) IN [v IN split(coalesce(t.vertical,""), ",") | toLower(trim(v))]
-)
+  MATCH (b:Brand)
+  WHERE ('|' + toLower(b.name) + '|') CONTAINS ('|' + toLower($q) + '|')
+  MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)-[:EVIDENCE_FOR]->(t:Trend)
+  WHERE (
+    vertical IS NULL OR
+    toLower(trim(vertical)) IN [v IN split(coalesce(t.vertical,""), ",") | toLower(trim(v))]
+  )
   WITH t, count(DISTINCT a) AS score
   RETURN t, score
   ORDER BY score DESC
   LIMIT toInteger($limit)
-  
 }
 WITH t, max(score) AS score
 ORDER BY score DESC, t.trendId DESC
@@ -188,6 +186,106 @@ RETURN
   } catch (e: any) {
     console.error("[Query Error]", e?.message ?? e);
     res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
+  } finally {
+    if (session) await session.close();
+  }
+});
+
+/**
+ * 4) POST /api/brand/evidence
+ * Returns brand-mentioned articles even if they are NOT linked to a Trend.
+ *
+ * Body:
+ * {
+ *   brands: string[] (required) e.g. ["Sephora","Ulta Beauty"]
+ *   vertical?: string | null
+ *   limit?: number (default 50, max 200)
+ * }
+ */
+app.post("/api/brand/evidence", async (req, res) => {
+  const brandsRaw = req.body?.brands;
+  const brands: string[] = Array.isArray(brandsRaw)
+    ? brandsRaw.map((b: any) => String(b).trim()).filter(Boolean)
+    : [];
+
+  const verticalRaw = req.body?.vertical;
+  let vertical =
+    verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
+      ? null
+      : String(verticalRaw).trim().toLowerCase();
+
+  // normalize common variants
+  if (vertical === "sport") vertical = "sports";
+
+  const limit = Math.min(
+    Math.max(parseInt(String(req.body?.limit ?? "50"), 10) || 50, 1),
+    200
+  );
+
+  if (brands.length === 0) {
+    return res.status(400).json({ ok: false, error: "brands[] is required" });
+  }
+
+  let session: Session | null = null;
+
+  try {
+    const d = getDriver();
+    session = d.session({ database: NEO4J_DATABASE });
+
+    // pipe-bounded needles, e.g. "|sephora|"
+    const brandNeedles = brands.map((b) => `|${b.toLowerCase()}|`);
+
+    const cypher = `
+      WITH $brandNeedles AS needles, $vertical AS vertical
+
+      MATCH (b:Brand)
+      WHERE any(n IN needles WHERE ('|' + toLower(b.name) + '|') CONTAINS n)
+
+      MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)
+      OPTIONAL MATCH (a)-[:EVIDENCE_FOR]->(t:Trend)
+
+      // Vertical filter (best-effort):
+      // - Prefer a.vertical if present
+      // - Otherwise fall back to t.vertical (supports comma-separated vertical strings)
+      WITH b, a, t, vertical
+      WHERE vertical IS NULL OR
+        (
+          toLower(trim(coalesce(a.vertical, ""))) = vertical OR
+          vertical IN [v IN split(toLower(trim(coalesce(t.vertical, ""))), ",") | trim(v)]
+        )
+
+      RETURN
+        b.name AS brand,
+        a.articleId AS articleId,
+        a.title AS title,
+        a.sourceUrl AS sourceUrl,
+        a.publishedAt AS publishedAt,
+        t.trendId AS trendId,
+        t.trendName AS trendName
+      ORDER BY coalesce(a.publishedAt, "") DESC
+      LIMIT toInteger($limit)
+    `;
+
+    const result = await session.run(cypher, {
+      brandNeedles,
+      vertical,
+      limit,
+    });
+
+    const rows = result.records.map((r) => ({
+      brand: String(r.get("brand") ?? ""),
+      articleId: String(r.get("articleId") ?? ""),
+      title: String(r.get("title") ?? ""),
+      sourceUrl: String(r.get("sourceUrl") ?? ""),
+      publishedAt: r.get("publishedAt") ?? null,
+      trendId: r.get("trendId") ? String(r.get("trendId")) : null,
+      trendName: r.get("trendName") ? String(r.get("trendName")) : null,
+    }));
+
+    res.json({ ok: true, rows });
+  } catch (e: any) {
+    console.error("[Brand Evidence Error]", e?.message ?? e);
+    res.status(500).json({ ok: false, error: e?.message ?? "Brand evidence query failed" });
   } finally {
     if (session) await session.close();
   }
