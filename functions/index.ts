@@ -175,7 +175,7 @@ app.get("/api/debug/env", (_req, res) => {
  */
 app.get("/__deploy_check", (_req, res) => {
   res.json({
-    deployCheck: "api-v2",
+    deployCheck: "api-v3",
     time: new Date().toISOString(),
     status: "ready",
   });
@@ -228,7 +228,7 @@ app.post("/api/query", async (req, res) => {
   const terms = providedTerms ?? tokenize(q);
 
   if (terms.length === 0 && !trendId) {
-    return res.json({ ok: true, rows: [] });
+    return res.json({ ok: true, dataStatus: "NO_MATCH", rows: [] });
   }
 
   let session: Session | null = null;
@@ -238,7 +238,6 @@ app.post("/api/query", async (req, res) => {
     session = d.session({ database: NEO4J_DATABASE });
 
     // Stage 1: Trend-anchored retrieval (Interpretations)
-    // IMPORTANT: Neo4j environment forbids LIMIT using a variable; use parameters directly.
     const trendCypher = `
       WITH $terms AS terms, $vertical AS vertical, $tId AS tId
       MATCH (n:Trend)
@@ -270,32 +269,42 @@ app.post("/api/query", async (req, res) => {
         evidenceList AS evidenceList,
         brands AS brands,
         false AS isDiscovery,
-        "TREND" AS nodeType
+        "TREND" AS nodeType,
+        coalesce(n.vertical, "") AS inferredVertical
       LIMIT toInteger($limit)
     `;
 
-    // Stage 2: Article-first fallback (Signals)
-    // IMPORTANT: Neo4j environment forbids LIMIT using a variable; use parameters directly.
+    // Stage 2: Article-first fallback (Signals) — FIXED vertical filtering
+    // Key change: when vertical IS NOT NULL, do NOT accept a.vertical IS NULL unless we can infer via connected Trend.
     const articleFallbackCypher = `
       WITH $terms AS terms, $vertical AS vertical
       MATCH (a:Article)
+      OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
+
+      WITH a, t, terms, vertical,
+           toLower(coalesce(a.vertical, "")) AS aV,
+           toLower(coalesce(t.vertical, "")) AS tV
+
       WHERE
-        (vertical IS NULL OR a.vertical IS NULL
-         OR any(v IN split(toLower(coalesce(a.vertical,"")), ",") WHERE trim(v) = vertical)
-         OR toLower(coalesce(a.vertical,"")) CONTAINS vertical)
-        AND
-        any(term IN terms WHERE
+        (
+          vertical IS NULL
+          OR aV CONTAINS vertical
+          OR any(v IN split(tV, ",") WHERE trim(v) = vertical)
+          OR tV CONTAINS vertical
+        )
+        AND any(term IN terms WHERE
           toLower(coalesce(a.title,"")) CONTAINS term OR
           toLower(coalesce(a.summary,"")) CONTAINS term OR
           toLower(coalesce(a.snippet,"")) CONTAINS term OR
           toLower(coalesce(a.excerpt,"")) CONTAINS term
         )
-      WITH a
+
+      WITH a, t
       ORDER BY coalesce(a.publishedAt, "") DESC
       LIMIT toInteger($limit)
 
       OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
-      WITH a, collect(DISTINCT b.name) AS brands
+      WITH a, t, collect(DISTINCT b.name) AS brands
 
       RETURN
         "sig-" + toString(coalesce(a.articleId, a.id, id(a))) AS rowId,
@@ -304,7 +313,8 @@ app.post("/api/query", async (req, res) => {
         [a] AS evidenceList,
         brands AS brands,
         true AS isDiscovery,
-        "ARTICLE" AS nodeType
+        "ARTICLE" AS nodeType,
+        coalesce(a.vertical, t.vertical, "") AS inferredVertical
     `;
 
     // Run trend-first
@@ -318,6 +328,7 @@ app.post("/api/query", async (req, res) => {
     let rows = result.records.map((rec) => {
       const evidenceList = (rec.get("evidenceList") || []) as any[];
       const brands = (rec.get("brands") || []) as string[];
+      const inferredVertical = toStr(rec.get("inferredVertical"));
 
       const evidence = evidenceList
         .map((e: any) => {
@@ -327,7 +338,7 @@ app.post("/api/query", async (req, res) => {
           const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
           const publishedAt = p.publishedAt ?? null;
           const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
-          const v = p.vertical ?? null;
+          const v = coalesce(p.vertical, inferredVertical, null);
 
           return {
             id,
@@ -352,13 +363,17 @@ app.post("/api/query", async (req, res) => {
     });
 
     // If we found zero rows OR we found rows but none have evidence, use signals-first fallback.
+    let dataStatus: "TREND_MATCH" | "SIGNAL_MATCH" | "NO_MATCH" = "TREND_MATCH";
     const hasAnyEvidence = rows.some((r) => Array.isArray(r.evidence) && r.evidence.length > 0);
+
     if (rows.length === 0 || !hasAnyEvidence) {
+      dataStatus = "SIGNAL_MATCH";
       result = await session.run(articleFallbackCypher, { terms, vertical, limit });
 
       rows = result.records.map((rec) => {
         const evidenceList = (rec.get("evidenceList") || []) as any[];
         const brands = (rec.get("brands") || []) as string[];
+        const inferredVertical = toStr(rec.get("inferredVertical"));
 
         const evidence = evidenceList
           .map((e: any) => {
@@ -368,7 +383,7 @@ app.post("/api/query", async (req, res) => {
             const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
             const publishedAt = p.publishedAt ?? null;
             const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
-            const v = p.vertical ?? null;
+            const v = coalesce(p.vertical, inferredVertical, null);
 
             return {
               id,
@@ -391,10 +406,13 @@ app.post("/api/query", async (req, res) => {
           evidence,
         };
       });
+
+      if (rows.length === 0) dataStatus = "NO_MATCH";
     }
 
     res.json({
       ok: true,
+      dataStatus,
       rows,
       // Optional debug for troubleshooting:
       // debug: { q, vertical, limit, trendId, terms }
@@ -494,5 +512,5 @@ app.post("/api/brand/evidence", async (req, res) => {
  */
 const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`STARTUP api-v2 listening on ${PORT}`);
+  console.log(`STARTUP api-v3 listening on ${PORT}`);
 });
