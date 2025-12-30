@@ -299,9 +299,19 @@ app.post("/api/query", async (req, res) => {
           toLower(coalesce(a.excerpt,"")) CONTAINS term
         )
 
-      WITH a, t
-      ORDER BY coalesce(a.publishedAt, "") DESC
-      LIMIT toInteger($limit)
+WITH a, t,
+     REDUCE(score = 0, term IN $terms |
+       score +
+       CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
+       CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
+       CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
+       CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
+     ) AS relevance
+
+ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC
+LIMIT toInteger($limit)
+
+
 
       OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
       WITH a, t, collect(DISTINCT b.name) AS brands
