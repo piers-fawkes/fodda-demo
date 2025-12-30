@@ -208,45 +208,22 @@ app.get("/api/neo4j/health", async (_req, res) => {
 
 /**
  * 3) POST /api/query
- *
- * Backward compatible input:
- * {
- *   q: string
- *   vertical?: "Beauty"|"Retail"|"Sports"|string|null
- *   limit?: number (default 10, max 50)
- *   trendId?: string|number|null   (optional explicit trend anchor)
- *   contextTrendId?: string|number|null (alias)
- *   terms?: string[] (optional override)
- * }
- *
- * Output:
- * {
- *   ok: true,
- *   rows: Array<{
- *     rowId: string,
- *     rowName: string,
- *     rowSummary: string,
- *     nodeType: "TREND"|"ARTICLE",
- *     isDiscovery: boolean,
- *     evidence: Array<{ id,title,sourceUrl,publishedAt,snippet,vertical,brandNames }>
- *   }>
- * }
  */
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
-
   const vertical = normalizeVertical(req.body?.vertical);
 
-  // UI sends limit=10; treat it as "anchor limit", not "total nodes in graph".
+  // Treat UI "limit" as anchor limit (max 50)
   const limit = clampInt(req.body?.limit, 10, 1, 50);
 
   // Allow either trendId or contextTrendId
   const trendIdRaw = coalesce(req.body?.trendId, req.body?.contextTrendId, null);
-  const trendId = trendIdRaw === null || trendIdRaw === undefined || String(trendIdRaw).trim() === ""
-    ? null
-    : String(trendIdRaw).trim();
+  const trendId =
+    trendIdRaw === null || trendIdRaw === undefined || String(trendIdRaw).trim() === ""
+      ? null
+      : String(trendIdRaw).trim();
 
-  // Optional terms override (for deterministic suggested prompts)
+  // Optional terms override
   const providedTerms = normalizeProvidedTerms(req.body?.terms);
   const terms = providedTerms ?? tokenize(q);
 
@@ -261,8 +238,9 @@ app.post("/api/query", async (req, res) => {
     session = d.session({ database: NEO4J_DATABASE });
 
     // Stage 1: Trend-anchored retrieval (Interpretations)
+    // IMPORTANT: Neo4j environment forbids LIMIT using a variable; use parameters directly.
     const trendCypher = `
-      WITH $terms AS terms, $vertical AS vertical, toInteger($limit) AS limit, $tId AS tId
+      WITH $terms AS terms, $vertical AS vertical, $tId AS tId
       MATCH (n:Trend)
       WHERE
         (tId IS NOT NULL AND (toString(n.trendId) = toString(tId) OR toString(n.id) = toString(tId)))
@@ -279,9 +257,8 @@ app.post("/api/query", async (req, res) => {
          OR nVertical CONTAINS vertical)
 
       OPTIONAL MATCH (n)<-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]-(a:Article)
-
-      // Pull brands per article where available
       WITH n, collect(DISTINCT a)[0..30] AS evidenceList
+
       UNWIND evidenceList AS ea
       OPTIONAL MATCH (ea)-[:MENTIONS_BRAND]->(b:Brand)
       WITH n, evidenceList, collect(DISTINCT b.name) AS brands
@@ -294,13 +271,13 @@ app.post("/api/query", async (req, res) => {
         brands AS brands,
         false AS isDiscovery,
         "TREND" AS nodeType
-      LIMIT limit
+      LIMIT toInteger($limit)
     `;
 
     // Stage 2: Article-first fallback (Signals)
-    // This is the "coffee fix" and also correct for ingredient/material queries.
+    // IMPORTANT: Neo4j environment forbids LIMIT using a variable; use parameters directly.
     const articleFallbackCypher = `
-      WITH $terms AS terms, $vertical AS vertical, toInteger($limit) AS limit
+      WITH $terms AS terms, $vertical AS vertical
       MATCH (a:Article)
       WHERE
         (vertical IS NULL OR a.vertical IS NULL
@@ -315,7 +292,7 @@ app.post("/api/query", async (req, res) => {
         )
       WITH a
       ORDER BY coalesce(a.publishedAt, "") DESC
-      LIMIT limit
+      LIMIT toInteger($limit)
 
       OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
       WITH a, collect(DISTINCT b.name) AS brands
@@ -433,13 +410,6 @@ app.post("/api/query", async (req, res) => {
 /**
  * 4) POST /api/brand/evidence
  * Returns brand-mentioned articles even if they are NOT linked to a Trend.
- *
- * Body:
- * {
- *   brands: string[] (required) e.g. ["Sephora","Ulta Beauty"]
- *   vertical?: string | null
- *   limit?: number (default 50, max 200)
- * }
  */
 app.post("/api/brand/evidence", async (req, res) => {
   const brandsRaw = req.body?.brands;
@@ -448,7 +418,6 @@ app.post("/api/brand/evidence", async (req, res) => {
     : [];
 
   const vertical = normalizeVertical(req.body?.vertical);
-
   const limit = clampInt(req.body?.limit, 50, 1, 200);
 
   if (brands.length === 0) {
