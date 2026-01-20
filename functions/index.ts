@@ -98,6 +98,114 @@ const STOPWORDS = new Set([
   "brands",
 ]);
 
+// --- Constraint coverage heuristics (for refusal gating) ---
+
+// Add more as you learn from beta users.
+const GEO_TERMS = new Set([
+  "jordan",
+  "jordanian",
+  "amman",
+  "aqaba",
+  "middle east",
+  "mena",
+]);
+
+// Relationship / metric terms that imply a structured-data expectation
+const METRIC_TERMS = new Set([
+  "population",
+  "gdp",
+  "per capita",
+  "capita",
+  "metric",
+  "statistics",
+  "stats",
+  "club count",
+  "clubs",
+  "league",
+  "fifa",
+  "afc",
+]);
+
+type Decision = "ANSWER" | "ANSWER_WITH_CAVEATS" | "REFUSE";
+
+function extractRequiredTerms(query: string): string[] {
+  const q = String(query ?? "").toLowerCase();
+
+  const required: string[] = [];
+
+  // Explicit geo terms
+  for (const term of GEO_TERMS) {
+    if (q.includes(term)) required.push(term);
+  }
+
+  // Explicit metric/relationship terms
+  for (const term of METRIC_TERMS) {
+    if (q.includes(term)) required.push(term);
+  }
+
+  // Heuristic: country adjectives like "jordanian", "spanish", "mexican"
+  // This is intentionally conservative: only treat as required if the user used the adjective form.
+  const adjMatches = q.match(/\b[a-z]{4,}ian\b/g);
+  if (adjMatches) {
+    for (const m of adjMatches) required.push(m);
+  }
+
+  // De-dupe
+  return Array.from(new Set(required));
+}
+
+function buildEvidenceHaystack(rows: any[]): string {
+  const chunks: string[] = [];
+
+  for (const r of rows) {
+    chunks.push(String(r.rowName ?? ""));
+    chunks.push(String(r.rowSummary ?? ""));
+    if (Array.isArray(r.evidence)) {
+      for (const e of r.evidence) {
+        chunks.push(String(e.title ?? ""));
+        chunks.push(String(e.snippet ?? ""));
+        if (Array.isArray(e.brandNames)) chunks.push(e.brandNames.join(" "));
+      }
+    }
+  }
+
+  return chunks.join(" ").toLowerCase();
+}
+
+function decideCoverage(query: string, rows: any[]): {
+  requiredTerms: string[];
+  matchedTerms: string[];
+  coverageRatio: number;
+  decision: Decision;
+} {
+  const requiredTerms = extractRequiredTerms(query);
+
+  // If there are no "required" constraints detected, we let the model answer normally.
+  if (requiredTerms.length === 0) {
+    return {
+      requiredTerms: [],
+      matchedTerms: [],
+      coverageRatio: 1,
+      decision: "ANSWER",
+    };
+  }
+
+  const haystack = buildEvidenceHaystack(rows);
+  const matchedTerms = requiredTerms.filter((t) => haystack.includes(t));
+
+  const coverageRatio =
+    requiredTerms.length === 0 ? 1 : matchedTerms.length / requiredTerms.length;
+
+  // Decision rules:
+  // - If user asked for a specific constraint and none are present, refuse.
+  // - If some are present but partial, answer with caveats.
+  const decision: Decision =
+    matchedTerms.length === 0 ? "REFUSE" : coverageRatio < 0.5 ? "ANSWER_WITH_CAVEATS" : "ANSWER";
+
+  return { requiredTerms, matchedTerms, coverageRatio, decision };
+}
+
+
 function normalizeVertical(verticalRaw: any): string | null {
   const v =
     verticalRaw === null || verticalRaw === undefined || String(verticalRaw).trim() === ""
