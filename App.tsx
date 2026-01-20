@@ -52,7 +52,26 @@ const App: React.FC = () => {
       // 1. Retrieve Context
       // Fix: Await the asynchronous retrieve call from the shared DataService
       const retrievedData = await dataService.retrieve(text, currentVertical);
-      
+      // 🚨 Guardrail: do not ask Gemini to answer if coverage is insufficient
+if (retrievedData?.meta?.decision === "REFUSE") {
+  const refusalMessage: Message = {
+    id: (Date.now() + 1).toString(),
+    role: "assistant",
+    content: 
+      "I don’t currently have evidence in this graph that matches that specific request.\n\n" +
+      "This dataset does not include country-specific football coverage for Jordan or population-to-club metrics.\n\n" +
+      "You could try:\n" +
+      "• Removing the country constraint\n" +
+      "• Asking about global football culture or merchandising\n" +
+      "• Switching to a different vertical",
+    timestamp: Date.now(),
+  };
+
+  setMessages(prev => [...prev, refusalMessage]);
+  setIsProcessing(false);
+  return;
+}
+
       // 2. Generate Answer via Gemini
       const responseText = await generateResponse(text, currentVertical, retrievedData);
 
