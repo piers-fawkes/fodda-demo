@@ -528,13 +528,29 @@ LIMIT toInteger($limit)
       if (rows.length === 0) dataStatus = "NO_MATCH";
     }
 
-    res.json({
-      ok: true,
-      dataStatus,
-      rows,
-      // Optional debug for troubleshooting:
-      // debug: { q, vertical, limit, trendId, terms }
-    });
+const coverage = decideCoverage(q, rows);
+
+res.json({
+  ok: true,
+  dataStatus,
+  rows,
+  meta: {
+    query: q,
+    vertical,
+    limit,
+    trendId,
+    termsCount: terms.length,
+    rowCount: rows.length,
+    evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
+    coverage: {
+      requiredTerms: coverage.requiredTerms,
+      matchedTerms: coverage.matchedTerms,
+      coverageRatio: coverage.coverageRatio,
+    },
+    decision: coverage.decision,
+  },
+});
+
   } catch (e: any) {
     console.error("[Query Error]", e?.message ?? e);
     res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
