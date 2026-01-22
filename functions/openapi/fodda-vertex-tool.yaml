@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: Fodda Graph Tool
+  version: "1.0.0"
+  description: >
+    Fodda graph query tool for grounded context retrieval with evidence.
+    Supports multiple graphs via the 'vertical' parameter (sports, retail, beauty).
+servers:
+  - url: https://api.fodda.ai
+
+paths:
+  /api/query:
+    post:
+      summary: Query a Fodda graph for grounded context and evidence
+      description: >
+        Returns rows plus evidence and a meta.decision field that indicates whether the model should answer,
+        answer with caveats, or refuse due to insufficient coverage in the graph.
+      operationId: foddaQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoddaQueryRequest"
+            examples:
+              sports_example:
+                value:
+                  q: "Jordanian football fan experiences"
+                  vertical: "sports"
+                  limit: 8
+              retail_example:
+                value:
+                  q: "How are retailers using in-store events to build community?"
+                  vertical: "retail"
+                  limit: 8
+              beauty_example:
+                value:
+                  q: "What examples show beauty brands redesigning stores for services?"
+                  vertical: "beauty"
+                  limit: 8
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoddaQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoddaErrorResponse"
+        "500":
+          description: Query failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoddaErrorResponse"
+
+components:
+  schemas:
+    FoddaQueryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        q:
+          type: string
+          description: Natural language user query
+        vertical:
+          type: string
+          nullable: true
+          description: Selects the graph to query (sports, retail, beauty). If omitted, the server may use a default.
+          enum: [sports, retail, beauty]
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+          description: Max rows to return
+        trendId:
+          type: string
+          nullable: true
+          description: Optional trend ID to anchor retrieval
+        terms:
+          type: array
+          items:
+            type: string
+          description: Optional manual terms override
+      required: [q]
+
+    FoddaQueryResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+          example: true
+        dataStatus:
+          type: string
+          description: Status string indicating match quality (for example SIGNAL_MATCH)
+        termsUsed:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/FoddaRow"
+        meta:
+          $ref: "#/components/schemas/FoddaMeta"
+      required: [ok, rows, meta]
+
+    FoddaRow:
+      type: object
+      additionalProperties: true
+      properties:
+        rowId:
+          type: string
+        rowName:
+          type: string
+        rowSummary:
+          type: string
+        nodeType:
+          type: string
+          description: Node type for the row (for example ARTICLE)
+        isDiscovery:
+          type: boolean
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/FoddaEvidence"
+      required: [rowId, rowName, nodeType, evidence]
+
+    FoddaEvidence:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        articleId:
+          type: string
+        title:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        publishedAt:
+          type: string
+        snippet:
+          type: string
+        vertical:
+          type: string
+        brandNames:
+          type: array
+          items:
+            type: string
+      required: [id, title, sourceUrl]
+
+    FoddaMeta:
+      type: object
+      additionalProperties: true
+      properties:
+        query:
+          type: string
+        vertical:
+          type: string
+          nullable: true
+        limit:
+          type: integer
+        rowCount:
+          type: integer
+        evidenceCount:
+          type: integer
+        coverage:
+          $ref: "#/components/schemas/FoddaCoverage"
+        decision:
+          type: string
+          enum: [ANSWER, ANSWER_WITH_CAVEATS, REFUSE]
+      required: [query, limit, decision]
+
+    FoddaCoverage:
+      type: object
+      additionalProperties: true
+      properties:
+        requiredTerms:
+          type: array
+          items:
+            type: string
+        matchedTerms:
+          type: array
+          items:
+            type: string
+        coverageRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    FoddaErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
+      required: [ok, error]
