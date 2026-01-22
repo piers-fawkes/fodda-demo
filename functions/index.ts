@@ -2,14 +2,13 @@ import express from "express";
 import cors from "cors";
 import neo4j, { Driver, Session } from "neo4j-driver";
 
-const app = express();
-
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const app = express();
 
 /**
  * Middleware & CORS
@@ -207,11 +206,14 @@ function decideCoverage(query: string, rows: any[]): {
   // - If user asked for a specific constraint and none are present, refuse.
   // - If some are present but partial, answer with caveats.
   const decision: Decision =
-    matchedTerms.length === 0 ? "REFUSE" : coverageRatio < 0.5 ? "ANSWER_WITH_CAVEATS" : "ANSWER";
+    matchedTerms.length === 0
+      ? "REFUSE"
+      : coverageRatio < 0.5
+      ? "ANSWER_WITH_CAVEATS"
+      : "ANSWER";
 
   return { requiredTerms, matchedTerms, coverageRatio, decision };
 }
-
 
 function normalizeVertical(verticalRaw: any): string | null {
   const v =
@@ -389,8 +391,7 @@ app.post("/api/query", async (req, res) => {
       LIMIT toInteger($limit)
     `;
 
-    // Stage 2: Article-first fallback (Signals) — FIXED vertical filtering
-    // Key change: when vertical IS NOT NULL, do NOT accept a.vertical IS NULL unless we can infer via connected Trend.
+    // Stage 2: Article-first fallback (Signals)
     const articleFallbackCypher = `
       WITH $terms AS terms, $vertical AS vertical
       MATCH (a:Article)
@@ -414,19 +415,17 @@ app.post("/api/query", async (req, res) => {
           toLower(coalesce(a.excerpt,"")) CONTAINS term
         )
 
-WITH a, t,
-     REDUCE(score = 0, term IN $terms |
-       score +
-       CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
-       CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
-       CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
-       CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
-     ) AS relevance
+      WITH a, t,
+           REDUCE(score = 0, term IN $terms |
+             score +
+             CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
+             CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
+             CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
+             CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
+           ) AS relevance
 
-ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC
-LIMIT toInteger($limit)
-
-
+      ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC
+      LIMIT toInteger($limit)
 
       OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
       WITH a, t, collect(DISTINCT b.name) AS brands
@@ -458,201 +457,4 @@ LIMIT toInteger($limit)
       const evidence = evidenceList
         .map((e: any) => {
           const p = e?.properties ?? {};
-          const id = toStr(coalesce(p.articleId, p.id, e.identity));
-          const title = toStr(coalesce(p.title, "Signal"));
-          const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
-          const publishedAt = p.publishedAt ?? null;
-          const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
-          const v = coalesce(p.vertical, inferredVertical, null);
-
-          return {
-            id,
-            title,
-            sourceUrl,
-            publishedAt,
-            snippet,
-            vertical: v,
-            brandNames: brands,
-          };
-        })
-        .filter((ev: any) => ev.id && ev.title);
-
-      return {
-        rowId: toStr(rec.get("rowId")),
-        rowName: toStr(rec.get("rowName")),
-        rowSummary: toStr(rec.get("rowSummary")),
-        nodeType: toStr(rec.get("nodeType")) as "TREND" | "ARTICLE",
-        isDiscovery: Boolean(rec.get("isDiscovery")),
-        evidence,
-      };
-    });
-
-    // If we found zero rows OR we found rows but none have evidence, use signals-first fallback.
-    let dataStatus: "TREND_MATCH" | "SIGNAL_MATCH" | "NO_MATCH" = "TREND_MATCH";
-    const hasAnyEvidence = rows.some((r) => Array.isArray(r.evidence) && r.evidence.length > 0);
-
-    if (rows.length === 0 || !hasAnyEvidence) {
-      dataStatus = "SIGNAL_MATCH";
-      result = await session.run(articleFallbackCypher, { terms, vertical, limit });
-
-      rows = result.records.map((rec) => {
-        const evidenceList = (rec.get("evidenceList") || []) as any[];
-        const brands = (rec.get("brands") || []) as string[];
-        const inferredVertical = toStr(rec.get("inferredVertical"));
-
-        const evidence = evidenceList
-          .map((e: any) => {
-            const p = e?.properties ?? {};
-            const id = toStr(coalesce(p.articleId, p.id, e.identity));
-            const title = toStr(coalesce(p.title, "Signal"));
-            const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
-            const publishedAt = p.publishedAt ?? null;
-            const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
-            const v = coalesce(p.vertical, inferredVertical, null);
-
-            return {
-              id,
-              title,
-              sourceUrl,
-              publishedAt,
-              snippet,
-              vertical: v,
-              brandNames: brands,
-            };
-          })
-          .filter((ev: any) => ev.id && ev.title);
-
-        return {
-          rowId: toStr(rec.get("rowId")),
-          rowName: toStr(rec.get("rowName")),
-          rowSummary: toStr(rec.get("rowSummary")),
-          nodeType: toStr(rec.get("nodeType")) as "TREND" | "ARTICLE",
-          isDiscovery: Boolean(rec.get("isDiscovery")),
-          evidence,
-        };
-      });
-
-      if (rows.length === 0) dataStatus = "NO_MATCH";
-    }
-
-const coverage = decideCoverage(q, rows);
-
-res.json({
-  ok: true,
-  dataStatus,
-  rows,
-  meta: {
-    query: q,
-    vertical,
-    limit,
-    trendId,
-    termsCount: terms.length,
-    rowCount: rows.length,
-    evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
-    coverage: {
-      requiredTerms: coverage.requiredTerms,
-      matchedTerms: coverage.matchedTerms,
-      coverageRatio: coverage.coverageRatio,
-    },
-    decision: coverage.decision,
-  },
-});
-
-  } catch (e: any) {
-    console.error("[Query Error]", e?.message ?? e);
-    res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
-  } finally {
-    if (session) await session.close();
-  }
-});
-
-/**
- * 4) POST /api/brand/evidence
- * Returns brand-mentioned articles even if they are NOT linked to a Trend.
- */
-app.post("/api/brand/evidence", async (req, res) => {
-  const brandsRaw = req.body?.brands;
-  const brands: string[] = Array.isArray(brandsRaw)
-    ? brandsRaw.map((b: any) => String(b).trim()).filter(Boolean)
-    : [];
-
-  const vertical = normalizeVertical(req.body?.vertical);
-  const limit = clampInt(req.body?.limit, 50, 1, 200);
-
-  if (brands.length === 0) {
-    return res.status(400).json({ ok: false, error: "brands[] is required" });
-  }
-
-  let session: Session | null = null;
-
-  try {
-    const d = getDriver();
-    session = d.session({ database: NEO4J_DATABASE });
-
-    const brandNeedles = brands.map((b) => `|${b.toLowerCase()}|`);
-
-    const cypher = `
-      WITH $brandNeedles AS needles, $vertical AS vertical
-
-      MATCH (b:Brand)
-      WHERE any(n IN needles WHERE ('|' + toLower(b.name) + '|') CONTAINS n)
-
-      MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)
-      OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
-
-      WITH b, a, t, vertical,
-           toLower(trim(coalesce(a.vertical, ""))) AS aV,
-           toLower(trim(coalesce(t.vertical, ""))) AS tV
-
-      WHERE vertical IS NULL OR
-        (
-          aV CONTAINS vertical OR
-          any(v IN split(tV, ",") WHERE trim(v) = vertical) OR
-          tV CONTAINS vertical
-        )
-
-      RETURN
-        b.name AS brand,
-        a.articleId AS articleId,
-        a.title AS title,
-        a.sourceUrl AS sourceUrl,
-        a.publishedAt AS publishedAt,
-        t.trendId AS trendId,
-        t.trendName AS trendName
-      ORDER BY coalesce(a.publishedAt, "") DESC
-      LIMIT toInteger($limit)
-    `;
-
-    const result = await session.run(cypher, {
-      brandNeedles,
-      vertical,
-      limit,
-    });
-
-    const rows = result.records.map((r) => ({
-      brand: toStr(r.get("brand")),
-      articleId: toStr(r.get("articleId")),
-      title: toStr(r.get("title")),
-      sourceUrl: toStr(r.get("sourceUrl")),
-      publishedAt: r.get("publishedAt") ?? null,
-      trendId: r.get("trendId") ? toStr(r.get("trendId")) : null,
-      trendName: r.get("trendName") ? toStr(r.get("trendName")) : null,
-    }));
-
-    res.json({ ok: true, rows });
-  } catch (e: any) {
-    console.error("[Brand Evidence Error]", e?.message ?? e);
-    res.status(500).json({ ok: false, error: e?.message ?? "Brand evidence query failed" });
-  } finally {
-    if (session) await session.close();
-  }
-});
-
-
-/**
- * Start server (Cloud Run)
- */
-const PORT = Number(process.env.PORT || 8080);
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`STARTUP api-v3 listening on ${PORT}`);
-});
+          const id = toStr(coalesce(p.articleId, p.id, e.id
