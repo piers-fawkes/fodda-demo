@@ -4,6 +4,13 @@ import neo4j, { Driver, Session } from "neo4j-driver";
 
 const app = express();
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
 /**
  * Middleware & CORS
  */
