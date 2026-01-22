@@ -1,9 +1,10 @@
 import express from "express";
 import cors from "cors";
 import neo4j, { Driver, Session } from "neo4j-driver";
-
+import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+
 
 /**
  * ESM-safe __dirname / __filename
@@ -13,6 +14,23 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+type FoddaReqMeta = {
+  requestId: string;
+  keyFp: string | null; // hashed fingerprint
+};
+
+function makeRequestId(): string {
+  // simple, stable enough for tracing; swap for uuid later if you want
+  return crypto.randomBytes(12).toString("hex");
+}
+
+function hashApiKey(rawKey: string): string {
+  // sha256 is fine for fingerprinting. Never store/log the raw key.
+  return crypto.createHash("sha256").update(rawKey).digest("hex").slice(0, 16);
+}
+
+
+
 /**
  * Middleware & CORS
  */
@@ -20,12 +38,28 @@ app.use(
   cors({
     origin: true,
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Key"],
     maxAge: 86400,
   }) as any
 );
 app.options("*", cors() as any);
 app.use(express.json({ limit: "5mb" }) as any);
+
+// Attach request metadata early so every route can log consistently.
+app.use((req: any, res, next) => {
+  const requestId = makeRequestId();
+
+  const rawKey = String(req.header("X-API-Key") ?? "").trim();
+  const keyFp = rawKey ? hashApiKey(rawKey) : null;
+
+  req.fodda = { requestId, keyFp } as FoddaReqMeta;
+
+  // Helpful for debugging in clients and Cloud Run logs correlation
+  res.setHeader("X-Request-Id", requestId);
+  if (keyFp) res.setHeader("X-Fodda-Key-Fp", keyFp);
+
+  next();
+});
 
 /**
  * Neo4j Configuration
@@ -520,6 +554,24 @@ app.post("/api/query", async (req, res) => {
     }
 
     const coverage = decideCoverage(q, rows);
+const requestId = (req as any).fodda?.requestId;
+const keyFp = (req as any).fodda?.keyFp;
+
+console.log(
+  JSON.stringify({
+    event: "api.query",
+    requestId,
+    keyFp,
+    vertical,
+    limit,
+    trendId,
+    termsCount: terms.length,
+    rowCount: rows.length,
+    evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
+    decision: coverage.decision,
+    dataStatus,
+  })
+);
 
     res.json({
       ok: true,
@@ -541,12 +593,28 @@ app.post("/api/query", async (req, res) => {
         decision: coverage.decision,
       },
     });
-  } catch (e: any) {
-    console.error("[Query Error]", e?.message ?? e);
-    res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
-  } finally {
-    if (session) await session.close();
-  }
+} catch (e: any) {
+  const requestId = (req as any).fodda?.requestId;
+  const keyFp = (req as any).fodda?.keyFp;
+
+  console.error(
+    JSON.stringify({
+      event: "api.query.error",
+      requestId,
+      keyFp,
+      vertical,
+      error: e?.message ?? String(e),
+    })
+  );
+
+  res.status(500).json({
+    ok: false,
+    error: e?.message ?? "Database query failed",
+  });
+} finally {
+  if (session) await session.close();
+}
+
 });
 
 /**
@@ -621,14 +689,45 @@ app.post("/api/brand/evidence", async (req, res) => {
       trendId: r.get("trendId") ? toStr(r.get("trendId")) : null,
       trendName: r.get("trendName") ? toStr(r.get("trendName")) : null,
     }));
+const requestId = (req as any).fodda?.requestId;
+const keyFp = (req as any).fodda?.keyFp;
+
+console.log(
+  JSON.stringify({
+    event: "api.brand_evidence",
+    requestId,
+    keyFp,
+    vertical,
+    limit,
+    brandsCount: brands.length,
+    rowCount: rows.length,
+  })
+);
 
     res.json({ ok: true, rows });
-  } catch (e: any) {
-    console.error("[Brand Evidence Error]", e?.message ?? e);
-    res.status(500).json({ ok: false, error: e?.message ?? "Brand evidence query failed" });
-  } finally {
-    if (session) await session.close();
-  }
+} catch (e: any) {
+  const requestId = (req as any).fodda?.requestId;
+  const keyFp = (req as any).fodda?.keyFp;
+
+  console.error(
+    JSON.stringify({
+      event: "api.brand_evidence.error",
+      requestId,
+      keyFp,
+      vertical,
+      brandsCount: brands.length,
+      error: e?.message ?? String(e),
+    })
+  );
+
+  res.status(500).json({
+    ok: false,
+    error: e?.message ?? "Brand evidence query failed",
+  });
+} finally {
+  if (session) await session.close();
+}
+
 });
 
 /**
