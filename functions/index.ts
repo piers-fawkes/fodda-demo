@@ -5,6 +5,9 @@ import neo4j, { Driver, Session } from "neo4j-driver";
 import path from "path";
 import { fileURLToPath } from "url";
 
+/**
+ * ESM-safe __dirname / __filename
+ */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -104,9 +107,6 @@ const STOPWORDS = new Set([
   "brands",
 ]);
 
-// --- Constraint coverage heuristics (for refusal gating) ---
-
-// Add more as you learn from beta users.
 const GEO_TERMS = new Set([
   "jordan",
   "jordanian",
@@ -116,7 +116,6 @@ const GEO_TERMS = new Set([
   "mena",
 ]);
 
-// Relationship / metric terms that imply a structured-data expectation
 const METRIC_TERMS = new Set([
   "population",
   "gdp",
@@ -136,27 +135,22 @@ type Decision = "ANSWER" | "ANSWER_WITH_CAVEATS" | "REFUSE";
 
 function extractRequiredTerms(query: string): string[] {
   const q = String(query ?? "").toLowerCase();
-
   const required: string[] = [];
 
-  // Explicit geo terms
   for (const term of GEO_TERMS) {
     if (q.includes(term)) required.push(term);
   }
 
-  // Explicit metric/relationship terms
   for (const term of METRIC_TERMS) {
     if (q.includes(term)) required.push(term);
   }
 
-  // Heuristic: country adjectives like "jordanian", "spanish", "mexican"
-  // This is intentionally conservative: only treat as required if the user used the adjective form.
+  // Conservative heuristic: adjectives like "jordanian"
   const adjMatches = q.match(/\b[a-z]{4,}ian\b/g);
   if (adjMatches) {
     for (const m of adjMatches) required.push(m);
   }
 
-  // De-dupe
   return Array.from(new Set(required));
 }
 
@@ -166,6 +160,7 @@ function buildEvidenceHaystack(rows: any[]): string {
   for (const r of rows) {
     chunks.push(String(r.rowName ?? ""));
     chunks.push(String(r.rowSummary ?? ""));
+
     if (Array.isArray(r.evidence)) {
       for (const e of r.evidence) {
         chunks.push(String(e.title ?? ""));
@@ -186,7 +181,6 @@ function decideCoverage(query: string, rows: any[]): {
 } {
   const requiredTerms = extractRequiredTerms(query);
 
-  // If there are no "required" constraints detected, we let the model answer normally.
   if (requiredTerms.length === 0) {
     return {
       requiredTerms: [],
@@ -198,13 +192,8 @@ function decideCoverage(query: string, rows: any[]): {
 
   const haystack = buildEvidenceHaystack(rows);
   const matchedTerms = requiredTerms.filter((t) => haystack.includes(t));
+  const coverageRatio = matchedTerms.length / requiredTerms.length;
 
-  const coverageRatio =
-    requiredTerms.length === 0 ? 1 : matchedTerms.length / requiredTerms.length;
-
-  // Decision rules:
-  // - If user asked for a specific constraint and none are present, refuse.
-  // - If some are present but partial, answer with caveats.
   const decision: Decision =
     matchedTerms.length === 0
       ? "REFUSE"
@@ -223,6 +212,7 @@ function normalizeVertical(verticalRaw: any): string | null {
 
   if (!v) return null;
   if (v === "sport") return "sports";
+  if (v === "sports") return "sports";
   if (v === "beauty") return "beauty";
   if (v === "retail") return "retail";
   return v;
@@ -263,6 +253,7 @@ function normalizeProvidedTerms(raw: any): string[] | null {
   const cleaned = raw
     .map((t: any) => String(t ?? "").toLowerCase().trim())
     .filter((t: string) => t.length > 0);
+
   return cleaned.length ? Array.from(new Set(cleaned)).slice(0, 50) : null;
 }
 
@@ -329,23 +320,19 @@ app.get("/api/neo4j/health", async (_req, res) => {
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
   const vertical = normalizeVertical(req.body?.vertical);
-
-  // Treat UI "limit" as anchor limit (max 50)
   const limit = clampInt(req.body?.limit, 10, 1, 50);
 
-  // Allow either trendId or contextTrendId
   const trendIdRaw = coalesce(req.body?.trendId, req.body?.contextTrendId, null);
   const trendId =
     trendIdRaw === null || trendIdRaw === undefined || String(trendIdRaw).trim() === ""
       ? null
       : String(trendIdRaw).trim();
 
-  // Optional terms override
   const providedTerms = normalizeProvidedTerms(req.body?.terms);
   const terms = providedTerms ?? tokenize(q);
 
   if (terms.length === 0 && !trendId) {
-    return res.json({ ok: true, dataStatus: "NO_MATCH", rows: [] });
+    return res.json({ ok: true, dataStatus: "NO_MATCH", rows: [], meta: { query: q, vertical, limit, decision: "REFUSE" } });
   }
 
   let session: Session | null = null;
@@ -354,7 +341,6 @@ app.post("/api/query", async (req, res) => {
     const d = getDriver();
     session = d.session({ database: NEO4J_DATABASE });
 
-    // Stage 1: Trend-anchored retrieval (Interpretations)
     const trendCypher = `
       WITH $terms AS terms, $vertical AS vertical, $tId AS tId
       MATCH (n:Trend)
@@ -391,7 +377,6 @@ app.post("/api/query", async (req, res) => {
       LIMIT toInteger($limit)
     `;
 
-    // Stage 2: Article-first fallback (Signals)
     const articleFallbackCypher = `
       WITH $terms AS terms, $vertical AS vertical
       MATCH (a:Article)
@@ -441,7 +426,7 @@ app.post("/api/query", async (req, res) => {
         coalesce(a.vertical, t.vertical, "") AS inferredVertical
     `;
 
-    // Run trend-first
+    // Trend-first
     let result = await session.run(trendCypher, {
       terms,
       vertical,
@@ -457,4 +442,208 @@ app.post("/api/query", async (req, res) => {
       const evidence = evidenceList
         .map((e: any) => {
           const p = e?.properties ?? {};
-          const id = toStr(coalesce(p.articleId, p.id, e.id
+          const id = toStr(coalesce(p.articleId, p.id, e.identity));
+          const title = toStr(coalesce(p.title, "Signal"));
+          const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
+          const publishedAt = p.publishedAt ?? null;
+          const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
+          const v = coalesce(p.vertical, inferredVertical, null);
+
+          return {
+            id,
+            title,
+            sourceUrl,
+            publishedAt,
+            snippet,
+            vertical: v,
+            brandNames: brands,
+          };
+        })
+        .filter((ev: any) => ev.id && ev.title);
+
+      return {
+        rowId: toStr(rec.get("rowId")),
+        rowName: toStr(rec.get("rowName")),
+        rowSummary: toStr(rec.get("rowSummary")),
+        nodeType: toStr(rec.get("nodeType")) as "TREND" | "ARTICLE",
+        isDiscovery: Boolean(rec.get("isDiscovery")),
+        evidence,
+      };
+    });
+
+    let dataStatus: "TREND_MATCH" | "SIGNAL_MATCH" | "NO_MATCH" = "TREND_MATCH";
+    const hasAnyEvidence = rows.some((r) => Array.isArray(r.evidence) && r.evidence.length > 0);
+
+    if (rows.length === 0 || !hasAnyEvidence) {
+      dataStatus = "SIGNAL_MATCH";
+
+      result = await session.run(articleFallbackCypher, { terms, vertical, limit });
+
+      rows = result.records.map((rec) => {
+        const evidenceList = (rec.get("evidenceList") || []) as any[];
+        const brands = (rec.get("brands") || []) as string[];
+        const inferredVertical = toStr(rec.get("inferredVertical"));
+
+        const evidence = evidenceList
+          .map((e: any) => {
+            const p = e?.properties ?? {};
+            const id = toStr(coalesce(p.articleId, p.id, e.identity));
+            const title = toStr(coalesce(p.title, "Signal"));
+            const sourceUrl = toStr(coalesce(p.sourceUrl, p.url, "#"));
+            const publishedAt = p.publishedAt ?? null;
+            const snippet = toStr(coalesce(p.snippet, p.summary, p.excerpt, ""));
+            const v = coalesce(p.vertical, inferredVertical, null);
+
+            return {
+              id,
+              title,
+              sourceUrl,
+              publishedAt,
+              snippet,
+              vertical: v,
+              brandNames: brands,
+            };
+          })
+          .filter((ev: any) => ev.id && ev.title);
+
+        return {
+          rowId: toStr(rec.get("rowId")),
+          rowName: toStr(rec.get("rowName")),
+          rowSummary: toStr(rec.get("rowSummary")),
+          nodeType: toStr(rec.get("nodeType")) as "TREND" | "ARTICLE",
+          isDiscovery: Boolean(rec.get("isDiscovery")),
+          evidence,
+        };
+      });
+
+      if (rows.length === 0) dataStatus = "NO_MATCH";
+    }
+
+    const coverage = decideCoverage(q, rows);
+
+    res.json({
+      ok: true,
+      dataStatus,
+      rows,
+      meta: {
+        query: q,
+        vertical,
+        limit,
+        trendId,
+        termsCount: terms.length,
+        rowCount: rows.length,
+        evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
+        coverage: {
+          requiredTerms: coverage.requiredTerms,
+          matchedTerms: coverage.matchedTerms,
+          coverageRatio: coverage.coverageRatio,
+        },
+        decision: coverage.decision,
+      },
+    });
+  } catch (e: any) {
+    console.error("[Query Error]", e?.message ?? e);
+    res.status(500).json({ ok: false, error: e?.message ?? "Database query failed" });
+  } finally {
+    if (session) await session.close();
+  }
+});
+
+/**
+ * 4) POST /api/brand/evidence
+ * Returns brand-mentioned articles even if they are NOT linked to a Trend.
+ */
+app.post("/api/brand/evidence", async (req, res) => {
+  const brandsRaw = req.body?.brands;
+  const brands: string[] = Array.isArray(brandsRaw)
+    ? brandsRaw.map((b: any) => String(b).trim()).filter(Boolean)
+    : [];
+
+  const vertical = normalizeVertical(req.body?.vertical);
+  const limit = clampInt(req.body?.limit, 50, 1, 200);
+
+  if (brands.length === 0) {
+    return res.status(400).json({ ok: false, error: "brands[] is required" });
+  }
+
+  let session: Session | null = null;
+
+  try {
+    const d = getDriver();
+    session = d.session({ database: NEO4J_DATABASE });
+
+    const brandNeedles = brands.map((b) => `|${b.toLowerCase()}|`);
+
+    const cypher = `
+      WITH $brandNeedles AS needles, $vertical AS vertical
+
+      MATCH (b:Brand)
+      WHERE any(n IN needles WHERE ('|' + toLower(b.name) + '|') CONTAINS n)
+
+      MATCH (b)<-[:MENTIONS_BRAND]-(a:Article)
+      OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
+
+      WITH b, a, t, vertical,
+           toLower(trim(coalesce(a.vertical, ""))) AS aV,
+           toLower(trim(coalesce(t.vertical, ""))) AS tV
+
+      WHERE vertical IS NULL OR
+        (
+          aV CONTAINS vertical OR
+          any(v IN split(tV, ",") WHERE trim(v) = vertical) OR
+          tV CONTAINS vertical
+        )
+
+      RETURN
+        b.name AS brand,
+        a.articleId AS articleId,
+        a.title AS title,
+        a.sourceUrl AS sourceUrl,
+        a.publishedAt AS publishedAt,
+        t.trendId AS trendId,
+        t.trendName AS trendName
+      ORDER BY coalesce(a.publishedAt, "") DESC
+      LIMIT toInteger($limit)
+    `;
+
+    const result = await session.run(cypher, {
+      brandNeedles,
+      vertical,
+      limit,
+    });
+
+    const rows = result.records.map((r) => ({
+      brand: toStr(r.get("brand")),
+      articleId: toStr(r.get("articleId")),
+      title: toStr(r.get("title")),
+      sourceUrl: toStr(r.get("sourceUrl")),
+      publishedAt: r.get("publishedAt") ?? null,
+      trendId: r.get("trendId") ? toStr(r.get("trendId")) : null,
+      trendName: r.get("trendName") ? toStr(r.get("trendName")) : null,
+    }));
+
+    res.json({ ok: true, rows });
+  } catch (e: any) {
+    console.error("[Brand Evidence Error]", e?.message ?? e);
+    res.status(500).json({ ok: false, error: e?.message ?? "Brand evidence query failed" });
+  } finally {
+    if (session) await session.close();
+  }
+});
+
+/**
+ * OpenAPI spec for Vertex tool import
+ * Serves: https://api.fodda.ai/openapi/fodda-vertex-tool.yaml
+ */
+app.get("/openapi/fodda-vertex-tool.yaml", (_req, res) => {
+  res.type("application/yaml");
+  res.sendFile(path.join(__dirname, "openapi", "fodda-vertex-tool.yaml"));
+});
+
+/**
+ * Start server (Cloud Run)
+ */
+const PORT = Number(process.env.PORT || 8080);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`STARTUP api-v3 listening on ${PORT}`);
+});
