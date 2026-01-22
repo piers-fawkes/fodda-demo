@@ -647,16 +647,7 @@ app.post("/api/brand/evidence", async (req, res) => {
     if (session) await session.close();
   }
 });
-/**
- * For Vertex
- */
-import path from "path";
 
-app.get("/openapi/fodda-vertex-tool.yaml", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "openapi", "fodda-vertex-tool.yaml")
-  );
-});
 
 /**
  * Start server (Cloud Run)
