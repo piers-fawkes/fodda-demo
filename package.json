@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && tsc -p tsconfig.api.json && mkdir -p dist/functions/openapi && cp -r functions/openapi/* dist/functions/openapi/",
     "start": "node dist/functions/index.js"
-  }
+  },
 }
   "dependencies": {
     "@google/genai": "^1.33.0",
