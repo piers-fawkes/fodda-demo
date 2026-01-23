@@ -18,8 +18,8 @@ COPY . .
 # - Compile API TypeScript -> dist/
 # - Copy OpenAPI YAML into dist so the runtime route can serve it
 RUN npm run build
-options:
-  logging: CLOUD_LOGGING_ONLY
+# OPTIONS:
+#   --something
 
 # Cloud Run listens on PORT
 ENV PORT=8080
