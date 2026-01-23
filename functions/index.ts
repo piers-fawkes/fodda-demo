@@ -197,7 +197,10 @@ function buildEvidenceHaystack(rows: any[]): string {
   return chunks.join(" ").toLowerCase();
 }
 
-function decideCoverage(query: string, rows: any[]): {
+function decideCoverage(
+  query: string,
+  rows: any[]
+): {
   requiredTerms: string[];
   matchedTerms: string[];
   coverageRatio: number;
@@ -292,6 +295,14 @@ function toStr(val: any): string {
   return String(val);
 }
 
+function fmtShare(val: any): string {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return "";
+  // Avoid scientific notation and keep output compact
+  const s = n.toFixed(6);
+  return s.replace(/0+$/, "").replace(/\.$/, "");
+}
+
 /**
  * Debug: confirm env vars are present (remove later if you want)
  */
@@ -369,18 +380,17 @@ app.post("/api/query", async (req, res) => {
      * because baseline queries are param driven (questionId + segmentType),
      * not term driven.
      */
-if (vertical === "baseline") {
+    if (vertical === "baseline") {
+      console.log("[BASELINE HANDLER HIT]", {
+        questionId: req.body?.questionId,
+        segmentType: req.body?.segmentType,
+        excludeBlank: req.body?.excludeBlank,
+        limit,
+      });
 
-  console.log("[BASELINE HANDLER HIT]", {
-    questionId: req.body?.questionId,
-    segmentType: req.body?.segmentType,
-    excludeBlank: req.body?.excludeBlank,
-    limit,
-  });
-
-  const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
-  const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
-  const excludeBlank = req.body?.excludeBlank !== false; // default true
+      const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
+      const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
+      const excludeBlank = req.body?.excludeBlank !== false; // default true
 
       const questionId =
         questionIdRaw === null || questionIdRaw === undefined || String(questionIdRaw).trim() === ""
@@ -404,16 +414,14 @@ if (vertical === "baseline") {
         WHERE st.dataset_id = 'pew_npors_2025'
           AND s.type = $segmentType
           AND ($excludeBlank = false OR a.value <> 'BLANK')
-          AND s.display <> 'Refused/Web blank'
+          AND s.value <> '99'
         RETURN
           (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
           coalesce(s.display,s.label,s.value,s.id) AS rowName,
-          (coalesce(a.display,a.label,a.value) + ': ' + toString(st.share)) AS rowSummary,
-          [] AS evidenceList,
-          [] AS brands,
+          coalesce(a.display,a.label,a.value) AS answerLabel,
+          st.share AS share,
           false AS isDiscovery,
-          "BASELINE_STAT" AS nodeType,
-          "baseline" AS inferredVertical
+          "BASELINE_STAT" AS nodeType
         ORDER BY s.value, a.value
         LIMIT toInteger($limit)
       `;
@@ -425,14 +433,20 @@ if (vertical === "baseline") {
         limit,
       });
 
-      const rows = result.records.map((rec) => ({
-        rowId: toStr(rec.get("rowId")),
-        rowName: toStr(rec.get("rowName")),
-        rowSummary: toStr(rec.get("rowSummary")),
-        nodeType: toStr(rec.get("nodeType")),
-        isDiscovery: Boolean(rec.get("isDiscovery")),
-        evidence: [], // keep UI contract stable
-      }));
+      const rows = result.records.map((rec) => {
+        const answerLabel = toStr(rec.get("answerLabel"));
+        const share = rec.get("share");
+        return {
+          rowId: toStr(rec.get("rowId")),
+          rowName: toStr(rec.get("rowName")),
+          answerLabel,
+          share,
+          rowSummary: `${answerLabel}: ${fmtShare(share)}`,
+          nodeType: toStr(rec.get("nodeType")),
+          isDiscovery: Boolean(rec.get("isDiscovery")),
+          evidence: [],
+        };
+      });
 
       const dataStatus = rows.length ? "BASELINE_MATCH" : "NO_MATCH";
       const decision: Decision = rows.length ? "ANSWER" : "REFUSE";
@@ -734,12 +748,12 @@ if (vertical === "baseline") {
 app.post("/api/brand/evidence", async (req, res) => {
   const brandsRaw = req.body?.brands;
   const brands: string[] = Array.isArray(brandsRaw)
-    ? brandsRaw.map((b: any) => String(b).trim()).filter(Boolean)
+    ? brandsRaw.map((b: any) => String(b).trim().filter(Boolean))
     : [];
 
   const vertical = normalizeVertical(req.body?.vertical);
-const limitMax = vertical === "baseline" ? 500 : 50;
-const limit = clampInt(req.body?.limit, 10, 1, limitMax);
+  // Restore original limit behavior for this endpoint
+  const limit = clampInt(req.body?.limit, 50, 1, 200);
 
   if (brands.length === 0) {
     return res.status(400).json({ ok: false, error: "brands[] is required" });
