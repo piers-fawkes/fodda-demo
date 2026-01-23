@@ -8,7 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+ENV NODE_ENV=development
+RUN npm ci
 
 # Copy the rest of the application
 COPY . .
