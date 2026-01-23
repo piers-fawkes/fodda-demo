@@ -404,6 +404,7 @@ if (vertical === "baseline") {
         WHERE st.dataset_id = 'pew_npors_2025'
           AND s.type = $segmentType
           AND ($excludeBlank = false OR a.value <> 'BLANK')
+          AND s.display <> 'Refused/Web blank'
         RETURN
           (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
           coalesce(s.display,s.label,s.value,s.id) AS rowName,
