@@ -18,7 +18,7 @@ COPY . .
 # - Vite frontend build
 # - Compile API TypeScript -> dist/
 # - Copy OpenAPI YAML into dist so the runtime route can serve it
-RUN npm run build
+RUN npm run build --loglevel silly
 # OPTIONS:
 #   --something
 
