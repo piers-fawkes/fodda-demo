@@ -369,10 +369,18 @@ app.post("/api/query", async (req, res) => {
      * because baseline queries are param driven (questionId + segmentType),
      * not term driven.
      */
-    if (vertical === "baseline") {
-      const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
-      const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
-      const excludeBlank = req.body?.excludeBlank !== false; // default true
+if (vertical === "baseline") {
+
+  console.log("[BASELINE HANDLER HIT]", {
+    questionId: req.body?.questionId,
+    segmentType: req.body?.segmentType,
+    excludeBlank: req.body?.excludeBlank,
+    limit,
+  });
+
+  const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
+  const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
+  const excludeBlank = req.body?.excludeBlank !== false; // default true
 
       const questionId =
         questionIdRaw === null || questionIdRaw === undefined || String(questionIdRaw).trim() === ""
@@ -729,7 +737,8 @@ app.post("/api/brand/evidence", async (req, res) => {
     : [];
 
   const vertical = normalizeVertical(req.body?.vertical);
-  const limit = clampInt(req.body?.limit, 50, 1, 200);
+const limitMax = vertical === "baseline" ? 500 : 50;
+const limit = clampInt(req.body?.limit, 10, 1, limitMax);
 
   if (brands.length === 0) {
     return res.status(400).json({ ok: false, error: "brands[] is required" });
