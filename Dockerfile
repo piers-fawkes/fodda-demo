@@ -9,7 +9,7 @@ COPY package*.json ./
 
 # Install dependencies
 ENV NODE_ENV=development
-RUN npm ci
+RUN npm install --include=dev
 
 # Copy the rest of the application
 COPY . .
