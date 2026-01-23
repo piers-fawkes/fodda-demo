@@ -5,7 +5,6 @@ import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
-
 /**
  * ESM-safe __dirname / __filename
  */
@@ -29,8 +28,6 @@ function hashApiKey(rawKey: string): string {
   return crypto.createHash("sha256").update(rawKey).digest("hex").slice(0, 16);
 }
 
-
-
 /**
  * Middleware & CORS
  */
@@ -38,7 +35,7 @@ app.use(
   cors({
     origin: true,
     methods: ["GET", "POST", "OPTIONS"],
-allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Key"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Key"],
     maxAge: 86400,
   }) as any
 );
@@ -141,14 +138,7 @@ const STOPWORDS = new Set([
   "brands",
 ]);
 
-const GEO_TERMS = new Set([
-  "jordan",
-  "jordanian",
-  "amman",
-  "aqaba",
-  "middle east",
-  "mena",
-]);
+const GEO_TERMS = new Set(["jordan", "jordanian", "amman", "aqaba", "middle east", "mena"]);
 
 const METRIC_TERMS = new Set([
   "population",
@@ -356,7 +346,10 @@ app.get("/api/neo4j/health", async (_req, res) => {
 app.post("/api/query", async (req, res) => {
   const q = String(req.body?.q ?? "").trim();
   const vertical = normalizeVertical(req.body?.vertical);
-  const limit = clampInt(req.body?.limit, 10, 1, 50);
+
+  // Allow baseline to return full distributions (often >50 rows).
+  const limitMax = vertical === "baseline" ? 500 : 50;
+  const limit = clampInt(req.body?.limit, 10, 1, limitMax);
 
   const trendIdRaw = coalesce(req.body?.trendId, req.body?.contextTrendId, null);
   const trendId =
@@ -364,96 +357,125 @@ app.post("/api/query", async (req, res) => {
       ? null
       : String(trendIdRaw).trim();
 
-  const providedTerms = normalizeProvidedTerms(req.body?.terms);
-  const terms = providedTerms ?? tokenize(q);
-
-  if (terms.length === 0 && !trendId) {
-    return res.json({ ok: true, dataStatus: "NO_MATCH", rows: [], meta: { query: q, vertical, limit, decision: "REFUSE" } });
-  }
-
   let session: Session | null = null;
 
   try {
     const d = getDriver();
     session = d.session({ database: NEO4J_DATABASE });
 
-    // Baseline graph handler (NPORS)
-if (vertical === "baseline") {
-  const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
-  const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
-  const excludeBlank = req.body?.excludeBlank !== false; // default true
+    /**
+     * Baseline graph handler (NPORS)
+     * IMPORTANT: This must run BEFORE any "no terms" early return,
+     * because baseline queries are param driven (questionId + segmentType),
+     * not term driven.
+     */
+    if (vertical === "baseline") {
+      const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
+      const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
+      const excludeBlank = req.body?.excludeBlank !== false; // default true
 
-  const questionId =
-    questionIdRaw === null || questionIdRaw === undefined || String(questionIdRaw).trim() === ""
-      ? null
-      : String(questionIdRaw).trim();
+      const questionId =
+        questionIdRaw === null || questionIdRaw === undefined || String(questionIdRaw).trim() === ""
+          ? null
+          : String(questionIdRaw).trim();
 
-  const segmentType = String(segmentTypeRaw ?? "AGEGRP").trim().toUpperCase();
+      const segmentType = String(segmentTypeRaw ?? "AGEGRP").trim().toUpperCase();
 
-  if (!questionId) {
-    return res.json({
-      ok: true,
-      dataStatus: "NO_MATCH",
-      rows: [],
-      meta: { query: q, vertical, limit, decision: "REFUSE", note: "baseline requires questionId" },
-    });
-  }
+      if (!questionId) {
+        return res.json({
+          ok: true,
+          dataStatus: "NO_MATCH",
+          rows: [],
+          meta: { query: q, vertical, limit, decision: "REFUSE", note: "baseline requires questionId" },
+        });
+      }
 
-  const baselineCypher = `
-    MATCH (q:Question {id:$questionId})<-[:FOR_QUESTION]-(st:Statistic)<-[:HAS_STATISTIC]-(s:Segment)
-    MATCH (st)-[:FOR_ANSWER]->(a:AnswerOption)
-    WHERE st.dataset_id = 'pew_npors_2025'
-      AND s.type = $segmentType
-      AND ($excludeBlank = false OR a.value <> 'BLANK')
-    RETURN
-      (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
-      coalesce(s.display,s.label,s.value,s.id) AS rowName,
-      (coalesce(a.display,a.label,a.value) + ': ' + toString(st.share)) AS rowSummary,
-      [] AS evidenceList,
-      [] AS brands,
-      false AS isDiscovery,
-      "BASELINE_STAT" AS nodeType,
-      "baseline" AS inferredVertical
-    ORDER BY s.value, a.value
-    LIMIT toInteger($limit)
-  `;
+      const baselineCypher = `
+        MATCH (q:Question {id:$questionId})<-[:FOR_QUESTION]-(st:Statistic)<-[:HAS_STATISTIC]-(s:Segment)
+        MATCH (st)-[:FOR_ANSWER]->(a:AnswerOption)
+        WHERE st.dataset_id = 'pew_npors_2025'
+          AND s.type = $segmentType
+          AND ($excludeBlank = false OR a.value <> 'BLANK')
+        RETURN
+          (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
+          coalesce(s.display,s.label,s.value,s.id) AS rowName,
+          (coalesce(a.display,a.label,a.value) + ': ' + toString(st.share)) AS rowSummary,
+          [] AS evidenceList,
+          [] AS brands,
+          false AS isDiscovery,
+          "BASELINE_STAT" AS nodeType,
+          "baseline" AS inferredVertical
+        ORDER BY s.value, a.value
+        LIMIT toInteger($limit)
+      `;
 
-  const result = await session.run(baselineCypher, {
-    questionId,
-    segmentType,
-    excludeBlank,
-    limit,
-  });
+      const result = await session.run(baselineCypher, {
+        questionId,
+        segmentType,
+        excludeBlank,
+        limit,
+      });
 
-  const rows = result.records.map((rec) => ({
-    rowId: toStr(rec.get("rowId")),
-    rowName: toStr(rec.get("rowName")),
-    rowSummary: toStr(rec.get("rowSummary")),
-    nodeType: toStr(rec.get("nodeType")),
-    isDiscovery: Boolean(rec.get("isDiscovery")),
-    evidence: [], // keep UI contract stable
-  }));
+      const rows = result.records.map((rec) => ({
+        rowId: toStr(rec.get("rowId")),
+        rowName: toStr(rec.get("rowName")),
+        rowSummary: toStr(rec.get("rowSummary")),
+        nodeType: toStr(rec.get("nodeType")),
+        isDiscovery: Boolean(rec.get("isDiscovery")),
+        evidence: [], // keep UI contract stable
+      }));
 
-  const dataStatus = rows.length ? "BASELINE_MATCH" : "NO_MATCH";
+      const dataStatus = rows.length ? "BASELINE_MATCH" : "NO_MATCH";
+      const decision: Decision = rows.length ? "ANSWER" : "REFUSE";
 
-  // For baseline, skip coverage heuristic. Always ANSWER if we have rows, else REFUSE.
-  const decision: Decision = rows.length ? "ANSWER" : "REFUSE";
+      const requestId = (req as any).fodda?.requestId;
+      const keyFp = (req as any).fodda?.keyFp;
+      console.log(
+        JSON.stringify({
+          event: "api.query.baseline",
+          requestId,
+          keyFp,
+          vertical,
+          limit,
+          questionId,
+          segmentType,
+          excludeBlank,
+          rowCount: rows.length,
+          decision,
+          dataStatus,
+        })
+      );
 
-  return res.json({
-    ok: true,
-    dataStatus,
-    rows,
-    meta: {
-      query: q,
-      vertical,
-      limit,
-      questionId,
-      segmentType,
-      excludeBlank,
-      decision,
-    },
-  });
-}
+      return res.json({
+        ok: true,
+        dataStatus,
+        rows,
+        meta: {
+          query: q,
+          vertical,
+          limit,
+          questionId,
+          segmentType,
+          excludeBlank,
+          rowCount: rows.length,
+          decision,
+        },
+      });
+    }
+
+    // Non-baseline path: term-driven PSFK trends and article fallback.
+    const providedTerms = normalizeProvidedTerms(req.body?.terms);
+    const terms = providedTerms ?? tokenize(q);
+
+    // This early return is now safe because baseline already returned above.
+    if (terms.length === 0 && !trendId) {
+      return res.json({
+        ok: true,
+        dataStatus: "NO_MATCH",
+        rows: [],
+        meta: { query: q, vertical, limit, decision: "REFUSE" },
+      });
+    }
 
     const trendCypher = `
       WITH $terms AS terms, $vertical AS vertical, $tId AS tId
@@ -634,24 +656,24 @@ if (vertical === "baseline") {
     }
 
     const coverage = decideCoverage(q, rows);
-const requestId = (req as any).fodda?.requestId;
-const keyFp = (req as any).fodda?.keyFp;
+    const requestId = (req as any).fodda?.requestId;
+    const keyFp = (req as any).fodda?.keyFp;
 
-console.log(
-  JSON.stringify({
-    event: "api.query",
-    requestId,
-    keyFp,
-    vertical,
-    limit,
-    trendId,
-    termsCount: terms.length,
-    rowCount: rows.length,
-    evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
-    decision: coverage.decision,
-    dataStatus,
-  })
-);
+    console.log(
+      JSON.stringify({
+        event: "api.query",
+        requestId,
+        keyFp,
+        vertical,
+        limit,
+        trendId,
+        termsCount: terms.length,
+        rowCount: rows.length,
+        evidenceCount: rows.reduce((acc: number, r: any) => acc + (r?.evidence?.length ?? 0), 0),
+        decision: coverage.decision,
+        dataStatus,
+      })
+    );
 
     res.json({
       ok: true,
@@ -673,28 +695,27 @@ console.log(
         decision: coverage.decision,
       },
     });
-} catch (e: any) {
-  const requestId = (req as any).fodda?.requestId;
-  const keyFp = (req as any).fodda?.keyFp;
+  } catch (e: any) {
+    const requestId = (req as any).fodda?.requestId;
+    const keyFp = (req as any).fodda?.keyFp;
 
-  console.error(
-    JSON.stringify({
-      event: "api.query.error",
-      requestId,
-      keyFp,
-      vertical,
-      error: e?.message ?? String(e),
-    })
-  );
+    console.error(
+      JSON.stringify({
+        event: "api.query.error",
+        requestId,
+        keyFp,
+        vertical,
+        error: e?.message ?? String(e),
+      })
+    );
 
-  res.status(500).json({
-    ok: false,
-    error: e?.message ?? "Database query failed",
-  });
-} finally {
-  if (session) await session.close();
-}
-
+    res.status(500).json({
+      ok: false,
+      error: e?.message ?? "Database query failed",
+    });
+  } finally {
+    if (session) await session.close();
+  }
 });
 
 /**
@@ -769,45 +790,45 @@ app.post("/api/brand/evidence", async (req, res) => {
       trendId: r.get("trendId") ? toStr(r.get("trendId")) : null,
       trendName: r.get("trendName") ? toStr(r.get("trendName")) : null,
     }));
-const requestId = (req as any).fodda?.requestId;
-const keyFp = (req as any).fodda?.keyFp;
 
-console.log(
-  JSON.stringify({
-    event: "api.brand_evidence",
-    requestId,
-    keyFp,
-    vertical,
-    limit,
-    brandsCount: brands.length,
-    rowCount: rows.length,
-  })
-);
+    const requestId = (req as any).fodda?.requestId;
+    const keyFp = (req as any).fodda?.keyFp;
+
+    console.log(
+      JSON.stringify({
+        event: "api.brand_evidence",
+        requestId,
+        keyFp,
+        vertical,
+        limit,
+        brandsCount: brands.length,
+        rowCount: rows.length,
+      })
+    );
 
     res.json({ ok: true, rows });
-} catch (e: any) {
-  const requestId = (req as any).fodda?.requestId;
-  const keyFp = (req as any).fodda?.keyFp;
+  } catch (e: any) {
+    const requestId = (req as any).fodda?.requestId;
+    const keyFp = (req as any).fodda?.keyFp;
 
-  console.error(
-    JSON.stringify({
-      event: "api.brand_evidence.error",
-      requestId,
-      keyFp,
-      vertical,
-      brandsCount: brands.length,
-      error: e?.message ?? String(e),
-    })
-  );
+    console.error(
+      JSON.stringify({
+        event: "api.brand_evidence.error",
+        requestId,
+        keyFp,
+        vertical,
+        brandsCount: brands.length,
+        error: e?.message ?? String(e),
+      })
+    );
 
-  res.status(500).json({
-    ok: false,
-    error: e?.message ?? "Brand evidence query failed",
-  });
-} finally {
-  if (session) await session.close();
-}
-
+    res.status(500).json({
+      ok: false,
+      error: e?.message ?? "Brand evidence query failed",
+    });
+  } finally {
+    if (session) await session.close();
+  }
 });
 
 /**
@@ -818,7 +839,11 @@ app.get("/openapi/fodda-vertex-tool.yaml", (_req, res) => {
   res.type("application/yaml");
   res.sendFile(path.join(__dirname, "openapi", "fodda-vertex-tool.yaml"));
 });
-app.post("/api/log", (req, res) => {
+
+/**
+ * Minimal stub to stop client console noise (DataService.logPrompt())
+ */
+app.post("/api/log", (_req, res) => {
   res.json({ ok: true });
 });
 
