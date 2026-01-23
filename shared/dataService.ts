@@ -5,6 +5,13 @@ const INITIAL_GRAPHS: KnowledgeGraph[] = [
   { id: Vertical.Beauty, name: 'Beauty Graph', description: 'Curated beauty and wellness intelligence.', owner: 'PSFK Editorial', isCustom: false },
   { id: Vertical.Retail, name: 'Retail Graph', description: 'Omnichannel and storefront innovation datasets.', owner: 'PSFK Editorial', isCustom: false },
   { id: Vertical.Sports, name: 'Sports Graph', description: 'Fan engagement and performance tech insights.', owner: 'PSFK Editorial', isCustom: false },
+{
+  id: "baseline",
+  name: "Public Beliefs Baseline (US)",
+  description: "NPORS 2025 survey distributions by segment.",
+  owner: "Pew / Fodda",
+  isCustom: false,
+}
 ];
 
 class DataService {
