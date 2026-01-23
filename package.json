@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -p tsconfig.api.json && mkdir -p dist/functions/openapi && cp -r functions/openapi/* dist/functions/openapi/",
+"build": "set -ex; echo '=== VITE ==='; vite build; echo '=== TSC ==='; tsc -p tsconfig.api.json; echo '=== OPENAPI COPY ==='; mkdir -p dist/functions/openapi; if [ -d functions/openapi ]; then cp -r functions/openapi/* dist/functions/openapi/ || true; else echo 'No functions/openapi dir'; fi"
     "start": "node dist/functions/index.js"
   },
   "dependencies": {
