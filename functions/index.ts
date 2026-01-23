@@ -249,6 +249,8 @@ function normalizeVertical(verticalRaw: any): string | null {
   if (v === "sports") return "sports";
   if (v === "beauty") return "beauty";
   if (v === "retail") return "retail";
+  if (v === "baseline") return "baseline";
+  if (v === "public_baseline") return "baseline";
   return v;
 }
 
@@ -374,6 +376,84 @@ app.post("/api/query", async (req, res) => {
   try {
     const d = getDriver();
     session = d.session({ database: NEO4J_DATABASE });
+
+    // Baseline graph handler (NPORS)
+if (vertical === "baseline") {
+  const questionIdRaw = coalesce(req.body?.questionId, req.body?.question_id, null);
+  const segmentTypeRaw = coalesce(req.body?.segmentType, req.body?.segment_type, "AGEGRP");
+  const excludeBlank = req.body?.excludeBlank !== false; // default true
+
+  const questionId =
+    questionIdRaw === null || questionIdRaw === undefined || String(questionIdRaw).trim() === ""
+      ? null
+      : String(questionIdRaw).trim();
+
+  const segmentType = String(segmentTypeRaw ?? "AGEGRP").trim().toUpperCase();
+
+  if (!questionId) {
+    return res.json({
+      ok: true,
+      dataStatus: "NO_MATCH",
+      rows: [],
+      meta: { query: q, vertical, limit, decision: "REFUSE", note: "baseline requires questionId" },
+    });
+  }
+
+  const baselineCypher = `
+    MATCH (q:Question {id:$questionId})<-[:FOR_QUESTION]-(st:Statistic)<-[:HAS_STATISTIC]-(s:Segment)
+    MATCH (st)-[:FOR_ANSWER]->(a:AnswerOption)
+    WHERE st.dataset_id = 'pew_npors_2025'
+      AND s.type = $segmentType
+      AND ($excludeBlank = false OR a.value <> 'BLANK')
+    RETURN
+      (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
+      coalesce(s.display,s.label,s.value,s.id) AS rowName,
+      (coalesce(a.display,a.label,a.value) + ': ' + toString(st.share)) AS rowSummary,
+      [] AS evidenceList,
+      [] AS brands,
+      false AS isDiscovery,
+      "BASELINE_STAT" AS nodeType,
+      "baseline" AS inferredVertical
+    ORDER BY s.value, a.value
+    LIMIT toInteger($limit)
+  `;
+
+  const result = await session.run(baselineCypher, {
+    questionId,
+    segmentType,
+    excludeBlank,
+    limit,
+  });
+
+  const rows = result.records.map((rec) => ({
+    rowId: toStr(rec.get("rowId")),
+    rowName: toStr(rec.get("rowName")),
+    rowSummary: toStr(rec.get("rowSummary")),
+    nodeType: toStr(rec.get("nodeType")),
+    isDiscovery: Boolean(rec.get("isDiscovery")),
+    evidence: [], // keep UI contract stable
+  }));
+
+  const dataStatus = rows.length ? "BASELINE_MATCH" : "NO_MATCH";
+
+  // For baseline, skip coverage heuristic. Always ANSWER if we have rows, else REFUSE.
+  const decision: Decision = rows.length ? "ANSWER" : "REFUSE";
+
+  return res.json({
+    ok: true,
+    dataStatus,
+    rows,
+    meta: {
+      query: q,
+      vertical,
+      limit,
+      questionId,
+      segmentType,
+      excludeBlank,
+      decision,
+    },
+  });
+}
 
     const trendCypher = `
       WITH $terms AS terms, $vertical AS vertical, $tId AS tId
@@ -737,6 +817,9 @@ console.log(
 app.get("/openapi/fodda-vertex-tool.yaml", (_req, res) => {
   res.type("application/yaml");
   res.sendFile(path.join(__dirname, "openapi", "fodda-vertex-tool.yaml"));
+});
+app.post("/api/log", (req, res) => {
+  res.json({ ok: true });
 });
 
 /**
