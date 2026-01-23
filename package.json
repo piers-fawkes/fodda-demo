@@ -23,7 +23,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/node": "^20.0.0",
     "@types/express": "^4.17.17",
-    "@types/cors": "^2.8.13"
-      "vite": "^5.0.0"
+    "@types/cors": "^2.8.13",
+    "vite": "^5.0.0"
   }
 }
