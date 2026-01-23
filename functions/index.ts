@@ -309,7 +309,7 @@ app.get("/api/debug/env", (_req, res) => {
  */
 app.get("/__deploy_check", (_req, res) => {
   res.json({
-    deployCheck: "api-v3",
+    deployCheck: "api-v3-baseline-2026-01-23-001",
     time: new Date().toISOString(),
     status: "ready",
   });
