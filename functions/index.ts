@@ -362,6 +362,13 @@ app.post("/api/query", async (req, res) => {
   const limitMax = vertical === "baseline" ? 500 : 50;
   const limit = clampInt(req.body?.limit, 10, 1, limitMax);
 
+  const graphIdRaw = String(req.body?.graphId ?? "").trim();
+const graphId = graphIdRaw ? graphIdRaw.toLowerCase() : null;
+
+// Default graph for early demo safety.
+// This prevents Waldo trends from leaking into PSFK queries.
+const effectiveGraphId = graphId ?? (vertical === "baseline" ? "pew" : "psfk");
+
   const trendIdRaw = coalesce(req.body?.trendId, req.body?.contextTrendId, null);
   const trendId =
     trendIdRaw === null || trendIdRaw === undefined || String(trendIdRaw).trim() === ""
@@ -415,6 +422,7 @@ app.post("/api/query", async (req, res) => {
           AND s.type = $segmentType
           AND ($excludeBlank = false OR a.value <> 'BLANK')
           AND s.value <> '99'
+          AND toLower(coalesce(st.graphId,'')) = $graphId
         RETURN
           (q.id + '|' + coalesce(s.display,s.label,s.value,s.id) + '|' + a.value) AS rowId,
           coalesce(s.display,s.label,s.value,s.id) AS rowName,
@@ -426,12 +434,13 @@ app.post("/api/query", async (req, res) => {
         LIMIT toInteger($limit)
       `;
 
-      const result = await session.run(baselineCypher, {
-        questionId,
-        segmentType,
-        excludeBlank,
-        limit,
-      });
+const result = await session.run(baselineCypher, {
+  questionId,
+  segmentType,
+  excludeBlank,
+  limit,
+  graphId: effectiveGraphId,
+});
 
       const rows = result.records.map((rec) => {
         const answerLabel = toStr(rec.get("answerLabel"));
@@ -503,6 +512,9 @@ app.post("/api/query", async (req, res) => {
     const trendCypher = `
       WITH $terms AS terms, $vertical AS vertical, $tId AS tId
       MATCH (n:Trend)
+      
+      AND toLower(coalesce(n.graphId,'')) = $graphId
+      
       WHERE
         (tId IS NOT NULL AND (toString(n.trendId) = toString(tId) OR toString(n.id) = toString(tId)))
         OR
@@ -545,6 +557,9 @@ app.post("/api/query", async (req, res) => {
            toLower(coalesce(a.vertical, "")) AS aV,
            toLower(coalesce(t.vertical, "")) AS tV
 
+WHERE toLower(coalesce(a.graphId,'')) = $graphId
+  AND ( ...your existing vertical + term matching... )
+
       WHERE
         (
           vertical IS NULL
@@ -586,12 +601,13 @@ app.post("/api/query", async (req, res) => {
     `;
 
     // Trend-first
-    let result = await session.run(trendCypher, {
-      terms,
-      vertical,
-      limit,
-      tId: trendId,
-    });
+result = await session.run(trendCypher, {
+  terms,
+  vertical,
+  limit,
+  tId: trendId,
+  graphId: effectiveGraphId,
+});
 
     let rows = result.records.map((rec) => {
       const evidenceList = (rec.get("evidenceList") || []) as any[];
