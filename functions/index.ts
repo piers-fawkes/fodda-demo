@@ -510,96 +510,94 @@ const result = await session.run(baselineCypher, {
     }
 
     const trendCypher = `
-      WITH $terms AS terms, $vertical AS vertical, $tId AS tId
-      MATCH (n:Trend)
-      
-      AND toLower(coalesce(n.graphId,'')) = $graphId
-      
-      WHERE
-        (tId IS NOT NULL AND (toString(n.trendId) = toString(tId) OR toString(n.id) = toString(tId)))
-        OR
-        (size(terms) > 0 AND any(term IN terms WHERE
-          toLower(coalesce(n.trendName,"")) CONTAINS term OR
-          toLower(coalesce(n.trendDescription,"")) CONTAINS term
-        ))
+  WITH $terms AS terms, $vertical AS vertical, $tId AS tId, $graphId AS graphId
+  MATCH (n:Trend)
+  WHERE
+    toLower(coalesce(n.graphId,'')) = toLower(graphId)
+    AND (
+      (tId IS NOT NULL AND (toString(n.trendId) = toString(tId) OR toString(n.id) = toString(tId)))
+      OR
+      (size(terms) > 0 AND any(term IN terms WHERE
+        toLower(coalesce(n.trendName,"")) CONTAINS term OR
+        toLower(coalesce(n.trendDescription,"")) CONTAINS term
+      ))
+    )
 
-      WITH n, vertical, toLower(coalesce(n.vertical, "")) AS nVertical
-      WHERE
-        (vertical IS NULL OR n.vertical IS NULL
-         OR any(v IN split(nVertical, ",") WHERE trim(toLower(v)) = vertical)
-         OR nVertical CONTAINS vertical)
+  WITH n, vertical, toLower(coalesce(n.vertical, "")) AS nVertical
+  WHERE
+    (vertical IS NULL OR n.vertical IS NULL
+     OR any(v IN split(nVertical, ",") WHERE trim(toLower(v)) = vertical)
+     OR nVertical CONTAINS vertical)
 
-      OPTIONAL MATCH (n)<-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]-(a:Article)
-      WITH n, collect(DISTINCT a)[0..30] AS evidenceList
+  OPTIONAL MATCH (n)<-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]-(a:Article)
+  WITH n, collect(DISTINCT a)[0..30] AS evidenceList
 
-      UNWIND evidenceList AS ea
-      OPTIONAL MATCH (ea)-[:MENTIONS_BRAND]->(b:Brand)
-      WITH n, evidenceList, collect(DISTINCT b.name) AS brands
+  UNWIND evidenceList AS ea
+  OPTIONAL MATCH (ea)-[:MENTIONS_BRAND]->(b:Brand)
+  WITH n, evidenceList, collect(DISTINCT b.name) AS brands
 
-      RETURN
-        toString(coalesce(n.trendId, n.id, id(n))) AS rowId,
-        coalesce(n.trendName, n.name, "Trend") AS rowName,
-        coalesce(n.trendDescription, n.summary, "") AS rowSummary,
-        evidenceList AS evidenceList,
-        brands AS brands,
-        false AS isDiscovery,
-        "TREND" AS nodeType,
-        coalesce(n.vertical, "") AS inferredVertical
-      LIMIT toInteger($limit)
-    `;
+  RETURN
+    toString(coalesce(n.trendId, n.id, id(n))) AS rowId,
+    coalesce(n.trendName, n.name, "Trend") AS rowName,
+    coalesce(n.trendDescription, n.summary, "") AS rowSummary,
+    evidenceList AS evidenceList,
+    brands AS brands,
+    false AS isDiscovery,
+    "TREND" AS nodeType,
+    coalesce(n.vertical, "") AS inferredVertical
+  LIMIT toInteger($limit)
+`;
 
-    const articleFallbackCypher = `
-      WITH $terms AS terms, $vertical AS vertical
-      MATCH (a:Article)
-      OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
+const articleFallbackCypher = `
+  WITH $terms AS terms, $vertical AS vertical, $graphId AS graphId
+  MATCH (a:Article)
+  OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
 
-      WITH a, t, terms, vertical,
-           toLower(coalesce(a.vertical, "")) AS aV,
-           toLower(coalesce(t.vertical, "")) AS tV
+  WITH a, t, terms, vertical,
+       toLower(coalesce(a.vertical, "")) AS aV,
+       toLower(coalesce(t.vertical, "")) AS tV,
+       toLower(coalesce(a.graphId, "")) AS aG
 
-WHERE toLower(coalesce(a.graphId,'')) = $graphId
-  AND ( ...your existing vertical + term matching... )
+  WHERE
+    aG = toLower(graphId)
+    AND (
+      vertical IS NULL
+      OR aV CONTAINS vertical
+      OR any(v IN split(tV, ",") WHERE trim(v) = vertical)
+      OR tV CONTAINS vertical
+    )
+    AND any(term IN terms WHERE
+      toLower(coalesce(a.title,"")) CONTAINS term OR
+      toLower(coalesce(a.summary,"")) CONTAINS term OR
+      toLower(coalesce(a.snippet,"")) CONTAINS term OR
+      toLower(coalesce(a.excerpt,"")) CONTAINS term
+    )
 
-      WHERE
-        (
-          vertical IS NULL
-          OR aV CONTAINS vertical
-          OR any(v IN split(tV, ",") WHERE trim(v) = vertical)
-          OR tV CONTAINS vertical
-        )
-        AND any(term IN terms WHERE
-          toLower(coalesce(a.title,"")) CONTAINS term OR
-          toLower(coalesce(a.summary,"")) CONTAINS term OR
-          toLower(coalesce(a.snippet,"")) CONTAINS term OR
-          toLower(coalesce(a.excerpt,"")) CONTAINS term
-        )
+  WITH a, t,
+       REDUCE(score = 0, term IN $terms |
+         score +
+         CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
+       ) AS relevance
 
-      WITH a, t,
-           REDUCE(score = 0, term IN $terms |
-             score +
-             CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
-             CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
-             CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
-             CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
-           ) AS relevance
+  ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC
+  LIMIT toInteger($limit)
 
-      ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC
-      LIMIT toInteger($limit)
+  OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
+  WITH a, t, collect(DISTINCT b.name) AS brands
 
-      OPTIONAL MATCH (a)-[:MENTIONS_BRAND]->(b:Brand)
-      WITH a, t, collect(DISTINCT b.name) AS brands
-
-      RETURN
-        "sig-" + toString(coalesce(a.articleId, a.id, id(a))) AS rowId,
-        coalesce(a.title, "Source Signal") AS rowName,
-        coalesce(a.summary, a.snippet, a.excerpt, "") AS rowSummary,
-        [a] AS evidenceList,
-        brands AS brands,
-        true AS isDiscovery,
-        "ARTICLE" AS nodeType,
-        coalesce(a.vertical, t.vertical, "") AS inferredVertical
-    `;
-
+  RETURN
+    "sig-" + toString(coalesce(a.articleId, a.id, id(a))) AS rowId,
+    coalesce(a.title, "Source Signal") AS rowName,
+    coalesce(a.summary, a.snippet, a.excerpt, "") AS rowSummary,
+    [a] AS evidenceList,
+    brands AS brands,
+    true AS isDiscovery,
+    "ARTICLE" AS nodeType,
+    coalesce(a.vertical, t.vertical, "") AS inferredVertical
+`;
     // Trend-first
 result = await session.run(trendCypher, {
   terms,
@@ -652,8 +650,8 @@ result = await session.run(trendCypher, {
     if (rows.length === 0 || !hasAnyEvidence) {
       dataStatus = "SIGNAL_MATCH";
 
-      result = await session.run(articleFallbackCypher, { terms, vertical, limit });
-
+result = await session.run(articleFallbackCypher, { terms, vertical, limit, graphId: effectiveGraphId });
+      
       rows = result.records.map((rec) => {
         const evidenceList = (rec.get("evidenceList") || []) as any[];
         const brands = (rec.get("brands") || []) as string[];
