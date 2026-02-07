@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [isEvidenceOpen, setIsEvidenceOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
-  
+
   const [inputValue, setInputValue] = useState('');
   const [highlightedItem, setHighlightedItem] = useState<{ type: 'trend' | 'article', id: string } | null>(null);
 
@@ -43,6 +43,14 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // UI State Reset on Vertical Switch (Fix for evidence contamination)
+  useEffect(() => {
+    setMessages([]);
+    setInputValue('');
+    setHighlightedItem(null);
+    setIsEvidenceOpen(false); // Close drawer to prevent showing stale data
+  }, [currentVertical, accessMode]);
+
   const handleUnlock = (email: string, mode: 'psfk' | 'waldo') => {
     setIsUnlocked(true);
     setUserEmail(email);
@@ -60,7 +68,7 @@ const App: React.FC = () => {
   const inferBaselineQuestion = async (query: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const questionList = BASELINE_QUESTIONS.map(q => `${q.id}: ${q.label}`).join('\n');
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Mapping Request: "${query}"\n\nSurvey Schema:\n${questionList}`,
@@ -93,13 +101,13 @@ const App: React.FC = () => {
 
   const handleSendMessage = useCallback(async (text: string, manualTerms?: string[]) => {
     if (!text.trim()) return;
-    
+
     const userMsgId = Date.now().toString();
     const userMsg: Message = { id: userMsgId, role: 'user', content: text, timestamp: Date.now() };
-    
+
     setMessages(prev => [...prev, userMsg]);
     setIsProcessing(true);
-    setInputValue(''); 
+    setInputValue('');
     setHighlightedItem(null);
 
     // Async log to Airtable without blocking UI
@@ -175,8 +183,7 @@ const App: React.FC = () => {
     const v = newVertical as Vertical;
     if (v === currentVertical) return;
     setCurrentVertical(v);
-    setMessages([]);
-    setInputValue('');
+    // State reset is handled by useEffect dependency on currentVertical
   };
 
   const handleAnchorClick = (messageId: string, type: 'trend' | 'article', id: string) => {
@@ -185,22 +192,22 @@ const App: React.FC = () => {
     setTimeout(() => setHighlightedItem(null), 4000);
   };
 
-  const lastAssistantMsg = useMemo(() => 
+  const lastAssistantMsg = useMemo(() =>
     [...messages].reverse().find(m => m.role === 'assistant'),
     [messages]
   );
-  
-  const currentEvidence = useMemo(() => 
+
+  const currentEvidence = useMemo(() =>
     (lastAssistantMsg?.evidence || []),
     [lastAssistantMsg]
   );
-  
-  const currentTrends = useMemo(() => 
+
+  const currentTrends = useMemo(() =>
     (lastAssistantMsg?.relatedTrends || []),
     [lastAssistantMsg]
   );
 
-  const currentBaselineRows = useMemo(() => 
+  const currentBaselineRows = useMemo(() =>
     (lastAssistantMsg?.baselineRows || []),
     [lastAssistantMsg]
   );
@@ -213,10 +220,10 @@ const App: React.FC = () => {
     <div className="flex h-screen w-screen bg-stone-100 overflow-hidden font-sans relative">
       {isAdminOpen && <AdminPortal onBack={() => setIsAdminOpen(false)} />}
       <ApiModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
-      
-      <Sidebar 
-        currentVertical={currentVertical} 
-        onVerticalChange={handleVerticalChange} 
+
+      <Sidebar
+        currentVertical={currentVertical}
+        onVerticalChange={handleVerticalChange}
         onQuestionClick={handleSendMessage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -225,18 +232,18 @@ const App: React.FC = () => {
         accessMode={accessMode}
       />
       <main className="flex-1 flex h-full relative overflow-hidden">
-        <ChatInterface 
-          messages={messages} 
-          isProcessing={isProcessing} 
-          vertical={currentVertical} 
+        <ChatInterface
+          messages={messages}
+          isProcessing={isProcessing}
+          vertical={currentVertical}
           inputValue={inputValue}
           onInputChange={setInputValue}
-          onSendMessage={handleSendMessage} 
+          onSendMessage={handleSendMessage}
           onAnchorClick={handleAnchorClick}
-          onToggleSidebar={() => setIsSidebarOpen(true)} 
+          onToggleSidebar={() => setIsSidebarOpen(true)}
           onToggleEvidence={() => setIsEvidenceOpen(!isEvidenceOpen)}
         />
-        <EvidenceDrawer 
+        <EvidenceDrawer
           articles={currentEvidence}
           trends={currentTrends}
           baselineRows={currentBaselineRows}
