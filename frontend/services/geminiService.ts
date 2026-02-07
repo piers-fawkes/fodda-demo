@@ -17,7 +17,10 @@ const isTrendListIntent = (query: string): boolean => {
     "emerging trends",
     "current trends",
     "show me trends",
-    "coffee trends"
+    "show me trends",
+    "coffee trends",
+    "cultural signals",
+    "signals"
   ];
   const isDirectTrendAsk = q.endsWith("trends") || q.endsWith("trends?");
   const hasPattern = patterns.some(p => q.includes(p));
@@ -80,6 +83,35 @@ STYLE:
 - End with: "Click a trend name to view supporting evidence in the panel, or ask a follow-up about any specific area above."
 `;
   }
+
+  if (vertical === Vertical.SIC) {
+    return `
+ROLE: You are the SIC (Strategic Independent Culture) Analyst.
+OBJECTIVE: You track subcultures, fringe movements, and aesthetic shifts before they hit the mainstream.
+
+CONTEXT: You are looking at data from the "Strategic Independent Culture" (SIC) Graph. 
+- These are NOT generic retail trends. 
+- These are signals from the edge of culture.
+- Your tone should be observant, culturally literate, and forward-looking.
+
+STRICT GROUNDING RULE:
+Use the provided Knowledge Graph context ONLY. Do not use external knowledge. DO NOT hallucinate connections.
+
+STEERING LOGIC:
+- If TREND_MATCH: Explain the cultural shift described in the trend.
+- If SIGNAL_MATCH: Highlight the specific edge-cases or "cool" examples found in the signals.
+
+TRACEABILITY (CRITICAL):
+1. Use Markdown Anchors for all names/titles.
+2. Format: ### [Signal Title or Brand Name](#article-ID)
+3. Trend Format: ## [Trend Name](#trend-ID)
+
+STYLE:
+- Culturally relevant, slightly edgy but professional.
+- Temperature: 0.0 (Stick to facts).
+`;
+  }
+
 
   return `
 ROLE: You are the Fodda Contextual Intelligence Engine (Vertical: ${vertical}).
