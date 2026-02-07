@@ -105,6 +105,32 @@ app.post("/api/import/articles", async (req, res) => {
   }
 });
 
+app.post("/api/generate", async (req, res) => {
+  try {
+    const { contents, config, model } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("[Gemini Proxy] Missing GEMINI_API_KEY env var");
+      return res.status(500).json({ ok: false, error: "Server misconfiguration: API Key missing." });
+    }
+
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+
+    const response = await ai.models.generateContent({
+      model: model || 'gemini-2.0-flash',
+      contents,
+      config
+    });
+
+    res.json(response);
+  } catch (err: any) {
+    console.error("[Gemini Proxy Error]", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.get("/__deploy_check", (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
 // Ensure any other /api/* routes return 404 JSON instead of falling through to SPA HTML
@@ -130,9 +156,9 @@ async function startServer() {
     } else {
       console.error(`[Server] CRITICAL: dist directory NOT found at: ${distPath}`);
     }
-    
+
     app.use(express.static(distPath));
-    
+
     // Handle SPA routing
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api")) return next();

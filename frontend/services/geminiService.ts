@@ -35,9 +35,9 @@ TASK: Respond to the user's inquiry by summarizing the retrieved weighted distri
 
 STRICT GROUNDING RULES:
 1. Narrative responses must be strictly grounded in the returned distribution data. No additional facts, external comparisons, or inferences may be introduced.
-2. NARRATIVE MODE: ${isComparisonRequested ? 
-     "ANALYSIS MODE: The user has requested a comparison or ranking. You may compute contrasts and rank segments based ONLY on the provided rows." : 
-     "DESCRIPTION MODE: By default, describe values within each segment without ranking, comparing, or interpreting across segments. Restate what the table shows in plain language."}
+2. NARRATIVE MODE: ${isComparisonRequested ?
+      "ANALYSIS MODE: The user has requested a comparison or ranking. You may compute contrasts and rank segments based ONLY on the provided rows." :
+      "DESCRIPTION MODE: By default, describe values within each segment without ranking, comparing, or interpreting across segments. Restate what the table shows in plain language."}
 3. RESTRICTIONS: Do NOT infer causality (do not say "because"). Do NOT describe trends or implications.
 4. TRACEABILITY: All narrative statements must be traceable to specific rows in the displayed distribution. If it is not in the table, it cannot appear in the narrative.
 5. If the data is empty or NO_MATCH, state that the baseline does not contain survey data for this inquiry.
@@ -109,7 +109,7 @@ STYLE:
 
 const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
   if (!data.rows || data.rows.length === 0) return "CONTEXT: [EMPTY]";
-  
+
   if (vertical === Vertical.Baseline) {
     let ctx = "NPORS 2025 SURVEY DATA DISTRIBUTIONS:\n";
     data.rows.forEach(row => {
@@ -123,12 +123,12 @@ const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
     const nodeLabel = row.nodeType === "TREND" ? "TREND" : "SIGNAL";
     ctx += `[TYPE: ${nodeLabel}] [ID: ${row.id}] NAME: ${row.name}\n`;
     ctx += `SUMMARY: ${row.summary}\n`;
-    
+
     row.evidence.forEach(e => {
       const brandsStr = Array.isArray(e.brandNames) ? e.brandNames.join(', ') : e.brandNames;
       ctx += `- [SUB-SIGNAL ID: ${e.id}] TITLE: ${e.title} | SNIPPET: ${e.snippet} | BRANDS: ${brandsStr}\n`;
     });
-    
+
     ctx += "---\n";
   });
   return ctx;
@@ -140,22 +140,30 @@ export const generateResponse = async (
   retrievedData: RetrievalResult
 ): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    
     const contextStr = formatContext(retrievedData, vertical);
-    
     const fullPrompt = `${contextStr}\n\nUSER QUERY: ${query}`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: fullPrompt,
-      config: { 
-        systemInstruction: getSystemInstruction(vertical, retrievedData.dataStatus, query),
-        temperature: 0.0 // Set to 0.0 for maximum grounding/truthfulness
-      }
+
+    // Call backend proxy instead of direct API
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash',
+        contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+        config: {
+          systemInstruction: { parts: [{ text: getSystemInstruction(vertical, retrievedData.dataStatus, query) }] },
+          temperature: 0.0
+        }
+      })
     });
 
-    return response.text || "Synthesis Failure.";
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server Error ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "Synthesis Failure.";
   } catch (error: any) {
     console.error("Gemini Failure:", error);
     return `Intelligence Engine Error: ${error.message}`;
