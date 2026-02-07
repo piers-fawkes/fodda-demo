@@ -102,9 +102,13 @@ STEERING LOGIC:
 - If SIGNAL_MATCH: Highlight the specific edge-cases or "cool" examples found in the signals.
 
 TRACEABILITY (CRITICAL):
-1. Use Markdown Anchors for all names/titles.
-2. Format: ### [Signal Title or Brand Name](#article-ID)
-3. Trend Format: ## [Trend Name](#trend-ID)
+1. Use Markdown Anchors for all names/titles to enable clicking.
+2. NO VISIBLE IDs: Do NOT put the ID in the text. Only use it in the link target.
+   - WRONG: [Trend Name #123](#trend-123)
+   - WRONG: Trend Name [#123]
+   - CORRECT: [Trend Name](#trend-123)
+3. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
+4. Trend Link Format: ## [Trend Name](#trend-ID)
 
 STYLE:
 - Culturally relevant, slightly edgy but professional.
@@ -128,10 +132,13 @@ STEERING LOGIC:
 
 TRACEABILITY (CRITICAL):
 1. You MUST mention brands and specific initiatives using Markdown Anchors.
-2. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
-3. Trend Link Format: ## [Trend Name](#trend-ID)
-4. Use the exact IDs provided in the context (e.g., #article-7885 or #trend-5367).
-5. EVERY title in the "SUPPORTING EVIDENCE" section MUST be a H3 header with an anchor link in the format: ### [Title](#article-ID).
+2. NO VISIBLE IDs: Do NOT put the ID in the text. Only use it in the link target.
+   - WRONG: [Trend Name #123](#trend-123)
+   - CORRECT: [Trend Name](#trend-123)
+3. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
+4. Trend Link Format: ## [Trend Name](#trend-ID)
+5. Use the exact IDs provided in the context (e.g., #article-7885 or #trend-5367).
+6. EVERY title in the "SUPPORTING EVIDENCE" section MUST be a H3 header with an anchor link in the format: ### [Title](#article-ID).
 
 STYLE:
 - Professional and list-oriented.
