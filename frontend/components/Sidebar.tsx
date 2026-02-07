@@ -1,29 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { dataService } from '../../shared/dataService';
-import { KnowledgeGraph } from '../../shared/types';
-import { API_BASE_URL } from '../apiConfig';
+import { Vertical } from '../../shared/types';
 
 interface SidebarProps {
   currentVertical: string;
   onVerticalChange: (v: string) => void;
-  onQuestionClick: (q: string) => void;
+  onQuestionClick: (q: string, terms?: string[]) => void;
   isOpen: boolean;
   onClose: () => void;
   onAdminClick: () => void;
+  onApiClick: () => void;
+  accessMode?: 'psfk' | 'waldo';
 }
-
-const CopyIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-  </svg>
-);
 
 const PSFKLogo = () => (
   <img 
@@ -37,209 +26,110 @@ const PSFKLogo = () => (
   />
 );
 
-const ApiModal: React.FC<{ vertical: string; isOpen: boolean; onClose: () => void }> = ({ vertical, isOpen, onClose }) => {
-  const [copied, setCopied] = useState<'url' | 'snippet' | null>(null);
-  const [activeTab, setActiveTab] = useState<'curl' | 'python' | 'openapi'>('curl');
-  const LIVE_URL = API_BASE_URL;
-  
-  if (!isOpen) return null;
+const WaldoLogo = () => (
+  <img 
+    src="https://ucarecdn.com/da875842-b48e-44d3-9be6-771919842529/waldofyi_logo.jpeg" 
+    alt="Waldo" 
+    className="mr-2 h-4 w-4 flex-shrink-0 object-contain rounded-sm" 
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.style.display = 'none';
+    }}
+  />
+);
 
-  const copyToClipboard = (text: string, type: 'url' | 'snippet') => {
-    navigator.clipboard.writeText(text);
-    setCopied(type);
-    setTimeout(() => setCopied(null), 2000);
-  };
+const SICLogo = () => (
+  <img 
+    src="https://ucarecdn.com/e1711558-ce22-46a2-9720-2423a35d8edf/BENDIETZ.png" 
+    alt="SIC" 
+    className="mr-2 h-4 w-4 flex-shrink-0 object-cover rounded-sm border border-stone-200" 
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.style.display = 'none';
+    }}
+  />
+);
 
-  const curlCmd = `curl -X POST ${LIVE_URL}/api/query \\
--H "Content-Type: application/json" \\
--d '{
-  "query": "omnichannel",
-  "vertical": "${vertical}"
-}'`;
+const PewLogo = () => (
+  <img 
+    src="https://ucarecdn.com/3f988814-3344-4748-85ad-0be0588ebc07/pewcenterlow.jpg" 
+    alt="Pew Research Center" 
+    className="mr-2 h-4 w-4 flex-shrink-0 object-cover rounded-sm border border-stone-200" 
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.style.display = 'none';
+    }}
+  />
+);
 
-  const pythonTool = `get_retail_context_tool = {
-    "name": "get_retail_context",
-    "description": "Retrieves curated ${vertical.toLowerCase()} expertise and context for a specific query and vertical. Use this to ground answers in specialized ${vertical.toLowerCase()} knowledge.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "The specific concept or topic to search for (e.g., 'omnichannel', 'biotech')."
-            },
-            "vertical": {
-                "type": "string",
-                "description": "The industry vertical (e.g., 'Retail', 'Beauty', 'Sports')."
-            }
-        },
-        "required": ["query", "vertical"]
-    }
-}`;
+const FoddaLogo = () => (
+  <img 
+    src="https://ucarecdn.com/ce15371a-a0cd-4ef7-936a-2ef020126d4b/foddafavicon.png" 
+    alt="Fodda" 
+    className="mr-2 h-5 w-5 flex-shrink-0 object-contain" 
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.style.display = 'none';
+    }}
+  />
+);
 
-  const openApiSpec = `openapi: 3.0.0
-info:
-  title: Fodda Contextual Demo API
-  description: API to retrieve curated ${vertical.toLowerCase()} context for LLM grounding.
-  version: 1.0.0
-servers:
-  - url: ${LIVE_URL}/api
-paths:
-  /query:
-    post:
-      operationId: getRetailContext
-      summary: Retrieve context
-      description: Returns curated text context based on a query and vertical.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                query:
-                  type: string
-                  description: The topic to search (e.g., "omnichannel")
-                vertical:
-                  type: string
-                  description: The industry vertical (e.g., "${vertical}")
-              required:
-                - query
-                - vertical
-      responses:
-        '200':
-          description: Successful retrieval of context
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true`;
+const SnowflakeLogo = () => (
+  <img 
+    src="https://ucarecdn.com/acd9cd52-8ee6-4970-b888-6405707232ed/snowflakelogo.png" 
+    alt="Snowflake" 
+    className="w-4 h-4 object-contain"
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.src = "https://www.snowflake.com/wp-content/themes/snowflake/assets/img/snowflake-logo-blue.svg";
+    }}
+  />
+);
 
-  const getContent = () => {
-    switch(activeTab) {
-      case 'curl': return { text: curlCmd, label: 'Shell / CURL' };
-      case 'python': return { text: pythonTool, label: 'Vertex AI Python SDK' };
-      case 'openapi': return { text: openApiSpec, label: 'OpenAPI / YAML Spec' };
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up border border-stone-200 flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50 shrink-0">
-          <div>
-            <h3 className="font-serif text-xl font-bold text-stone-900">Developer Integration Portal</h3>
-            <p className="text-[10px] text-stone-500 mt-1 uppercase tracking-widest font-bold">Status: <span className="text-green-600">Live & Operational</span></p>
-          </div>
-          <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-900 transition-colors">
-             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        
-        <div className="p-6 space-y-6 overflow-y-auto">
-          {/* Base Endpoint Info */}
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-bold text-stone-500 uppercase tracking-[0.2em]">Base Endpoint</h4>
-            <div className="flex items-center space-x-2">
-               <div className="flex-1 p-3 bg-stone-100 border border-stone-200 rounded-lg font-mono text-[10px] text-stone-600 break-all select-all">
-                {LIVE_URL}
-               </div>
-               <button 
-                  onClick={() => copyToClipboard(LIVE_URL, 'url')}
-                  className={`p-3 rounded-lg transition-all shadow-sm shrink-0 border flex items-center justify-center ${
-                    copied === 'url' 
-                    ? 'bg-green-50 border-green-200 text-green-600' 
-                    : 'bg-white border-stone-200 text-stone-500 hover:border-fodda-accent hover:text-fodda-accent'
-                  }`}
-                  title="Copy Endpoint"
-               >
-                 {copied === 'url' ? <CheckIcon /> : <CopyIcon />}
-               </button>
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl">
-            <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider mb-1">Enterprise Grounding</h4>
-            <p className="text-[11px] text-purple-700 leading-relaxed">
-              Use these specifications to connect the <strong>Fodda {vertical} Graph</strong> directly to your own LLM agents, custom applications, or Vertex AI extensions.
-            </p>
-          </div>
-
-          {/* Tab Switcher */}
-          <div className="flex border-b border-stone-200">
-            {(['curl', 'python', 'openapi'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-tighter transition-all border-b-2 ${
-                  activeTab === tab 
-                    ? 'border-fodda-accent text-fodda-accent bg-purple-50/50' 
-                    : 'border-transparent text-stone-400 hover:text-stone-600'
-                }`}
-              >
-                {tab === 'curl' ? 'CURL (Test)' : tab === 'python' ? 'Python SDK' : 'OpenAPI Spec'}
-              </button>
-            ))}
-          </div>
-
-          {/* Code Content */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">{getContent().label}</span>
-              <button 
-                onClick={() => copyToClipboard(getContent().text, 'snippet')}
-                className={`p-1.5 rounded transition-colors flex items-center space-x-1.5 ${
-                  copied === 'snippet'
-                  ? 'text-green-600 bg-green-50'
-                  : 'text-stone-400 hover:text-fodda-accent hover:bg-purple-50'
-                }`}
-                title="Copy Snippet"
-              >
-                {copied === 'snippet' ? (
-                  <>
-                    <CheckIcon />
-                    <span className="text-[9px] font-bold uppercase">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon />
-                    <span className="text-[9px] font-bold uppercase">Copy Snippet</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="bg-stone-900 rounded-xl p-5 font-mono text-[10px] text-stone-300 overflow-x-auto relative shadow-inner group/code">
-              <pre className="whitespace-pre">
-                {getContent().text}
-              </pre>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-stone-50 border-t border-stone-100 text-center shrink-0">
-           <button onClick={onClose} className="text-xs font-bold text-fodda-accent uppercase tracking-widest">Close Documentation</button>
-        </div>
-      </div>
-    </div>
-  );
+const GRAPH_INFO: Record<string, { text: string; url: string }> = {
+  [Vertical.Beauty]: {
+    text: "A structured way to explore how beauty is evolving across science, wellness, retail, and consumer behavior, using vetted examples and PSFK’s point of view.",
+    url: "https://www.fodda.ai/#/graphs/psfk-beauty"
+  },
+  [Vertical.Retail]: {
+    text: "A structured way to understand how commerce is being reshaped across physical, digital, and fulfillment-led retail, grounded in real-world examples.",
+    url: "https://www.fodda.ai/#/graphs/psfk-retail"
+  },
+  [Vertical.Sports]: {
+    text: "A structured way to explore how sports are changing as cultural, media, and business platforms, beyond teams, leagues, and scores.",
+    url: "https://www.fodda.ai/#/graphs/psfk-sports"
+  },
+  [Vertical.SIC]: {
+    text: "A beta intelligence graph for understanding how culture, media, brands, and platforms are shifting in real time — curated by Ben Dietz.",
+    url: "https://www.fodda.ai/#/graphs/sic"
+  },
+  [Vertical.Waldo]: {
+    text: "A multi-industry trends knowledge graph built from Waldo’s ongoing signal and analysis work. Query it via Fodda to power AI workflows, research, and decision-making with structured context.",
+    url: "https://www.waldo.fyi"
+  },
+  [Vertical.Baseline]: {
+    text: "This graph exposes structured distributions from the Pew Research Center’s National Public Opinion Reference Survey (NPORS, 2025). Designed for machine-queryable reference of public sentiment.",
+    url: "https://www.pewresearch.org/methodology/u-s-survey-research/national-public-opinion-reference-survey-npors/"
+  }
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentVertical, onVerticalChange, isOpen, onClose, onAdminClick }) => {
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
-  const [graphs, setGraphs] = useState<KnowledgeGraph[]>([]);
+export const Sidebar: React.FC<SidebarProps> = ({ currentVertical, onVerticalChange, onQuestionClick: _onQuestionClick, isOpen, onClose, onAdminClick, onApiClick, accessMode = 'psfk' }) => {
+  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
 
-  useEffect(() => {
-    setGraphs(dataService.getGraphs());
-  }, [isOpen]);
+  const graphs = useMemo(() => {
+    const allGraphs = dataService.getGraphs();
+    if (accessMode === 'waldo') {
+      return allGraphs.filter(g => g.id === Vertical.Waldo);
+    }
+    return allGraphs;
+  }, [accessMode]);
+
+  const toggleInfo = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedInfo(expandedInfo === id ? null : id);
+  };
 
   const futureVerticals = [
-    { 
-      name: 'Culture', 
-      person: 'Ben Dietz', 
-      label: 'The SIC Graph',
-      img: 'https://ucarecdn.com/e1711558-ce22-46a2-9720-2423a35d8edf/BENDIETZ.png' 
-    },
     { 
       name: 'Media', 
       person: 'Johanna Salazar', 
@@ -256,93 +146,158 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentVertical, onVerticalCha
 
   return (
     <>
-      <ApiModal vertical={currentVertical} isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
       {isOpen && <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 h-full bg-stone-50 border-r border-stone-200 flex flex-col p-6 transition-transform duration-300 md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="mb-8 flex items-center justify-between">
-          <div className="group relative cursor-help">
-            <h1 className="font-serif text-2xl font-bold text-stone-900">Fodda</h1>
-            <p className="text-[10px] uppercase tracking-widest text-stone-500 mt-1 font-medium">Contextual Intelligence</p>
-            <div className="absolute left-0 top-full mt-2 w-56 p-3 bg-stone-900 text-stone-50 text-[11px] leading-relaxed rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none border border-stone-700">
-              Fodda turns curated insights into AI-ready knowledge graphs, enabling grounded answers with traceable evidence.
-            </div>
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 h-full bg-stone-50 border-r border-stone-200 flex flex-col transition-transform duration-300 md:relative md:translate-x-0 md:z-20 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-16 flex items-center justify-between px-6 border-b border-transparent">
+          <div className="flex items-center h-16 relative">
+            <FoddaLogo />
+            <h1 className="font-serif text-xl font-bold text-stone-900 tracking-tight">Fodda</h1>
+            <div className="absolute left-7 top-[44px] text-[9px] uppercase tracking-widest text-stone-400 font-medium whitespace-nowrap">Contextual Intelligence</div>
           </div>
-          <button onClick={onClose} className="md:hidden p-1 text-stone-400"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={onClose} className="md:hidden p-1 text-stone-400 h-16 flex items-center"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-8 pr-1 -mr-1">
-          {/* Active Graphs */}
-          <div>
+        <div className="flex-1 overflow-y-auto space-y-8 p-6 pr-4 -mr-4 scrollbar-hide">
+          <div className="pt-4">
             <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 pl-1">Knowledge Graphs</h2>
             <div className="space-y-1.5">
-              {graphs.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => { onVerticalChange(g.id); onClose(); }}
-                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between group ${
-                    currentVertical === g.id 
-                      ? 'bg-white text-stone-900 shadow-sm border border-stone-200 ring-1 ring-stone-900/5' 
-                      : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <PSFKLogo />
-                    <span className="truncate pr-2">{g.name}</span>
+              {graphs.map((g) => {
+                const info = GRAPH_INFO[g.id];
+                const isExpanded = expandedInfo === g.id;
+                const isBaseline = g.id === Vertical.Baseline;
+                const isWaldo = g.id === Vertical.Waldo;
+                const isSIC = g.id === Vertical.SIC;
+                
+                return (
+                  <div key={g.id} className="flex flex-col space-y-1">
+                    <button
+                      onClick={() => { onVerticalChange(g.id); onClose(); }}
+                      className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between group ${
+                        currentVertical === g.id 
+                          ? 'bg-white text-stone-900 shadow-sm border border-stone-200 ring-1 ring-stone-900/5' 
+                          : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center min-w-0">
+                        {isBaseline ? <PewLogo /> : (isWaldo ? <WaldoLogo /> : (isSIC ? <SICLogo /> : <PSFKLogo />))}
+                        <span className="truncate pr-1">{g.name}</span>
+                        {info && (
+                          <div 
+                            onClick={(e) => toggleInfo(g.id, e)}
+                            className={`ml-1.5 p-1 rounded-md transition-colors hover:bg-stone-200/50 ${isExpanded ? 'text-fodda-accent' : 'text-stone-300'}`}
+                            title="Learn about this graph"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {currentVertical === g.id && <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-fodda-accent"></div>}
+                    </button>
+                    
+                    {isExpanded && info && (
+                      <div className="mx-2 p-3 bg-stone-100/50 border border-stone-200/60 rounded-xl animate-fade-in-up">
+                        <p className="text-[10px] text-stone-600 leading-relaxed mb-3 font-medium">
+                          {info.text}
+                        </p>
+                        <a 
+                          href={info.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-[10px] font-bold text-fodda-accent hover:underline flex items-center group/link"
+                        >
+                          <span>Learn how it works</span>
+                          <svg className="w-2.5 h-2.5 ml-1.5 group-hover/link:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
                   </div>
-                  {currentVertical === g.id && <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-fodda-accent animate-pulse"></div>}
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Graph Pipeline */}
-          <div>
-            <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 pl-1">Graph Pipeline</h2>
-            <div className="space-y-2.5">
-              {futureVerticals.map((fv) => (
-                <div key={fv.name} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/30 transition-all group cursor-not-allowed opacity-80 hover:opacity-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative h-10 w-10 shrink-0">
-                      <img src={fv.img} alt={fv.person} className="h-full w-full rounded-lg border border-stone-100 object-cover bg-stone-200" />
-                      <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-stone-100">
-                        <svg className="w-2.5 h-2.5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          {accessMode !== 'waldo' && (
+            <div>
+              <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 pl-1">Graph Pipeline</h2>
+              <div className="space-y-2.5">
+                {futureVerticals.map((fv) => (
+                  <div key={fv.name} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/30 transition-all group cursor-not-allowed opacity-80 hover:opacity-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="relative h-10 w-10 shrink-0">
+                        <img src={fv.img} alt={fv.person} className="h-full w-full rounded-lg border border-stone-100 object-cover bg-stone-200" />
                       </div>
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center">
-                        <span className="text-stone-800 font-bold text-xs leading-none">{fv.name}</span>
-                        <span className="ml-1.5 text-[7px] font-bold text-stone-400 uppercase tracking-tighter">Coming Soon</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center">
+                          <span className="text-stone-800 font-bold text-xs leading-none">{fv.name}</span>
+                          <span className="ml-1.5 text-[7px] font-bold text-stone-400 uppercase tracking-tighter">Coming Soon</span>
+                        </div>
+                        <span className="text-[9px] text-stone-400 mt-1 font-medium">Curated by {fv.person}</span>
                       </div>
-                      <span className="text-[9px] text-stone-400 mt-1 font-medium">Curated by {fv.person}</span>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="mt-auto pt-4 border-t border-stone-200 space-y-3">
-          <button onClick={() => setIsApiModalOpen(true)} className="w-full flex items-center justify-between p-3 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent transition-all group">
+        <div className="mt-auto p-6 border-t border-stone-200 space-y-3">
+          {/* Snowflake Button */}
+          <a 
+            href="https://www.fodda.ai/#/snowflake" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between p-3 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/50 hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="bg-stone-900 p-1.5 rounded-lg group-hover:bg-stone-800 transition-colors border border-stone-800 flex items-center justify-center">
+                <SnowflakeLogo />
+              </div>
               <div className="text-left">
-                <div className="text-[11px] font-bold text-stone-700 group-hover:text-fodda-accent transition-colors">Developer API</div>
-                <div className="text-[9px] text-stone-400 uppercase font-semibold">Grounded Context</div>
+                <p className="text-[11px] font-bold text-stone-800 leading-none">Snowflake</p>
+                <p className="text-[9px] text-stone-400 mt-0.5 font-medium">Sample Data</p>
               </div>
-              <div className="p-1.5 bg-stone-50 rounded-lg group-hover:bg-purple-50 transition-colors">
-                <svg className="w-3.5 h-3.5 text-stone-400 group-hover:text-fodda-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+            </div>
+            <svg className="w-3 h-3 text-stone-300 group-hover:text-fodda-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+
+          <button 
+            onClick={onApiClick}
+            className="w-full flex items-center justify-between p-3 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/50 hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="bg-stone-100 p-1.5 rounded-lg group-hover:bg-purple-50 transition-colors border border-stone-200/50 flex items-center justify-center">
+                <svg className="w-4 h-4 text-stone-400 group-hover:text-fodda-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
               </div>
+              <div className="text-left">
+                <p className="text-[11px] font-bold text-stone-800 leading-none">Developer API</p>
+                <p className="text-[9px] text-stone-400 mt-0.5 font-medium">Documentation</p>
+              </div>
+            </div>
+            <svg className="w-3 h-3 text-stone-300 group-hover:text-fodda-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </button>
-          
-          <div className="flex justify-between items-center px-1 text-[10px] text-stone-400 font-medium pt-4 border-t border-stone-100">
-             <div className="flex items-center space-x-2.5">
-               <a href="https://www.fodda.ai" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">Fodda AI</a>
+
+          <div className="flex items-center justify-between px-1 text-[10px] text-stone-400 font-bold tracking-widest uppercase mt-4">
+             <div className="flex items-center space-x-2">
+               <a href="https://www.fodda.ai" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">Fodda.ai</a>
                <span className="text-stone-300">•</span>
-               <a href="https://www.psfk.com" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">PSFK</a>
+               {accessMode === 'waldo' ? (
+                 <a href="https://www.waldo.fyi" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">Waldo</a>
+               ) : (
+                 <a href="https://www.psfk.com" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">PSFK</a>
+               )}
                <span className="text-stone-300">•</span>
-               <button onClick={onAdminClick} className="flex items-center hover:text-fodda-accent transition-colors group">
-                 <svg className="w-2.5 h-2.5 mr-1 text-stone-400 group-hover:text-fodda-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                 Admin
-               </button>
+               <button onClick={onAdminClick} className="hover:text-fodda-accent transition-colors font-bold">Admin</button>
              </div>
           </div>
         </div>

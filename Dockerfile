@@ -27,4 +27,5 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Start the compiled API server
+ENV NODE_ENV=production
 CMD ["npm", "start"]

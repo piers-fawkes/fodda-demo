@@ -1,5 +1,3 @@
-te .dockerignore:
-
 node_modules
 dist
 .vite

@@ -1,45 +1,136 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { RetrievalResult, Vertical } from '../../shared/types';
+import { RetrievalResult, Vertical } from "../../shared/types";
 
-const getSystemInstruction = (vertical: Vertical): string => {
+/**
+ * Detects if the user is asking for a general list of trends.
+ * This helps prune the context to prevent timeouts for broad queries.
+ */
+const isTrendListIntent = (query: string): boolean => {
+  const q = query.toLowerCase().trim();
+  const patterns = [
+    "trends in",
+    "trends for",
+    "list of trends",
+    "top trends",
+    "what are the trends",
+    "emerging trends",
+    "current trends",
+    "show me trends",
+    "coffee trends"
+  ];
+  const isDirectTrendAsk = q.endsWith("trends") || q.endsWith("trends?");
+  const hasPattern = patterns.some(p => q.includes(p));
+  return isDirectTrendAsk || hasPattern;
+};
+
+const getBaselineSystemInstruction = (query: string): string => {
+  const comparisonKeywords = ["compare", "highest", "lowest", "most", "least", "difference", "change", "why", "explain", "better", "worse", "rank"];
+  const isComparisonRequested = comparisonKeywords.some(kw => query.toLowerCase().includes(kw));
+
   return `
-ROLE: You are the Fodda ${vertical} Intelligence Engine. 
+ROLE: You are the Fodda Reference Agent for the Public Beliefs Baseline (NPORS 2025).
 
-CONSTRAINTS:
-1. **Zero Hallucination**: Only answer using the "CONTEXT DATA" below. If context is missing, say you have no curated records for that topic.
-2. **Citations**: Link insights to the graph using these anchors:
-   - For Trends: ### [Trend Name](#trend-trendId)
-   - For Evidence: ### [Title/Brand](#article-articleId)
+TASK: Respond to the user's inquiry by summarizing the retrieved weighted distributions.
 
-STRUCTURE:
-# INSIGHT SYNTHESIS
-Summarize the key takeaways from the retrieved graph nodes.
-# GROUNDED ANALYSIS
-### [Trend Name](#trend-trendId)
-Explain this trend based strictly on the provided description.
-### [Evidence Title](#article-articleId)
-Detail how this specific article supports the trend or query.
+STRICT GROUNDING RULES:
+1. Narrative responses must be strictly grounded in the returned distribution data. No additional facts, external comparisons, or inferences may be introduced.
+2. NARRATIVE MODE: ${isComparisonRequested ? 
+     "ANALYSIS MODE: The user has requested a comparison or ranking. You may compute contrasts and rank segments based ONLY on the provided rows." : 
+     "DESCRIPTION MODE: By default, describe values within each segment without ranking, comparing, or interpreting across segments. Restate what the table shows in plain language."}
+3. RESTRICTIONS: Do NOT infer causality (do not say "because"). Do NOT describe trends or implications.
+4. TRACEABILITY: All narrative statements must be traceable to specific rows in the displayed distribution. If it is not in the table, it cannot appear in the narrative.
+5. If the data is empty or NO_MATCH, state that the baseline does not contain survey data for this inquiry.
 
-TONE: Factual, professional, no jargon.
+STYLE:
+- Professional, clinical, and conservative.
+- Natural language paragraphs only.
+- Do not use markdown headers or tables in the response body.
+- End with: "Detailed distribution data is available in the Method & Source panel."
 `;
 };
 
-const formatContext = (data: RetrievalResult): string => {
-  if (!data.ok || data.rows.length === 0) {
-    return "CONTEXT DATA: [EMPTY]. No matching records in the Fodda Knowledge Graph.";
+const getSystemInstruction = (vertical: Vertical, dataStatus: string, query: string): string => {
+  if (vertical === Vertical.Baseline) return getBaselineSystemInstruction(query);
+
+  const isTrendList = isTrendListIntent(query);
+
+  if (isTrendList) {
+    return `
+ROLE: You are the Fodda Skeptical Analyst (Vertical: ${vertical}).
+MODE: ZERO-HALLUCINATION TREND LIST
+
+TASK: List trends related to: "${query}".
+
+STRICT ANALYTICAL RULES:
+1. DO NOT INVENT CONNECTIONS. Your goal is accuracy, not "pleasing" the user with a matching list.
+2. EVIDENCE CHECK: You may only claim a connection to "${query}" if the word "${query}" or a direct synonym appears EXPLICITLY in the [TYPE: TREND] summary or its [SUB-SIGNAL] snippets.
+3. HOW TO HANDLE NON-MATCHES:
+   - If the trend summary or snippets MENTION the query: Describe the specific application found in the data.
+   - If the trend is loosely related (e.g. a general "Food" trend for a "Coffee" query) but DOES NOT mention the query word: Label it as "Broad Industry Context" and explain the general innovation without claiming the topic is a core part of the trend.
+   - If no reasonable bridge exists in the text: EXCLUDE THE TREND.
+4. OUTPUT FORMAT:
+   - ## [Trend Name](#trend-ID)
+   - [One sentence stating the explicit evidence found, or marking it as Broad Industry Context].
+5. If no trends meet these criteria, state: "The graph has identified several broad trends in this vertical, but none explicitly mention '${query}' in their curated summaries."
+
+STYLE:
+- Factual, dry, and conservative.
+- Avoid marketing fluff.
+- End with: "Click a trend name to view supporting evidence in the panel, or ask a follow-up about any specific area above."
+`;
   }
+
+  return `
+ROLE: You are the Fodda Contextual Intelligence Engine (Vertical: ${vertical}).
+
+STRICT GROUNDING RULE:
+Use the provided Knowledge Graph context ONLY. Do not use external knowledge. DO NOT hallucinate connections to satisfy the user query if they are not explicitly in the data.
+
+API STATUS: ${dataStatus}
+
+STEERING LOGIC:
+- If TREND_MATCH: Focus on established strategic patterns. Synthesize how multiple signals support these defined trends.
+- If HYBRID_MATCH: Frame established Trend context first, then highlight "High-Velocity Signals" (Articles) currently expanding that trend.
+- If SIGNAL_MATCH: Focus on raw discovery. Identify commonalities between disparate examples and name them as "Emerging Themes".
+
+TRACEABILITY (CRITICAL):
+1. You MUST mention brands and specific initiatives using Markdown Anchors.
+2. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
+3. Trend Link Format: ## [Trend Name](#trend-ID)
+4. Use the exact IDs provided in the context (e.g., #article-7885 or #trend-5367).
+5. EVERY title in the "SUPPORTING EVIDENCE" section MUST be a H3 header with an anchor link in the format: ### [Title](#article-ID).
+
+STYLE:
+- Professional and list-oriented.
+- Temperature is 0.0: Stick only to the provided facts.
+`;
+};
+
+const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
+  if (!data.rows || data.rows.length === 0) return "CONTEXT: [EMPTY]";
   
-  let ctx = "CONTEXT DATA (From Fodda Graph):\n\n";
-  data.rows.forEach(row => {
-    ctx += `TREND: ${row.trendName} (ID: ${row.trendId})\n`;
-    ctx += `DESCRIPTION: ${row.trendDescription}\n`;
-    ctx += `EVIDENCE:\n`;
-    row.evidence.forEach(a => {
-      ctx += `- [${a.articleId}] ${a.title} (Source: ${a.sourceUrl})\n`;
+  if (vertical === Vertical.Baseline) {
+    let ctx = "NPORS 2025 SURVEY DATA DISTRIBUTIONS:\n";
+    data.rows.forEach(row => {
+      ctx += `Segment: ${row.name} | Distribution: ${row.summary}\n`;
     });
-    ctx += `---\n`;
+    return ctx;
+  }
+
+  let ctx = `DATA_STATUS: ${data.dataStatus}\nSEARCH_QUERY: ${data.termsUsed?.join(', ')}\n\nRETRIEVED KNOWLEDGE GRAPH NODES:\n`;
+  data.rows.forEach(row => {
+    const nodeLabel = row.nodeType === "TREND" ? "TREND" : "SIGNAL";
+    ctx += `[TYPE: ${nodeLabel}] [ID: ${row.id}] NAME: ${row.name}\n`;
+    ctx += `SUMMARY: ${row.summary}\n`;
+    
+    row.evidence.forEach(e => {
+      const brandsStr = Array.isArray(e.brandNames) ? e.brandNames.join(', ') : e.brandNames;
+      ctx += `- [SUB-SIGNAL ID: ${e.id}] TITLE: ${e.title} | SNIPPET: ${e.snippet} | BRANDS: ${brandsStr}\n`;
+    });
+    
+    ctx += "---\n";
   });
-  
   return ctx;
 };
 
@@ -49,21 +140,24 @@ export const generateResponse = async (
   retrievedData: RetrievalResult
 ): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `${formatContext(retrievedData)}\n\nUSER QUERY: ${query}`;
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    const contextStr = formatContext(retrievedData, vertical);
+    
+    const fullPrompt = `${contextStr}\n\nUSER QUERY: ${query}`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: fullPrompt,
       config: { 
-        systemInstruction: getSystemInstruction(vertical),
-        temperature: 0.0,
+        systemInstruction: getSystemInstruction(vertical, retrievedData.dataStatus, query),
+        temperature: 0.0 // Set to 0.0 for maximum grounding/truthfulness
       }
     });
-    
-    return response.text || "No synthesis available for the provided query.";
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    return "The intelligence engine encountered an error. Please check your data connectivity.";
+
+    return response.text || "Synthesis Failure.";
+  } catch (error: any) {
+    console.error("Gemini Failure:", error);
+    return `Intelligence Engine Error: ${error.message}`;
   }
 };

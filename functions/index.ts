@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import neo4j, { Driver, Session } from "neo4j-driver";
+import neo4j, { Driver, Session, QueryResult } from "neo4j-driver";
 import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -225,8 +225,8 @@ function decideCoverage(
     matchedTerms.length === 0
       ? "REFUSE"
       : coverageRatio < 0.5
-      ? "ANSWER_WITH_CAVEATS"
-      : "ANSWER";
+        ? "ANSWER_WITH_CAVEATS"
+        : "ANSWER";
 
   return { requiredTerms, matchedTerms, coverageRatio, decision };
 }
@@ -363,11 +363,11 @@ app.post("/api/query", async (req, res) => {
   const limit = clampInt(req.body?.limit, 10, 1, limitMax);
 
   const graphIdRaw = String(req.body?.graphId ?? "").trim();
-const graphId = graphIdRaw ? graphIdRaw.toLowerCase() : null;
+  const graphId = graphIdRaw ? graphIdRaw.toLowerCase() : null;
 
-// Default graph for early demo safety.
-// This prevents Waldo trends from leaking into PSFK queries.
-const effectiveGraphId = graphId ?? (vertical === "baseline" ? "pew" : "psfk");
+  // Default graph for early demo safety.
+  // This prevents Waldo trends from leaking into PSFK queries.
+  const effectiveGraphId = graphId ?? (vertical === "baseline" ? "pew" : "psfk");
 
   const trendIdRaw = coalesce(req.body?.trendId, req.body?.contextTrendId, null);
   const trendId =
@@ -376,6 +376,7 @@ const effectiveGraphId = graphId ?? (vertical === "baseline" ? "pew" : "psfk");
       : String(trendIdRaw).trim();
 
   let session: Session | null = null;
+  let result: QueryResult;
 
   try {
     const d = getDriver();
@@ -434,13 +435,13 @@ const effectiveGraphId = graphId ?? (vertical === "baseline" ? "pew" : "psfk");
         LIMIT toInteger($limit)
       `;
 
-const result = await session.run(baselineCypher, {
-  questionId,
-  segmentType,
-  excludeBlank,
-  limit,
-  graphId: effectiveGraphId,
-});
+      result = await session.run(baselineCypher, {
+        questionId,
+        segmentType,
+        excludeBlank,
+        limit,
+        graphId: effectiveGraphId,
+      });
 
       const rows = result.records.map((rec) => {
         const answerLabel = toStr(rec.get("answerLabel"));
@@ -548,7 +549,7 @@ const result = await session.run(baselineCypher, {
   LIMIT toInteger($limit)
 `;
 
-const articleFallbackCypher = `
+    const articleFallbackCypher = `
   WITH $terms AS terms, $vertical AS vertical, $graphId AS graphId
   MATCH (a:Article)
   OPTIONAL MATCH (a)-[:EVIDENCE_FOR|:IS_CASE_STUDY_OF]->(t:Trend)
@@ -599,13 +600,13 @@ const articleFallbackCypher = `
     coalesce(a.vertical, t.vertical, "") AS inferredVertical
 `;
     // Trend-first
-result = await session.run(trendCypher, {
-  terms,
-  vertical,
-  limit,
-  tId: trendId,
-  graphId: effectiveGraphId,
-});
+    result = await session.run(trendCypher, {
+      terms,
+      vertical,
+      limit,
+      tId: trendId,
+      graphId: effectiveGraphId,
+    });
 
     let rows = result.records.map((rec) => {
       const evidenceList = (rec.get("evidenceList") || []) as any[];
@@ -650,8 +651,8 @@ result = await session.run(trendCypher, {
     if (rows.length === 0 || !hasAnyEvidence) {
       dataStatus = "SIGNAL_MATCH";
 
-result = await session.run(articleFallbackCypher, { terms, vertical, limit, graphId: effectiveGraphId });
-      
+      result = await session.run(articleFallbackCypher, { terms, vertical, limit, graphId: effectiveGraphId });
+
       rows = result.records.map((rec) => {
         const evidenceList = (rec.get("evidenceList") || []) as any[];
         const brands = (rec.get("brands") || []) as string[];
@@ -762,7 +763,7 @@ result = await session.run(articleFallbackCypher, { terms, vertical, limit, grap
 app.post("/api/brand/evidence", async (req, res) => {
   const brandsRaw = req.body?.brands;
   const brands: string[] = Array.isArray(brandsRaw)
-    ? brandsRaw.map((b: any) => String(b).trim().filter(Boolean))
+    ? brandsRaw.map((b: any) => String(b).trim()).filter((b: string) => b.length > 0)
     : [];
 
   const vertical = normalizeVertical(req.body?.vertical);
@@ -883,6 +884,16 @@ app.get("/openapi/fodda-vertex-tool.yaml", (_req, res) => {
  */
 app.post("/api/log", (_req, res) => {
   res.json({ ok: true });
+});
+
+// Serve static files from the build directory (one level up from functions/)
+// In production: dist/functions/index.js -> dist/
+const clientBuildPath = path.join(__dirname, "../");
+app.use(express.static(clientBuildPath));
+
+// Handle client-side routing by returning index.html for all other routes
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(clientBuildPath, "index.html"));
 });
 
 /**
