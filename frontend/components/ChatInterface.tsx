@@ -30,24 +30,28 @@ const StaggeredMessageContent: React.FC<{
       <h1 className="font-sans text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.3em] mt-4 mb-1.5 border-b border-zinc-800 pb-1" {...props} />
     ),
     h2: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<'h2'> & { node?: any }) => (
-      <h2 className="font-sans text-[17px] font-bold text-white tracking-tight mt-6 mb-2 leading-snug block last:mb-0" {...props} />
+      <h2 className="font-serif text-[18px] font-bold text-white tracking-tight mt-6 mb-2 leading-snug block last:mb-0" {...props} />
     ),
     h3: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<'h3'> & { node?: any }) => (
-      <h3 className="font-sans text-[14px] font-semibold text-zinc-100 tracking-tight mt-4 mb-1.5 leading-snug block last:mb-0" {...props} />
+      <h3 className="font-serif text-[15px] font-semibold text-zinc-100 tracking-tight mt-4 mb-1.5 leading-snug block last:mb-0" {...props} />
     ),
     a: ({ node: _node, href, children, ...props }: React.ComponentPropsWithoutRef<'a'> & { node?: any }) => {
-      if (href?.includes('#')) {
-        const hash = href.split('#').pop() || '';
+      if (!href) return <span className="text-fodda-accent underline font-medium" {...props}>{children}</span>;
+
+      const isAnchor = href.startsWith('#') || href.startsWith('trend-') || href.startsWith('article-');
+
+      if (isAnchor) {
+        const hash = href.replace(/^#/, '');
         let type: 'trend' | 'article' = 'article';
         let id = hash;
 
         const lowerHash = hash.toLowerCase();
         if (lowerHash.startsWith('trend-')) {
           type = 'trend';
-          id = hash.split('-').slice(1).join('-'); // Handle IDs containing hyphens
+          id = hash.split('-').slice(1).join('-');
         } else if (lowerHash.startsWith('article-')) {
           type = 'article';
-          id = hash.split('-').slice(1).join('-'); // Handle IDs containing hyphens
+          id = hash.split('-').slice(1).join('-');
         }
 
         const textContent = React.Children.toArray(children).join('');
@@ -58,7 +62,7 @@ const StaggeredMessageContent: React.FC<{
               e.preventDefault();
               onAnchorClick?.(messageId, type, id, textContent);
             }}
-            className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-transparent"
+            className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-transparent font-medium"
           >
             <span className="leading-none">{children}</span>
             <svg className="w-2.5 h-2.5 ml-0.5 opacity-40 group-hover/link:opacity-100 transform group-hover/link:translate-x-0.5 transition-all text-fodda-accent shrink-0 relative top-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,21 +75,21 @@ const StaggeredMessageContent: React.FC<{
     },
     code: ({ node: _node, inline: _inline, className: _className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { node?: any, inline?: boolean }) => {
       const content = String(children).trim();
-      // Check for markdown link pattern: [Title](#id) using regex
-      const linkMatch = content.match(/\[(.*?)\]\(#(.*?)\)/);
+      // Check for markdown link pattern: [Title](#id) or [Title](id) using regex
+      const linkMatch = content.match(/\[(.*?)\]\((#?)(.*?)\)/);
 
       if (linkMatch) {
-        const [_, text, hash] = linkMatch;
+        const [_, text, hashPrefix, hash] = linkMatch;
         let type: 'trend' | 'article' = 'article';
         let id = hash;
 
         const lowerHash = hash.toLowerCase();
         if (lowerHash.startsWith('trend-')) {
           type = 'trend';
-          id = hash.substring(6);
+          id = hash.split('-').slice(1).join('-');
         } else if (lowerHash.startsWith('article-')) {
           type = 'article';
-          id = hash.substring(8);
+          id = hash.split('-').slice(1).join('-');
         }
 
         // Clean up text if it starts with ## or similar artifacts
@@ -98,7 +102,7 @@ const StaggeredMessageContent: React.FC<{
                 e.preventDefault();
                 onAnchorClick?.(messageId, type, id, cleanText);
               }}
-              className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-white/10"
+              className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-transparent font-medium"
             >
               <span className="leading-none">{cleanText}</span>
               <svg className="w-2.5 h-2.5 ml-0.5 opacity-40 group-hover/link:opacity-100 transform group-hover/link:translate-x-0.5 transition-all text-fodda-accent shrink-0 relative top-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +131,7 @@ const StaggeredMessageContent: React.FC<{
             prose-ul:my-2 prose-ul:pl-4
             prose-strong:text-white prose-strong:font-semibold 
             marker:text-zinc-600
-            prose-headings:text-white">
+            prose-headings:text-white prose-headings:font-serif">
             <ReactMarkdown components={markdownComponents}>
               {section}
             </ReactMarkdown>

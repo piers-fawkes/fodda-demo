@@ -95,7 +95,7 @@ export const ContextChips: React.FC<ContextChipsProps> = ({
                         {isAccountLocked ? <LockIcon /> : <UnlockIcon />}
                     </button>
 
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400 shrink-0 select-none">Account</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400 shrink-0 select-none">Account Context</span>
 
                     {editing === 'account' ? (
                         <input
@@ -139,7 +139,7 @@ export const ContextChips: React.FC<ContextChipsProps> = ({
                         {isUserLocked ? <LockIcon /> : <UnlockIcon />}
                     </button>
 
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400 shrink-0 select-none">User</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400 shrink-0 select-none">User Context</span>
 
                     {editing === 'user' ? (
                         <input

@@ -503,13 +503,13 @@ class DataService {
     }
 
     const rows: RetrievedRow[] = response.rows.map((r) => {
-      const rowId = String(r.trendId || r.articleId || r.rowId || r.id || "");
+      const rowId = String(r.trendId || r.articleId || r.rowId || r.id || "").replace(/^(trend-|article-)/, '');
       const name = String(r.rowName || r.name || "");
       const summary = String(r.rowSummary || r.summary || "");
       const rawEvidence = r.evidence || r.processedEvidence || r.evidenceList || [];
 
       const mappedEvidence: Article[] = (Array.isArray(rawEvidence) ? rawEvidence : []).map((e: any) => ({
-        id: String(e?.articleId || e?.id || e?.article_id || e?.recordId || ""),
+        id: String(e?.articleId || e?.id || e?.article_id || e?.recordId || "").replace(/^(trend-|article-)/, ''),
         articleId: e?.articleId,
         title: String(e?.title || e?.articleTitle || "Source Signal"),
         sourceUrl: String(e?.sourceUrl || e?.url || e?.link || e?.source_url || e?.article_url || e?.external_url || e?.original_url || "#"),

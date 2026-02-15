@@ -15,6 +15,8 @@ interface SidebarProps {
   onDashboardClick: () => void;
   onDevModeClick: () => void;
   accessMode?: 'psfk' | 'waldo';
+  isMcpMode: boolean;
+  onToggleMcpMode: () => void;
 }
 
 // Logo Components (sized for rail)
@@ -44,7 +46,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeterministicClick,
   onDashboardClick,
   onDevModeClick,
-  accessMode = 'psfk'
+  accessMode = 'psfk',
+  isMcpMode,
+  onToggleMcpMode
 }) => {
   /* Removed unused isHovered state */
 
@@ -175,6 +179,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         </div>
 
+        {/* Mode Toggle */}
+        <div className="px-2 py-3 bg-zinc-900 border-t border-white/5 space-y-2">
+          <div className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider px-1">Test Mode</div>
+          <div className="flex bg-black rounded-lg p-1 border border-zinc-800">
+            <button
+              onClick={() => isMcpMode && onToggleMcpMode()}
+              className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase tracking-wider ${!isMcpMode ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              API
+            </button>
+            <button
+              onClick={() => !isMcpMode && onToggleMcpMode()}
+              className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase tracking-wider ${isMcpMode ? 'bg-purple-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              MCP
+            </button>
+          </div>
+        </div>
+
         {/* Bottom Actions */}
         <div className="p-2 border-t border-white/5 space-y-0.5 bg-black pb-safe md:pb-2">
           <button onClick={() => window.open('https://app.fodda.ai/#/knowledge-graphs', '_blank')} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
@@ -207,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-      </div>
+      </div >
     </>
   );
 };

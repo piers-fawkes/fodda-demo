@@ -28,6 +28,32 @@ const isTrendListIntent = (query: string): boolean => {
   return isDirectTrendAsk || hasPattern;
 };
 
+/**
+ * Extracts the core topic from a "trends in..." query
+ */
+const extractTopic = (query: string): string => {
+  const q = query.toLowerCase().trim();
+  const patterns = [
+    "trends in",
+    "trends for",
+    "list of trends",
+    "top trends",
+    "what are the trends",
+    "emerging trends",
+    "current trends",
+    "show me trends",
+  ];
+
+  let topic = q;
+  for (const p of patterns) {
+    if (topic.includes(p)) {
+      topic = topic.replace(p, "").trim();
+      break;
+    }
+  }
+  return topic;
+};
+
 const getBaselineSystemInstruction = (query: string): string => {
   const comparisonKeywords = ["compare", "highest", "lowest", "most", "least", "difference", "change", "why", "explain", "better", "worse", "rank"];
   const isComparisonRequested = comparisonKeywords.some(kw => query.toLowerCase().includes(kw));
@@ -61,32 +87,30 @@ const getSystemInstruction = (vertical: Vertical, dataStatus: string, query: str
 
   if (isTrendList) {
     return `
-ROLE: You are the Fodda Skeptical Analyst (Vertical: ${vertical}).
-MODE: ZERO-HALLUCINATION TREND LIST
+ROLE: You are the Fodda Insight Analyst (Vertical: ${vertical}).
+MODE: TOPIC SYNTHESIS
 
-TASK: List trends related to: "${query}".
+TASK: Synthesize trends and innovation signals related to: "${extractTopic(query)}".
 
-STRICT ANALYTICAL RULES:
-1. DO NOT INVENT CONNECTIONS. Your goal is accuracy, not "pleasing" the user with a matching list.
-2. EVIDENCE CHECK: You may only claim a connection to "${query}" if the word "${query}" or a direct synonym appears EXPLICITLY in the [TYPE: TREND] summary or its [SUB-SIGNAL] snippets.
-3. HOW TO HANDLE NON-MATCHES:
-   - If the trend summary or snippets MENTION the query: Describe the specific application found in the data.
-   - If the trend is loosely related (e.g. a general "Food" trend for a "Coffee" query) but DOES NOT mention the query word: Label it as "Broad Industry Context" and explain the general innovation without claiming the topic is a core part of the trend.
-   - If no reasonable bridge exists in the text: EXCLUDE THE TREND.
+ANALYTICAL RULES:
+1. GROUNDING: Claim a connection to the topic if the topic word, plural/singular forms, or direct synonyms/related concepts appear in the [TYPE: TREND] summary or its [SUB-SIGNAL] snippets.
+2. BE INCLUSIVE BUT ACCURATE: Your goal is to provide a helpful overview of the subject in the context of the retrieved graph data. 
+3. HOW TO HANDLE DIFFERENT MATCH TYPES:
+   - DIRECT MATCHES: Describe the specific pattern/innovation found.
+   - RELATED/EMERGING: Present Signals (Articles) as "Emerging Innovation Examples" and explain how they relate to the topic.
+   - CONTEXTUAL: If the connection is conceptual, explain the link clearly.
+   - NO MATCH: If a node is truly irrelevant to the industry context of the query, exclude it.
 4. OUTPUT FORMAT:
-   - ## [Trend Name](#trend-ID)
-   - [One sentence stating the explicit evidence found, or marking it as Broad Industry Context].
-5. If no trends meet these criteria, state: "The graph has identified several broad trends in this vertical, but none explicitly mention '${query}' in their curated summaries."
+   - ## [Name](#id)
+   - [Brief explanation of the trend/signal in relation to the query].
+5. FALLBACK: If the data is empty or entirely unrelated, state that the graph has broad context in this vertical but lacks specific nodes for "${extractTopic(query)}" at this time.
 
 STYLE:
-- **PREMIUM FORMATTING**: Use \`## [Trend Name](#trend-ID)\` for every trend header.
-- **Tone**: Factual, dry, and conservative.
-- **Tone**: Factual, dry, and conservative.
-- **Structure**: Break up text with paragraph breaks.
-- **EXAMPLE**:
-  ## [Trend Name](#trend-ID)
-  Insight about the trend... (Do not repeat title)
-- End with: "Click a trend name to view supporting evidence in the panel, or ask a follow-up about any specific area above."
+- **PREMIUM FORMATTING**: Use \`## [Name](#id)\` for every header.
+- **HASH PREFIX**: You MUST include the '#' character in all internal links (e.g. #trend-abc).
+- **Tone**: Insightful, professional, and helpful.
+- **Structure**: Break up text into readable paragraphs.
+- End with: "Click a name to view supporting evidence in the panel, or ask a follow-up about any specific area above."
 `;
   }
 
@@ -109,6 +133,7 @@ CLEAN HIERARCHY RULES:
 TRACEABILITY:
 - Use Markdown Anchors for ALL names/titles.
 - NO VISIBLE IDs: [Name](#id) only.
+- **HASH PREFIX**: You MUST include the '#' character in all internal links (e.g. #trend-abc).
 
 STYLE:
 - Observant, culturally literate, and forward-looking.
@@ -141,7 +166,8 @@ CLEAN HIERARCHY RULES:
 
 TRACEABILITY & LINKING (CRITICAL):
 - EVERY trend and signal title MUST be a header with a Markdown Anchor link: [Title](#id).
-- USE THE EXACT ID PROVIDED IN THE CONTEXT (e.g. #trend-123 or #article-456). Do not strip prefixes.
+- USE THE EXACT ID PROVIDED IN THE CONTEXT INCLUDING THE PREFIX (e.g. #trend-123 or #article-456).
+- **HASH PREFIX**: You MUST include the '#' character in all internal links (e.g. \`#trend-...\`, NOT \`trend-...\`).
 - **INLINE LINKS**: You MUST also link the Signal/Brand Name within the description paragraph (e.g. "The [Brand](#article-123) platform allows...") to ensure maximum clickability.
 
 STYLE:

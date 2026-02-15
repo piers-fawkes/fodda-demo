@@ -128,6 +128,10 @@ const STOPWORDS = new Set([
   "into",
   "within",
   "through",
+  "up",
+  "ups",
+  "trend",
+  "trends",
   "using",
   "alongside",
   "activity",
@@ -136,6 +140,10 @@ const STOPWORDS = new Set([
   "signals",
   "brand",
   "brands",
+  "up",
+  "trends",
+  "trend",
+  "into",
 ]);
 
 const GEO_TERMS = new Set(["jordan", "jordanian", "amman", "aqaba", "middle east", "mena"]);
@@ -259,7 +267,9 @@ function tokenize(q: string[] | string): string[] {
   const cleanQ = String(queryStr ?? "")
     .toLowerCase()
     .replace(/[’']/g, "'")
-    .replace(/[^a-z0-9\s-]/g, " ")
+    // Treat hyphens and slashes as spaces to improve matching for compound words like "pop-up"
+    .replace(/[-/]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -272,6 +282,11 @@ function tokenize(q: string[] | string): string[] {
     if (t.length < 2) continue;
     if (STOPWORDS.has(t)) continue;
     resultTerms.add(t);
+
+    // Support "popups" -> "pop" and "up" (if not stopword) or just "pop"
+    if (t === "popups" || t === "popup") {
+      resultTerms.add("pop");
+    }
   }
 
   return Array.from(resultTerms).slice(0, 40);
@@ -519,8 +534,9 @@ app.post("/api/query", async (req, res) => {
       (tId IS NOT NULL AND (toString(n.trendId) = toString(tId) OR toString(n.id) = toString(tId)))
       OR
       (size(terms) > 0 AND any(term IN terms WHERE
-        toLower(coalesce(n.trendName,"")) CONTAINS term OR
-        toLower(coalesce(n.trendDescription,"")) CONTAINS term
+        (size(term) > 3 AND (toLower(coalesce(n.trendName,"")) CONTAINS term OR toLower(coalesce(n.trendDescription,"")) CONTAINS term))
+        OR
+        (size(term) <= 3 AND (toLower(coalesce(n.trendName,"")) =~ ("(?i).*\\b" + term + "\\b.*") OR toLower(coalesce(n.trendDescription,"")) =~ ("(?i).*\\b" + term + "\\b.*")))
       ))
     )
 
@@ -568,19 +584,28 @@ app.post("/api/query", async (req, res) => {
       OR tV CONTAINS vertical
     )
     AND any(term IN terms WHERE
-      toLower(coalesce(a.title,"")) CONTAINS term OR
-      toLower(coalesce(a.summary,"")) CONTAINS term OR
-      toLower(coalesce(a.snippet,"")) CONTAINS term OR
-      toLower(coalesce(a.excerpt,"")) CONTAINS term
+      (size(term) > 3 AND (
+        toLower(coalesce(a.title,"")) CONTAINS term OR
+        toLower(coalesce(a.summary,"")) CONTAINS term OR
+        toLower(coalesce(a.snippet,"")) CONTAINS term OR
+        toLower(coalesce(a.excerpt,"")) CONTAINS term
+      )) OR
+      (size(term) <= 3 AND (
+        toLower(coalesce(a.title,"")) =~ ("(?i).*\\b" + term + "\\b.*") OR
+        toLower(coalesce(a.summary,"")) =~ ("(?i).*\\b" + term + "\\b.*") OR
+        toLower(coalesce(a.snippet,"")) =~ ("(?i).*\\b" + term + "\\b.*") OR
+        toLower(coalesce(a.excerpt,"")) =~ ("(?i).*\\b" + term + "\\b.*")
+      ))
     )
 
   WITH a, t,
        REDUCE(score = 0, term IN $terms |
          score +
-         CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 100 ELSE 0 END +
-         CASE WHEN toLower(coalesce(a.summary,"")) CONTAINS term THEN 30  ELSE 0 END +
-         CASE WHEN toLower(coalesce(a.snippet,"")) CONTAINS term THEN 20  ELSE 0 END +
-         CASE WHEN toLower(coalesce(a.excerpt,"")) CONTAINS term THEN 10  ELSE 0 END
+         CASE WHEN toLower(coalesce(a.title,""))   =~ ("(?i).*\\b" + term + "\\b.*") THEN 100 ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.title,""))   CONTAINS term THEN 20 ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.summary,"")) =~ ("(?i).*\\b" + term + "\\b.*") THEN 30  ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.snippet,"")) =~ ("(?i).*\\b" + term + "\\b.*") THEN 20  ELSE 0 END +
+         CASE WHEN toLower(coalesce(a.excerpt,"")) =~ ("(?i).*\\b" + term + "\\b.*") THEN 10  ELSE 0 END
        ) AS relevance
 
   ORDER BY relevance DESC, coalesce(a.publishedAt, "") DESC

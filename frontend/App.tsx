@@ -57,9 +57,7 @@ const App: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [highlightedItem, setHighlightedItem] = useState<{ type: 'trend' | 'article', id: string } | null>(null);
 
-  // Comparison State
-  const [comparisonStatus, setComparisonStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
-  const [comparisonResults, setComparisonResults] = useState<{ direct: any; mcp: any } | null>(null);
+
 
   // Initialize Dynamic Discovery for filters
   // Initialize Dynamic Discovery for filters
@@ -104,13 +102,26 @@ const App: React.FC = () => {
         }
       }
 
-      // 2. Fallback to SessionStorage (Legacy/Tab-specific safety)
-      const storedUser = sessionStorage.getItem('fodda_user');
-      const storedAccount = sessionStorage.getItem('fodda_account');
-      const unlocked = sessionStorage.getItem('fodda_unlocked') === 'true';
+      // Restore Session from LocalStorage (with expiry check)
+      const storedUser = localStorage.getItem('fodda_user');
+      const storedAccount = localStorage.getItem('fodda_account');
+      const storedExpiry = localStorage.getItem('fodda_session_expiry');
+      const unlocked = localStorage.getItem('fodda_unlocked') === 'true';
+
+      // Check Expiry
+      const now = Date.now();
+      if (storedExpiry && parseInt(storedExpiry) < now) {
+        console.log("[App] Session Expired. Clearing storage.");
+        localStorage.removeItem('fodda_user');
+        localStorage.removeItem('fodda_account');
+        localStorage.removeItem('fodda_unlocked');
+        localStorage.removeItem('fodda_session_expiry');
+        // Force Login
+        return;
+      }
 
       if (unlocked && storedUser && storedAccount) {
-        console.log("[App] Restoring legacy unlocked session.");
+        console.log("[App] Restoring unlocked session for user:", JSON.parse(storedUser).email);
         const user = JSON.parse(storedUser);
         const account = JSON.parse(storedAccount);
         setCurrentUser(user);
@@ -140,13 +151,14 @@ const App: React.FC = () => {
     localStorage.setItem('fodda.apiKey', demoApiKey);
   }, [demoApiKey]);
 
-  // UI State Reset on Vertical Switch (Fix for evidence contamination)
+  // UI State Reset on Vertical/Mode Switch (Fix for evidence contamination & chat refresh)
   useEffect(() => {
     setMessages([]);
     setInputValue('');
     setHighlightedItem(null);
     setIsEvidenceOpen(false); // Close drawer to prevent showing stale data
-  }, [currentVertical, accessMode]);
+    setApiTransaction(null);
+  }, [currentVertical, accessMode, isMcpMode]);
 
   // Enforce Auth Policy Dynamically
   useEffect(() => {
@@ -171,10 +183,13 @@ const App: React.FC = () => {
       localStorage.setItem('fodda.userId', auth.user.userName);
     }
 
-    console.log("[App] Saving to sessionStorage...");
-    sessionStorage.setItem('fodda_unlocked', 'true');
-    sessionStorage.setItem('fodda_user', JSON.stringify(auth.user));
-    sessionStorage.setItem('fodda_account', JSON.stringify(auth.account));
+    console.log("[App] Saving to localStorage with 24h expiry...");
+    localStorage.setItem('fodda_unlocked', 'true');
+    localStorage.setItem('fodda_user', JSON.stringify(auth.user));
+    localStorage.setItem('fodda_account', JSON.stringify(auth.account));
+    // Set Expiry: 24 hours from now
+    const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
+    localStorage.setItem('fodda_session_expiry', expiryTime.toString());
 
     // Save Persistent Session Token based on Policy
     if (auth.sessionToken) {
@@ -450,58 +465,7 @@ const App: React.FC = () => {
     }
   }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId, inferBaselineQuestion]);
 
-  const handleCompareModes = async () => {
-    if (!apiTransaction?.request) return;
-    setComparisonStatus('running');
-    setComparisonResults(null);
 
-    try {
-      const payload = apiTransaction.request;
-      // We need to re-construct the args for retrieve. 
-      // payload has q, vertical, graphId etc.
-      // logic in dataService.retrieve builds payload, so we can't just pass payload back to retrieve easily 
-      // WITHOUT refactoring dataService to accept a raw payload or extracting args.
-      // BUT dataService.semanticSearch / postJson can take raw payload?
-      // Actually `retrieve` builds the payload.
-      // We can use the text `q` from the payload and the vertical/options.
-
-      const q = payload.q;
-      const vertical = payload.vertical; // Note: dataService converts this to apiVertical (e.g. 'general').
-      // If we use the original App state `currentVertical`, it's safer.
-
-      const manualTerms = payload.terms;
-
-      // Tracking Info
-      const trackingInfo = {
-        userId,
-        apiKey: currentAccount?.apiKey || '',
-        userContext,
-        accountContext
-      };
-
-      // 1. Run Direct
-      console.log("[App] Starting Comparison: Direct");
-      const directRes = await dataService.retrieve(q, currentVertical, 40, { manualTerms }, trackingInfo, 'direct');
-
-      // 2. Run MCP
-      console.log("[App] Starting Comparison: MCP");
-      const mcpRes = await dataService.retrieve(q, currentVertical, 40, { manualTerms }, trackingInfo, 'mcp');
-
-      // 3. Set Results
-      // We want the RAW envelope which we hacked into ._rawEnvelope in debug.response
-      // dataService.retrieve returns RetrievalResult, where debug.response is the raw envelope (if we fixed dataService correctly).
-
-      setComparisonResults({
-        direct: directRes.debug?.response,
-        mcp: mcpRes.debug?.response
-      });
-      setComparisonStatus('success');
-
-    } catch (e) {
-      console.error("[App] Comparison Failed", e);
-      setComparisonStatus('error');
-    }
-  };
 
   const handleVerticalChange = (newVertical: string) => {
     const v = newVertical as Vertical;
@@ -577,10 +541,6 @@ const App: React.FC = () => {
         transaction={apiTransaction}
         isMcpMode={isMcpMode}
         onToggleMcpMode={() => setIsMcpMode(!isMcpMode)}
-        onCompare={handleCompareModes}
-        comparisonStatus={comparisonStatus}
-        comparisonResults={comparisonResults}
-        onClearComparison={() => setComparisonStatus('idle')}
       />
       {currentUser && currentAccount && (
         <Dashboard
@@ -620,6 +580,8 @@ const App: React.FC = () => {
         onDashboardClick={() => setIsDashboardOpen(true)}
         onDevModeClick={() => setIsDevMode(!isDevMode)}
         accessMode={accessMode}
+        isMcpMode={isMcpMode}
+        onToggleMcpMode={() => setIsMcpMode(!isMcpMode)}
       />
       <main className="flex-1 flex flex-row h-full relative overflow-hidden ml-0 md:ml-64">
         <ChatInterface

@@ -37,7 +37,7 @@ gcloud run deploy fodda-sandbox \
     --platform managed \
     --region us-central1 \
     --allow-unauthenticated \
-    --set-env-vars "NODE_ENV=production,GEMINI_API_KEY=AIzaSyD75zmGJeNOzuF6tiev-ecYADY5Hmravy4,EMAIL_HOST=smtp.gmail.com,EMAIL_PORT=587,EMAIL_USER=piers.fawkes@psfk.com,EMAIL_PASS=wtxorvoceymkqujz"
+    --set-env-vars "NODE_ENV=production,GEMINI_API_KEY=${GEMINI_API_KEY},EMAIL_HOST=${EMAIL_HOST},EMAIL_PORT=${EMAIL_PORT},EMAIL_USER=${EMAIL_USER},EMAIL_PASS=${EMAIL_PASS},AIRTABLE_PAT=${AIRTABLE_PAT}"
 
 if [ $? -eq 0 ]; then
     echo "🎉 Deployment Successful!"
