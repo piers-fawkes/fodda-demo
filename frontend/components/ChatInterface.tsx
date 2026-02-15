@@ -1,8 +1,8 @@
-
-import { Message, Vertical } from '../../shared/types';
-import { SUGGESTED_QUESTIONS } from '../../shared/constants';
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { LayoutDashboard, Search, Building2, Briefcase } from 'lucide-react';
+import { Message, Vertical } from '../../shared/types';
+import { SUGGESTED_QUESTIONS } from '../../shared/constants';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -14,58 +14,106 @@ interface ChatInterfaceProps {
   onAnchorClick?: (messageId: string, type: 'trend' | 'article', id: string, text?: string) => void;
   onToggleSidebar: () => void;
   onToggleEvidence: () => void;
+  contextChips?: React.ReactNode;
 }
 
-const StaggeredMessageContent: React.FC<{ 
-    messageId: string; 
-    content: string; 
-    isNew: boolean; 
-    onAnchorClick?: (messageId: string, type: 'trend' | 'article', id: string, text?: string) => void 
+const StaggeredMessageContent: React.FC<{
+  messageId: string;
+  content: string;
+  isNew: boolean;
+  onAnchorClick?: (messageId: string, type: 'trend' | 'article', id: string, text?: string) => void
 }> = ({ messageId, content, isNew, onAnchorClick }) => {
   const sections = useMemo(() => content ? content.split(/(?=\n#|(?<=^)#)/g) : [], [content]);
-  
+
   const markdownComponents = {
-    h1: ({node: _node, ...props}: any) => (
-      <h1 className="font-serif text-[10px] font-bold text-stone-400 uppercase tracking-[0.4em] mt-8 mb-2 border-b border-stone-100 pb-2" {...props} />
+    h1: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<'h1'> & { node?: any }) => (
+      <h1 className="font-sans text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.3em] mt-4 mb-1.5 border-b border-zinc-800 pb-1" {...props} />
     ),
-    h2: ({node: _node, ...props}: any) => (
-      <h2 className="font-serif text-xl font-bold text-stone-900 tracking-tight mt-10 mb-5 leading-tight block" {...props} />
+    h2: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<'h2'> & { node?: any }) => (
+      <h2 className="font-sans text-[17px] font-bold text-white tracking-tight mt-6 mb-2 leading-snug block last:mb-0" {...props} />
     ),
-    h3: ({node: _node, ...props}: any) => (
-      <h3 className="font-serif text-base font-bold text-stone-900 tracking-tight mt-8 mb-3 leading-snug" {...props} />
+    h3: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<'h3'> & { node?: any }) => (
+      <h3 className="font-sans text-[14px] font-semibold text-zinc-100 tracking-tight mt-4 mb-1.5 leading-snug block last:mb-0" {...props} />
     ),
-    a: ({node: _node, href, children, ...props}: any) => {
+    a: ({ node: _node, href, children, ...props }: React.ComponentPropsWithoutRef<'a'> & { node?: any }) => {
       if (href?.includes('#')) {
         const hash = href.split('#').pop() || '';
         let type: 'trend' | 'article' = 'article';
         let id = hash;
 
-        if (hash.startsWith('trend-')) {
+        const lowerHash = hash.toLowerCase();
+        if (lowerHash.startsWith('trend-')) {
           type = 'trend';
-          id = hash.replace('trend-', '');
-        } else if (hash.startsWith('article-')) {
+          id = hash.split('-').slice(1).join('-'); // Handle IDs containing hyphens
+        } else if (lowerHash.startsWith('article-')) {
           type = 'article';
-          id = hash.replace('article-', '');
+          id = hash.split('-').slice(1).join('-'); // Handle IDs containing hyphens
         }
 
         const textContent = React.Children.toArray(children).join('');
-        
+
         return (
-          <span 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              onAnchorClick?.(messageId, type, id, textContent); 
-            }} 
-            className="text-stone-800 font-semibold hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-4 decoration-fodda-accent/20 decoration-solid hover:decoration-fodda-accent/60 inline-flex items-center group/link"
+          <span
+            onClick={(e) => {
+              e.preventDefault();
+              onAnchorClick?.(messageId, type, id, textContent);
+            }}
+            className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-transparent"
           >
-            {children}
-            <svg className="w-3 h-3 ml-1 opacity-20 group-hover/link:opacity-100 transform group-hover/link:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="leading-none">{children}</span>
+            <svg className="w-2.5 h-2.5 ml-0.5 opacity-40 group-hover/link:opacity-100 transform group-hover/link:translate-x-0.5 transition-all text-fodda-accent shrink-0 relative top-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </span>
         );
       }
-      return <a href={href} className="text-fodda-accent underline font-semibold" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+      return <a href={href} className="text-fodda-accent underline font-medium hover:text-white transition-colors" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+    },
+    code: ({ node: _node, inline: _inline, className: _className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { node?: any, inline?: boolean }) => {
+      const content = String(children).trim();
+      // Check for markdown link pattern: [Title](#id) using regex
+      const linkMatch = content.match(/\[(.*?)\]\(#(.*?)\)/);
+
+      if (linkMatch) {
+        const [_, text, hash] = linkMatch;
+        let type: 'trend' | 'article' = 'article';
+        let id = hash;
+
+        const lowerHash = hash.toLowerCase();
+        if (lowerHash.startsWith('trend-')) {
+          type = 'trend';
+          id = hash.substring(6);
+        } else if (lowerHash.startsWith('article-')) {
+          type = 'article';
+          id = hash.substring(8);
+        }
+
+        // Clean up text if it starts with ## or similar artifacts
+        const cleanText = text.replace(/^##\s*/, '');
+
+        if (id) {
+          return (
+            <span
+              onClick={(e) => {
+                e.preventDefault();
+                onAnchorClick?.(messageId, type, id, cleanText);
+              }}
+              className="hover:text-fodda-accent cursor-pointer transition-all underline underline-offset-2 decoration-fodda-accent/40 decoration-solid hover:decoration-fodda-accent/80 inline-flex items-baseline group/link decoration-1 border-b border-white/10"
+            >
+              <span className="leading-none">{cleanText}</span>
+              <svg className="w-2.5 h-2.5 ml-0.5 opacity-40 group-hover/link:opacity-100 transform group-hover/link:translate-x-0.5 transition-all text-fodda-accent shrink-0 relative top-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </span>
+          );
+        }
+      }
+
+      return (
+        <code className="bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-zinc-700/50" {...props}>
+          {children}
+        </code>
+      );
     }
   };
 
@@ -73,7 +121,13 @@ const StaggeredMessageContent: React.FC<{
     <div className="space-y-1">
       {sections.map((section, index) => (
         <div key={index} className={isNew ? "opacity-0 animate-fade-in-up" : ""} style={isNew ? { animationDelay: `${index * 150}ms`, animationFillMode: 'forwards' } : {}}>
-          <div className="prose prose-sm max-w-none prose-p:text-stone-700 prose-p:leading-relaxed prose-p:mb-6 prose-strong:text-stone-900 prose-li:text-stone-700">
+          <div className="prose prose-sm max-w-none 
+            prose-p:font-sans prose-p:text-zinc-300 prose-p:leading-relaxed prose-p:mb-3 last:prose-p:mb-0
+            prose-li:text-zinc-300 prose-li:leading-relaxed prose-li:mb-1
+            prose-ul:my-2 prose-ul:pl-4
+            prose-strong:text-white prose-strong:font-semibold 
+            marker:text-zinc-600
+            prose-headings:text-white">
             <ReactMarkdown components={markdownComponents}>
               {section}
             </ReactMarkdown>
@@ -84,16 +138,17 @@ const StaggeredMessageContent: React.FC<{
   );
 };
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
-  messages, 
-  isProcessing, 
-  vertical, 
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  messages,
+  isProcessing,
+  vertical,
   inputValue,
   onInputChange,
-  onSendMessage, 
-  onAnchorClick, 
+  onSendMessage,
+  onAnchorClick,
   onToggleSidebar,
-  onToggleEvidence
+  onToggleEvidence,
+  contextChips
 }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -104,6 +159,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const isRetail = vertical === Vertical.Retail;
   const isSports = vertical === Vertical.Sports;
   const isBeauty = vertical === Vertical.Beauty;
+
+  const VerticalIcon = useMemo(() => {
+    if (isBaseline) return LayoutDashboard;
+    if (isWaldo) return Search;
+    if (isSIC) return Building2;
+    return Briefcase; // Default/PSFK
+  }, [isBaseline, isWaldo, isSIC]);
 
   const headerLabel = useMemo(() => {
     if (isBaseline) return 'Pew Public Beliefs Graph';
@@ -125,15 +187,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return 'Traceable Strategic Discovery.';
   }, [isBaseline, isSIC, isWaldo, isRetail, isSports, isBeauty]);
 
-  const handleSubmit = (e: React.FormEvent) => { 
-    e.preventDefault(); 
-    if (!inputValue.trim() || isProcessing) return; 
-    onSendMessage(inputValue); 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isProcessing) return;
+    onSendMessage(inputValue);
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     if (messages.length > 0) {
-      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isProcessing]);
 
@@ -178,121 +240,128 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
-      <div className="h-16 border-b border-stone-200 flex items-center justify-between px-4 md:px-6 bg-white/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
-        <div className="flex items-center">
-          <button onClick={onToggleSidebar} className="md:hidden p-2 -ml-2 mr-2 text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-md transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <div className="flex items-center h-16 relative">
-            <span className="font-serif font-bold text-xl text-stone-900 tracking-tight">Fodda</span>
-            <div className="flex items-center bg-stone-100 text-stone-600 rounded px-2 py-0.5 border border-stone-200 ml-2">
-               <span className="text-[9px] font-bold uppercase tracking-widest">{headerLabel}</span>
+    <div className="flex-1 flex flex-col h-full bg-black relative overflow-hidden">
+      <div className="h-16 border-b border-white/10 flex items-center justify-center bg-black/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
+        <div className="w-full max-w-3xl flex items-center justify-between px-4 md:px-0">
+          <div className="flex items-center">
+            <button onClick={onToggleSidebar} className="md:hidden p-2 -ml-2 mr-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <div className="flex items-center h-16 relative">
+              <span className="font-semibold text-sm tracking-tight text-zinc-300">{headerLabel}</span>
             </div>
           </div>
+          <button onClick={onToggleEvidence} className="p-2 text-fodda-accent hover:bg-white/5 rounded-lg transition-all flex items-center space-x-2 md:hidden">
+            <span className="text-[10px] font-bold uppercase tracking-widest">{isBaseline ? 'Method' : 'Evidence'}</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+          </button>
         </div>
-        <button onClick={onToggleEvidence} className="p-2 text-fodda-accent hover:bg-purple-50 rounded-lg transition-all flex items-center space-x-2 md:hidden">
-          <span className="text-[10px] font-bold uppercase tracking-widest">{isBaseline ? 'Method' : 'Evidence'}</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-10 py-12 space-y-16 scroll-smooth pb-32 bg-stone-50/10">
+      <div className="flex-1 overflow-y-auto py-8 space-y-0 scroll-smooth pb-32 bg-black">
         {messages.length === 0 && (
-          <div className="min-h-full flex flex-col items-center justify-start max-w-2xl mx-auto pt-12">
-             <div className="mb-12 text-center animate-fade-in-up">
-                <div className="text-[10px] uppercase tracking-[0.4em] text-stone-400 font-bold mb-5">
-                  {isBaseline ? 'Machine-Queryable Reference' : (isSIC ? 'Mapped Contemporary Intelligence' : 'Graph Intelligence')}
-                </div>
-                <h2 className="font-serif text-4xl font-bold text-stone-900 mb-5 tracking-tight">
-                  {welcomeTitle}
-                </h2>
-                <p className="text-stone-500 text-sm max-w-md mx-auto leading-relaxed">
-                  {isBaseline 
-                    ? "(\u03B2) Ask a question about public beliefs, attitudes, or behaviors. Responses are grounded strictly in weighted distributions from NPORS 2025. Please note this is test graph."
-                    : (isSIC 
-                        ? "Explore how shifts in culture, media, brands, and platforms are actually unfolding \u2014 grounded in real evidence you can trace."
-                        : `Search the ${headerLabel} using natural language. Click headers to traverse supporting evidence.`)
-                  }
-                </p>
-             </div>
-             <div className="w-full max-w-xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                {isBaseline ? (
-                   ["How often do older Americans use TikTok?", "Perceptions of crime safety by age", "Broadband access among urban populations", "Trust in government protection"].map((q, i) => (
-                      <button key={i} onClick={() => onSendMessage(q)} className="group text-left px-6 py-6 bg-white border border-stone-200 rounded-2xl hover:border-fodda-accent/40 hover:shadow-xl transition-all shadow-sm">
-                         <span className="text-sm font-semibold text-stone-600 group-hover:text-stone-900 leading-snug block">{"\u201C"}{q}{"\u201D"}</span>
-                      </button>
-                   ))
-                ) : (
-                  SUGGESTED_QUESTIONS[vertical as Exclude<Vertical, Vertical.Baseline>].map((q, i) => (
-                    <button key={i} onClick={() => onSendMessage(q.text, q.terms)} className="group text-left px-6 py-6 bg-white border border-stone-200 rounded-2xl hover:border-fodda-accent/40 hover:shadow-xl transition-all shadow-sm">
-                       <span className="text-sm font-semibold text-stone-600 group-hover:text-stone-900 leading-snug block">{"\u201C"}{q.text}{"\u201D"}</span>
-                    </button>
-                 ))
-                )}
-             </div>
-          </div>
-        )}
-        
-        {messages.map((msg, index) => (
-          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`relative max-w-[95%] md:max-w-4xl ${msg.role === 'user' ? 'bg-stone-900 text-white px-6 py-4 rounded-2xl shadow-lg' : 'bg-white p-10 md:p-16 rounded-3xl border border-stone-200 shadow-sm w-full'}`}>
-              {msg.role === 'assistant' && (
-                <div className={`h-1.5 w-full absolute top-0 left-0 ${isBaseline ? 'bg-stone-400' : 'bg-fodda-accent'}`}></div>
-              )}
-              
-              {msg.role === 'user' ? (
-                <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+          <div className="w-full max-w-3xl mx-auto mt-8 animate-fade-in-up px-4 md:px-0">
+            <div className="mb-4 opacity-60 hover:opacity-100 transition-opacity">
+              <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500 mb-1 font-mono">
+                {headerLabel}
+              </h2>
+              <p className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">
+                {welcomeTitle}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {isBaseline ? (
+                ["How often do older Americans use TikTok?", "Perceptions of crime safety by age", "Broadband access among urban populations", "Trust in government protection"].map((q, i) => (
+                  <button key={i} onClick={() => onSendMessage(q)} className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-medium text-zinc-400 hover:text-white hover:border-zinc-700 hover:bg-zinc-800 transition-all shadow-sm">
+                    {q}
+                  </button>
+                ))
               ) : (
-                <div className="flex flex-col h-full">
-                  <StaggeredMessageContent 
+                SUGGESTED_QUESTIONS[vertical as Exclude<Vertical, Vertical.Baseline>].map((q, i) => (
+                  <button key={i} onClick={() => onSendMessage(q.text, q.terms)} className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-medium text-zinc-400 hover:text-white hover:border-zinc-700 hover:bg-zinc-800 transition-all shadow-sm">
+                    {q.text}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+        )}
+
+        {messages.map((msg, index) => (
+          <div key={msg.id} className="w-full border-b border-zinc-800/50 py-4">
+            <div className="max-w-3xl mx-auto px-4 md:px-0">
+
+              {msg.role === 'user' ? (
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-6 h-6 rounded-md bg-zinc-800/50 flex items-center justify-center text-zinc-400">
+                    <span className="text-[10px] font-medium font-sans">You</span>
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-300 whitespace-pre-wrap">
+                      {msg.content}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 animate-fade-in">
+                  <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-white ${isBaseline ? 'bg-zinc-800' : 'bg-fodda-accent'}`}>
+                    <VerticalIcon className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <StaggeredMessageContent
                       messageId={msg.id}
-                      content={msg.content} 
-                      isNew={index === messages.length - 1} 
-                      onAnchorClick={onAnchorClick} 
-                  />
-                  
-                  <div className="mt-12 pt-6 border-t border-stone-100 flex items-center justify-between">
-                    <div className="flex items-center space-x-2 flex-wrap gap-2">
-                      {isBaseline ? (
-                        <div className="bg-stone-50 px-2 py-0.5 rounded border border-stone-100 flex items-center">
-                          <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mr-1.5">Layer:</span>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-stone-500">Baseline Grounding</span>
-                        </div>
-                      ) : (
-                        msg.diagnostic && (
-                          <div className="bg-stone-50 px-2 py-0.5 rounded border border-stone-200 ml-2">
-                            <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mr-1.5">Index Match:</span>
-                            <span className={`text-[8px] font-bold uppercase tracking-widest ${(msg.diagnostic.dataStatus.includes('TREND') || msg.diagnostic.dataStatus.includes('HYBRID')) ? 'text-green-600' : 'text-fodda-accent'}`}>
-                              {msg.diagnostic.dataStatus.replace('_MATCH', '')}
+                      content={msg.content}
+                      isNew={index === messages.length - 1}
+                      onAnchorClick={onAnchorClick}
+                    />
+
+                    {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
+                      <div className="mt-6 flex flex-wrap gap-2 animate-fade-in-up justify-start pl-1" style={{ animationDelay: '500ms' }}>
+                        {msg.suggestedQuestions.map((q, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => onSendMessage(q)}
+                            className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-md text-[10px] font-medium text-zinc-400 hover:text-white hover:border-fodda-accent/40 hover:bg-zinc-800 transition-all shadow-sm active:scale-95 text-left font-mono"
+                          >
+                            {">"} {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mt-6 pt-3 border-t border-zinc-900 flex items-center justify-between opacity-60 hover:opacity-100 transition-opacity">
+                      <div className="flex items-center space-x-2">
+                        {msg.diagnostic && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">Index:</span>
+                            <span className={`text-[9px] font-mono font-bold uppercase tracking-widest ${msg.diagnostic.dataStatus.includes('TREND') ? 'text-green-500' : 'text-zinc-400'}`}>
+                              {msg.diagnostic.dataStatus}
                             </span>
                           </div>
-                        )
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button 
-                        onClick={() => handleCopy(msg)}
-                        className={`text-[10px] font-bold uppercase tracking-tighter flex items-center group transition-colors ${copiedId === msg.id ? 'text-green-600' : 'text-stone-400 hover:text-fodda-accent'}`}
-                        title="Copy to clipboard"
-                      >
-                         <svg className={`w-3.5 h-3.5 mr-1 ${copiedId === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                         {copiedId === msg.id ? 'Copied' : 'Copy'}
-                      </button>
-                      <button 
-                        onClick={() => handleDownload(msg, 'txt')}
-                        className="text-[10px] font-bold uppercase tracking-tighter text-stone-400 hover:text-fodda-accent transition-colors flex items-center"
-                        title="Download as TXT"
-                      >
-                         <span className="mr-1">TXT</span>
-                      </button>
-                      <button 
-                        onClick={() => handleDownload(msg, 'json')}
-                        className="text-[10px] font-bold uppercase tracking-tighter text-stone-400 hover:text-fodda-accent transition-colors flex items-center"
-                        title="Download as JSON"
-                      >
-                         <span className="mr-1">JSON</span>
-                      </button>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => handleDownload(msg, 'txt')}
+                          className="text-[9px] font-bold uppercase tracking-widest font-mono text-zinc-600 hover:text-white transition-colors"
+                        >
+                          TXT
+                        </button>
+                        <button
+                          onClick={() => handleDownload(msg, 'json')}
+                          className="text-[9px] font-bold uppercase tracking-widest font-mono text-zinc-600 hover:text-white transition-colors"
+                        >
+                          JSON
+                        </button>
+                        <button
+                          onClick={() => handleCopy(msg)}
+                          className={`text-[9px] font-bold uppercase tracking-widest font-mono flex items-center group transition-colors ${copiedId === msg.id ? 'text-green-500' : 'text-zinc-600 hover:text-white'}`}
+                        >
+                          {copiedId === msg.id ? 'COPIED' : 'COPY'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -300,39 +369,47 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           </div>
         ))}
-        
+
         {isProcessing && (
-          <div className="flex justify-start w-full max-w-4xl">
-            <div className="bg-white px-10 py-8 rounded-2xl border border-stone-200 shadow-sm flex items-center space-x-4 w-full">
-              <div className="flex space-x-2">
-                <div className={`w-2 h-2 rounded-full animate-bounce ${isBaseline ? 'bg-stone-400' : 'bg-fodda-accent'}`}></div>
-                <div className={`w-2 h-2 rounded-full animate-bounce ${isBaseline ? 'bg-stone-400' : 'bg-fodda-accent'}`} style={{ animationDelay: '150ms' }}></div>
-                <div className={`w-2 h-2 rounded-full animate-bounce ${isBaseline ? 'bg-stone-400' : 'bg-fodda-accent'}`} style={{ animationDelay: '300ms' }}></div>
-              </div>
-              <span className="text-[10px] text-stone-400 font-bold uppercase tracking-[0.3em]">
-                {isBaseline ? 'Calibrating Reference Layer...' : 'Querying Graph Index...'}
+          <div className="flex justify-start w-full max-w-3xl mx-auto px-4 md:px-0 mt-4">
+            <div className="bg-zinc-900/50 px-4 py-3 rounded-md border border-zinc-800 flex items-center space-x-3 animate-pulse">
+              <VerticalIcon className="w-4 h-4 text-zinc-500" />
+              <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-widest">
+                {isBaseline ? 'PROCESSING_DATA' : 'ANALYZING_GRAPH'}
               </span>
             </div>
           </div>
         )}
         <div ref={endOfMessagesRef} />
-      </div>
+      </div >
 
-      <div className="p-4 md:p-8 bg-white border-t border-stone-100 z-10 shrink-0 pb-safe">
-        <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto flex items-center bg-stone-50 border border-stone-200 rounded-2xl shadow-inner px-2">
-          <input 
-            type="text" 
-            value={inputValue} 
-            onChange={(e) => onInputChange(e.target.value)} 
-            placeholder={isBaseline ? "Ask about public beliefs, attitudes, or behaviors…" : `Identify signals in ${vertical.toLowerCase()}...`} 
-            className="flex-1 bg-transparent border-none rounded-2xl px-6 py-5 text-stone-900 text-sm focus:outline-none focus:ring-0 transition-all placeholder:text-stone-400" 
-            disabled={isProcessing} 
+      <div className="p-4 bg-black border-t border-zinc-800 z-10 shrink-0 pb-safe">
+        {contextChips && (
+          <div className="max-w-3xl mx-auto mb-2 pl-0.5">
+            {contextChips}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto flex items-center bg-zinc-900 border border-zinc-800 rounded-md shadow-sm focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-zinc-700 transition-all">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => onInputChange(e.target.value)}
+            placeholder={isBaseline ? "Ask a question..." : `Identify signals in ${vertical.toLowerCase()}...`}
+            className="flex-1 bg-transparent border-none rounded-md px-3 py-2.5 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-0 transition-all h-10 font-sans"
+            disabled={isProcessing}
           />
-          <button type="submit" disabled={!inputValue.trim() || isProcessing} className="p-3 text-stone-300 hover:text-fodda-accent disabled:opacity-20 transition-all shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+          <button type="submit" disabled={!inputValue.trim() || isProcessing} className="p-2 mr-1 text-zinc-500 hover:text-white disabled:opacity-20 transition-all shrink-0 rounded hover:bg-zinc-800">
+            {isProcessing ? (
+              <div className="w-5 h-5 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+            )}
           </button>
         </form>
+        <div className="max-w-3xl mx-auto mt-2 text-[10px] text-zinc-600 text-center font-sans">
+          Fodda can make mistakes. Verify important information.
+        </div>
       </div>
-    </div>
+    </div >
   );
 };

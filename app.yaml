@@ -1,0 +1,15 @@
+
+runtime: custom
+env: flex
+
+# App Engine Flexible uses the Dockerfile by default when runtime is 'custom'
+# This allows using the same Docker container as Cloud Run
+
+env_variables:
+  NODE_ENV: 'production'
+  # Secrets should be managed via Secret Manager, but can be set here or in console
+  # AIRTABLE_PAT: '...' 
+  # GEMINI_API_KEY: '...'
+
+manual_scaling:
+  instances: 1

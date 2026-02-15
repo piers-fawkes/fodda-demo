@@ -1,5 +1,3 @@
-
-import { GoogleGenAI } from "@google/genai";
 import { RetrievalResult, Vertical } from "../../shared/types";
 
 /**
@@ -17,11 +15,14 @@ const isTrendListIntent = (query: string): boolean => {
     "emerging trends",
     "current trends",
     "show me trends",
-    "show me trends",
-    "coffee trends",
     "cultural signals",
-    "signals"
+    "market shifts"
   ];
+
+  // Heuristic: If the query is long (> 10 words), it's likely a complex question, not a simple list request.
+  const wordCount = q.split(/\s+/).length;
+  if (wordCount > 10) return false;
+
   const isDirectTrendAsk = q.endsWith("trends") || q.endsWith("trends?");
   const hasPattern = patterns.some(p => q.includes(p));
   return isDirectTrendAsk || hasPattern;
@@ -78,8 +79,13 @@ STRICT ANALYTICAL RULES:
 5. If no trends meet these criteria, state: "The graph has identified several broad trends in this vertical, but none explicitly mention '${query}' in their curated summaries."
 
 STYLE:
-- Factual, dry, and conservative.
-- Avoid marketing fluff.
+- **PREMIUM FORMATTING**: Use \`## [Trend Name](#trend-ID)\` for every trend header.
+- **Tone**: Factual, dry, and conservative.
+- **Tone**: Factual, dry, and conservative.
+- **Structure**: Break up text with paragraph breaks.
+- **EXAMPLE**:
+  ## [Trend Name](#trend-ID)
+  Insight about the trend... (Do not repeat title)
 - End with: "Click a trend name to view supporting evidence in the panel, or ask a follow-up about any specific area above."
 `;
   }
@@ -89,61 +95,67 @@ STYLE:
 ROLE: You are the SIC (Strategic Independent Culture) Analyst.
 OBJECTIVE: You track subcultures, fringe movements, and aesthetic shifts before they hit the mainstream.
 
-CONTEXT: You are looking at data from the "Strategic Independent Culture" (SIC) Graph. 
-- These are NOT generic retail trends. 
-- These are signals from the edge of culture.
-- Your tone should be observant, culturally literate, and forward-looking.
+CONTEXT: You are looking at data from the "Strategic Independent Culture" (SIC) Graph—signals from the edge of culture.
 
 STRICT GROUNDING RULE:
-Use the provided Knowledge Graph context ONLY. Do not use external knowledge. DO NOT hallucinate connections.
+Use provided context ONLY. No external knowledge. Temperature is 0.0.
 
-STEERING LOGIC:
-- If TREND_MATCH: Explain the cultural shift described in the trend.
-- If SIGNAL_MATCH: Highlight the specific edge-cases or "cool" examples found in the signals.
+CLEAN HIERARCHY RULES:
+1. TRENDS: Use \`## [Trend Name](#trend-ID)\`.
+2. SIGNALS: Use \`### [Signal Title or Brand Name](#article-ID)\`.
+3. FLAT STRUCTURE: DO NOT put headers (## or ###) inside bullet points or lists.
+4. SPACING: Put a paragraph describing the trend/signal IMMEDIATELY after its header.
 
-TRACEABILITY (CRITICAL):
-1. Use Markdown Anchors for all names/titles to enable clicking.
-2. NO VISIBLE IDs: Do NOT put the ID in the text. Only use it in the link target.
-   - WRONG: [Trend Name #123](#trend-123)
-   - WRONG: Trend Name [#123]
-   - CORRECT: [Trend Name](#trend-123)
-3. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
-4. Trend Link Format: ## [Trend Name](#trend-ID)
+TRACEABILITY:
+- Use Markdown Anchors for ALL names/titles.
+- NO VISIBLE IDs: [Name](#id) only.
 
 STYLE:
-- Culturally relevant, slightly edgy but professional.
-- Temperature: 0.0 (Stick to facts).
+- Observant, culturally literate, and forward-looking.
+- Write in concise, premium editorial paragraphs.
+- **EXAMPLE**:
+  ## [Trend Name](#trend-ID)
+  Cultural analysis text... (Do not repeat title)
 `;
   }
 
+
+  // CRITICAL: ANCHOR GENERATION RULES - DO NOT MODIFY WITHOUT VERIFYING FRONTEND PARSING
+  // The frontend (ChatInterface.tsx) expects markdown links in the format [Title](#article-ID) or [Title](#trend-ID).
+  // These are parsed into clickable spans that open the Evidence Drawer.
+  // Breaking this format (e.g. stripping prefixes, removing #) destroys the interactive graph experience.
 
   return `
 ROLE: You are the Fodda Contextual Intelligence Engine (Vertical: ${vertical}).
 
 STRICT GROUNDING RULE:
-Use the provided Knowledge Graph context ONLY. Do not use external knowledge. DO NOT hallucinate connections to satisfy the user query if they are not explicitly in the data.
+Use provided context ONLY. No external knowledge. Temperature is 0.0.
 
 API STATUS: ${dataStatus}
 
-STEERING LOGIC:
-- If TREND_MATCH: Focus on established strategic patterns. Synthesize how multiple signals support these defined trends.
-- If HYBRID_MATCH: Frame established Trend context first, then highlight "High-Velocity Signals" (Articles) currently expanding that trend.
-- If SIGNAL_MATCH: Focus on raw discovery. Identify commonalities between disparate examples and name them as "Emerging Themes".
+CLEAN HIERARCHY RULES:
+1. TRENDS: Use \`## [Trend Name](#trend-ID)\` for established strategic patterns.
+2. SIGNALS: Use \`### [Signal Title or Brand Name](#article-ID)\` for supporting innovation examples.
+3. FLAT STRUCTURE: DO NOT nest headers (## or ###) inside bullet points. This is critical for UI consistency.
+4. ORDER: Group signals logically under the Trend they support.
 
-TRACEABILITY (CRITICAL):
-1. You MUST mention brands and specific initiatives using Markdown Anchors.
-2. NO VISIBLE IDs: Do NOT put the ID in the text. Only use it in the link target.
-   - WRONG: [Trend Name #123](#trend-123)
-   - CORRECT: [Trend Name](#trend-123)
-3. Signal/Brand Link Format: ### [Signal Title or Brand Name](#article-ID)
-4. Trend Link Format: ## [Trend Name](#trend-ID)
-5. Use the exact IDs provided in the context (e.g., #article-7885 or #trend-5367).
-6. EVERY title in the "SUPPORTING EVIDENCE" section MUST be a H3 header with an anchor link in the format: ### [Title](#article-ID).
+TRACEABILITY & LINKING (CRITICAL):
+- EVERY trend and signal title MUST be a header with a Markdown Anchor link: [Title](#id).
+- USE THE EXACT ID PROVIDED IN THE CONTEXT (e.g. #trend-123 or #article-456). Do not strip prefixes.
+- **INLINE LINKS**: You MUST also link the Signal/Brand Name within the description paragraph (e.g. "The [Brand](#article-123) platform allows...") to ensure maximum clickability.
 
 STYLE:
-- Professional and list-oriented.
-- Temperature is 0.0: Stick only to the provided facts.
+- **PREMIUM EDITORIAL TONE**: High-end strategy report (e.g., McKinsey).
+- **CONCISE**: Use dense, informative paragraphs.
+- **BULLETS**: Use standard bullets ONLY for lists of facts *under* a paragraph, never for the titles themselves.
+- **FORMAT EXAMPLE**:
+  ## [Trend Name](#trend-123)
+  Strategic insight about [Trend Name](#trend-123) goes here...
+  
+  ### [Signal Name](#article-456)
+  [Signal Name](#article-456) is a platform that...
 `;
+
 };
 
 const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
@@ -160,12 +172,18 @@ const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
   let ctx = `DATA_STATUS: ${data.dataStatus}\nSEARCH_QUERY: ${data.termsUsed?.join(', ')}\n\nRETRIEVED KNOWLEDGE GRAPH NODES:\n`;
   data.rows.forEach(row => {
     const nodeLabel = row.nodeType === "TREND" ? "TREND" : "SIGNAL";
-    ctx += `[TYPE: ${nodeLabel}] [ID: ${row.id}] NAME: ${row.name}\n`;
+    // Pre-calculate ID with prefix to ensure model uses it correctly in anchors
+    const cleanId = row.id.replace(/^(trend-|article-)/, '');
+    const prefixedId = row.nodeType === "TREND" ? `trend-${cleanId}` : `article-${cleanId}`;
+
+    ctx += `[TYPE: ${nodeLabel}] [ID: ${prefixedId}] NAME: ${row.name}\n`;
     ctx += `SUMMARY: ${row.summary}\n`;
 
     row.evidence.forEach(e => {
       const brandsStr = Array.isArray(e.brandNames) ? e.brandNames.join(', ') : e.brandNames;
-      ctx += `- [SUB-SIGNAL ID: ${e.id}] TITLE: ${e.title} | SNIPPET: ${e.snippet} | BRANDS: ${brandsStr}\n`;
+      const cleanEvId = e.id.replace(/^(trend-|article-)/, '');
+      const prefixedEvId = `article-${cleanEvId}`;
+      ctx += `- [SUB-SIGNAL ID: ${prefixedEvId}] TITLE: ${e.title} | SNIPPET: ${e.snippet} | BRANDS: ${brandsStr}\n`;
     });
 
     ctx += "---\n";
@@ -173,16 +191,37 @@ const formatContext = (data: RetrievalResult, vertical: Vertical): string => {
   return ctx;
 };
 
+
+export interface GenerationResponse {
+  answer: string;
+  suggestedQuestions: string[];
+}
+
+const repairMarkdownLinks = (text: string): string => {
+  // Fix header links where the opening bracket is missing: ## Title](#id) -> ## [Title](#id)
+  return text.replace(/(^|\n)(#{2,3})\s+([^[\n]+)(?=\]\(#)/g, '$1$2 [$3');
+};
+
 export const generateResponse = async (
   query: string,
   vertical: Vertical,
-  retrievedData: RetrievalResult
-): Promise<string> => {
+  retrievedData: RetrievalResult,
+  userContext?: string,
+  accountContext?: string
+): Promise<GenerationResponse> => {
   try {
     const contextStr = formatContext(retrievedData, vertical);
-    const fullPrompt = `${contextStr}\n\nUSER QUERY: ${query}`;
 
-    // Call backend proxy instead of direct API
+    let fullPrompt = `${contextStr}\n\nUSER QUERY: ${query}`;
+
+    // Inject Contexts if present
+    if (accountContext?.trim()) {
+      fullPrompt += `\n\nACCOUNT CONTEXT (Your Perspective/Goal): ${accountContext}`;
+    }
+    if (userContext?.trim()) {
+      fullPrompt += `\n\nUSER CONTEXT (About the User): ${userContext}`;
+    }
+
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -191,7 +230,19 @@ export const generateResponse = async (
         contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
         config: {
           systemInstruction: { parts: [{ text: getSystemInstruction(vertical, retrievedData.dataStatus, query) }] },
-          temperature: 0.0
+          temperature: 0.0,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              answer: { type: "STRING" },
+              next_questions: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              }
+            },
+            required: ["answer", "next_questions"]
+          }
         }
       })
     });
@@ -202,9 +253,27 @@ export const generateResponse = async (
     }
 
     const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "Synthesis Failure.";
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) return { answer: "Synthesis Failure - No Content", suggestedQuestions: [] };
+
+    try {
+      const parsed = JSON.parse(rawText);
+      const cleanAnswer = repairMarkdownLinks(parsed.answer || "No answer generated.");
+
+      return {
+        answer: cleanAnswer,
+        suggestedQuestions: parsed.next_questions || []
+      };
+    } catch (e) {
+      console.error("JSON Parse Error:", e);
+      // Fallback if model returns plain text despite request
+      const cleanRaw = repairMarkdownLinks(rawText);
+      return { answer: cleanRaw, suggestedQuestions: [] };
+    }
+
   } catch (error: any) {
     console.error("Gemini Failure:", error);
-    return `Intelligence Engine Error: ${error.message}`;
+    return { answer: `Intelligence Engine Error: ${error.message}`, suggestedQuestions: [] };
   }
 };

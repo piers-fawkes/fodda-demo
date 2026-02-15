@@ -9,7 +9,7 @@ COPY package*.json ./
 
 # Install dependencies
 ENV NODE_ENV=development
-RUN npm install --include=dev
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy the rest of the application
 COPY . .
@@ -18,7 +18,7 @@ COPY . .
 # - Vite frontend build
 # - Compile API TypeScript -> dist/
 # - Copy OpenAPI YAML into dist so the runtime route can serve it
-RUN npm run build --loglevel silly
+RUN npm run build
 # OPTIONS:
 #   --something
 

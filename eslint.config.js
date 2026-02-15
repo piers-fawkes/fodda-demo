@@ -8,7 +8,7 @@ import globals from "globals";
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{ts,tsx,js}"],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: "latest",
@@ -33,7 +33,7 @@ export default [
       "react/prop-types": "off",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
       "no-undef": "error"
     },
     settings: {

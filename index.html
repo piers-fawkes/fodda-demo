@@ -1,53 +1,112 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Fodda - Demo</title>
-    <meta name="description" content="Fodda structures curated insights into AI-ready knowledge graphs that can be queried with traceable sources." />
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="https://ucarecdn.com/ce15371a-a0cd-4ef7-936a-2ef020126d4b/foddafavicon.png" />
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              stone: {
-                50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
-                400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
-                800: '#292524', 900: '#1c1917',
-              },
-              'fodda-accent': '#663399',
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Fodda - Demo</title>
+  <meta name="description"
+    content="Fodda structures curated insights into AI-ready knowledge graphs that can be queried with traceable sources." />
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="https://ucarecdn.com/ce15371a-a0cd-4ef7-936a-2ef020126d4b/foddafavicon.png" />
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            stone: {
+              50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
+              400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
+              800: '#292524', 900: '#1c1917',
             },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              serif: ['Playfair Display', 'serif'],
-            },
-            animation: { 'fade-in-up': 'fadeInUp 0.6s ease-out forwards' },
-            keyframes: {
-              fadeInUp: {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              }
-            },
+            'fodda-accent': '#663399',
+            'void': '#000000',
+            'stark': '#FFFFFF',
+            'zinc': {
+              50: '#fafafa',
+              100: '#f4f4f5',
+              200: '#e4e4e7',
+              300: '#d4d4d8',
+              400: '#a1a1aa',
+              500: '#71717a',
+              600: '#52525b',
+              700: '#3f3f46',
+              800: '#27272a',
+              900: '#18181b',
+              950: '#09090b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+            serif: ['Playfair Display', 'ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+          },
+          animation: {
+            'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
+          },
+          keyframes: {
+            fadeInUp: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            }
           },
         },
-      }
-    </script>
-    <style>
-      html, body { height: 100%; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background-color: #f5f5f4; }
-      #root { height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
-      ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
-      .no-bounce { overscroll-behavior: none; }
-      .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    </style>
-    <script type="importmap">
+      },
+    }
+  </script>
+  <style>
+    html,
+    body {
+      height: 100%;
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000000;
+    }
+
+    #root {
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .no-bounce {
+      overscroll-behavior: none;
+    }
+
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  </style>
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
@@ -62,9 +121,11 @@
   }
 }
 </script>
-  </head>
-  <body class="bg-stone-100 text-stone-900 antialiased no-bounce">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+</head>
+
+<body class="bg-void text-stark antialiased no-bounce">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

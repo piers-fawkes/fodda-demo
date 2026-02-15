@@ -1,306 +1,212 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { dataService } from '../../shared/dataService';
-import { Vertical } from '../../shared/types';
+import { Vertical, KnowledgeGraph } from '../../shared/types';
 
 interface SidebarProps {
   currentVertical: string;
   onVerticalChange: (v: string) => void;
-  onQuestionClick: (q: string, terms?: string[]) => void;
+  onQuestionClick?: (q: string, terms?: string[]) => void;
   isOpen: boolean;
   onClose: () => void;
   onAdminClick: () => void;
   onApiClick: () => void;
+  onSecurityClick: () => void;
+  onDeterministicClick: () => void;
+  onDashboardClick: () => void;
+  onDevModeClick: () => void;
   accessMode?: 'psfk' | 'waldo';
 }
 
+// Logo Components (sized for rail)
 const PSFKLogo = () => (
-  <img 
-    src="https://ucarecdn.com/97231f29-210c-4df4-bcb7-80c2234779e8/psfklogo40x40.png" 
-    alt="PSFK" 
-    className="mr-2 h-4 w-4 flex-shrink-0 object-contain rounded-sm" 
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.style.display = 'none';
-    }}
-  />
+  <img src="https://ucarecdn.com/97231f29-210c-4df4-bcb7-80c2234779e8/psfklogo40x40.png" alt="PSFK" className="h-5 w-5 object-contain rounded-sm grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all bg-white/10" />
 );
 
 const WaldoLogo = () => (
-  <img 
-    src="https://ucarecdn.com/da875842-b48e-44d3-9be6-771919842529/waldofyi_logo.jpeg" 
-    alt="Waldo" 
-    className="mr-2 h-4 w-4 flex-shrink-0 object-contain rounded-sm" 
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.style.display = 'none';
-    }}
-  />
+  <img src="https://ucarecdn.com/da875842-b48e-44d3-9be6-771919842529/waldofyi_logo.jpeg" alt="Waldo" className="h-5 w-5 object-contain rounded-sm grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all" />
 );
 
 const SICLogo = () => (
-  <img 
-    src="https://ucarecdn.com/e1711558-ce22-46a2-9720-2423a35d8edf/BENDIETZ.png" 
-    alt="SIC" 
-    className="mr-2 h-4 w-4 flex-shrink-0 object-cover rounded-sm border border-stone-200" 
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.style.display = 'none';
-    }}
-  />
+  <img src="https://ucarecdn.com/e1711558-ce22-46a2-9720-2423a35d8edf/BENDIETZ.png" alt="SIC" className="h-5 w-5 object-cover rounded-sm grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all" />
 );
 
-const PewLogo = () => (
-  <img 
-    src="https://ucarecdn.com/3f988814-3344-4748-85ad-0be0588ebc07/pewcenterlow.jpg" 
-    alt="Pew Research Center" 
-    className="mr-2 h-4 w-4 flex-shrink-0 object-cover rounded-sm border border-stone-200" 
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.style.display = 'none';
-    }}
-  />
-);
 
-const FoddaLogo = () => (
-  <img 
-    src="https://ucarecdn.com/ce15371a-a0cd-4ef7-936a-2ef020126d4b/foddafavicon.png" 
-    alt="Fodda" 
-    className="mr-2 h-5 w-5 flex-shrink-0 object-contain" 
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.style.display = 'none';
-    }}
-  />
-);
 
-const SnowflakeLogo = () => (
-  <img 
-    src="https://ucarecdn.com/acd9cd52-8ee6-4970-b888-6405707232ed/snowflakelogo.png" 
-    alt="Snowflake" 
-    className="w-4 h-4 object-contain"
-    onError={(e) => {
-      const target = e.target as HTMLImageElement;
-      target.src = "https://www.snowflake.com/wp-content/themes/snowflake/assets/img/snowflake-logo-blue.svg";
-    }}
-  />
-);
 
-const GRAPH_INFO: Record<string, { text: string; url: string }> = {
-  [Vertical.Beauty]: {
-    text: "A structured way to explore how beauty is evolving across science, wellness, retail, and consumer behavior, using vetted examples and PSFK’s point of view.",
-    url: "https://www.fodda.ai/#/graphs/psfk-beauty"
-  },
-  [Vertical.Retail]: {
-    text: "A structured way to understand how commerce is being reshaped across physical, digital, and fulfillment-led retail, grounded in real-world examples.",
-    url: "https://www.fodda.ai/#/graphs/psfk-retail"
-  },
-  [Vertical.Sports]: {
-    text: "A structured way to explore how sports are changing as cultural, media, and business platforms, beyond teams, leagues, and scores.",
-    url: "https://www.fodda.ai/#/graphs/psfk-sports"
-  },
-  [Vertical.SIC]: {
-    text: "A beta intelligence graph for understanding how culture, media, brands, and platforms are shifting in real time — curated by Ben Dietz.",
-    url: "https://www.fodda.ai/#/graphs/sic"
-  },
-  [Vertical.Waldo]: {
-    text: "A multi-industry trends knowledge graph built from Waldo’s ongoing signal and analysis work. Query it via Fodda to power AI workflows, research, and decision-making with structured context.",
-    url: "https://www.waldo.fyi"
-  },
-  [Vertical.Baseline]: {
-    text: "This graph exposes structured distributions from the Pew Research Center’s National Public Opinion Reference Survey (NPORS, 2025). Designed for machine-queryable reference of public sentiment.",
-    url: "https://www.pewresearch.org/methodology/u-s-survey-research/national-public-opinion-reference-survey-npors/"
-  }
-};
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentVertical,
+  onVerticalChange,
+  isOpen,
+  onClose,
+  onAdminClick,
+  onApiClick,
+  onSecurityClick,
+  onDeterministicClick,
+  onDashboardClick,
+  onDevModeClick,
+  accessMode = 'psfk'
+}) => {
+  /* Removed unused isHovered state */
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentVertical, onVerticalChange, onQuestionClick: _onQuestionClick, isOpen, onClose, onAdminClick, onApiClick, accessMode = 'psfk' }) => {
-  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
-
-  const graphs = useMemo(() => {
+  const { liveGraphs, playgroundGraphs } = useMemo(() => {
     const allGraphs = dataService.getGraphs();
+    const live = allGraphs.filter((g: KnowledgeGraph) => [Vertical.Retail, Vertical.Sports, Vertical.Beauty].includes(g.id as Vertical));
+    const playground = allGraphs.filter((g: KnowledgeGraph) => [Vertical.Baseline, Vertical.SIC, Vertical.Waldo].includes(g.id as Vertical));
+
     if (accessMode === 'waldo') {
-      return allGraphs.filter(g => g.id === Vertical.Waldo);
+      return {
+        liveGraphs: [] as KnowledgeGraph[],
+        playgroundGraphs: playground.filter((g: KnowledgeGraph) => g.id === Vertical.Waldo)
+      };
     }
-    return allGraphs;
+
+    return { liveGraphs: live, playgroundGraphs: playground };
   }, [accessMode]);
-
-  const toggleInfo = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedInfo(expandedInfo === id ? null : id);
-  };
-
-  const futureVerticals = [
-    { 
-      name: 'Media', 
-      person: 'Johanna Salazar', 
-      label: 'Media Machine',
-      img: 'https://ucarecdn.com/455c0584-e8f9-442d-8bb9-348bc12b03e4/JOHANNASALAZAR.png' 
-    },
-    { 
-      name: 'Trends', 
-      person: 'Rohit Bhargava', 
-      label: 'Non-Obvious Graph',
-      img: 'https://ucarecdn.com/a872c8c0-1b7b-4218-b4b6-3da3865c3e21/ROHITBHARGAVA.png' 
-    },
-  ];
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 h-full bg-stone-50 border-r border-stone-200 flex flex-col transition-transform duration-300 md:relative md:translate-x-0 md:z-20 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-transparent">
-          <div className="flex items-center h-16 relative">
-            <FoddaLogo />
-            <h1 className="font-serif text-xl font-bold text-stone-900 tracking-tight">Fodda</h1>
-            <div className="absolute left-7 top-[44px] text-[9px] uppercase tracking-widest text-stone-400 font-medium whitespace-nowrap">Contextual Intelligence</div>
+      {/* Mobile Overlay */}
+      {isOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />}
+
+      {/* Sidebar Container - FIXED WIDTH 64 (16rem/256px) */}
+      <div
+        className={`fixed inset-y-0 left-0 z-[60] h-full bg-black border-r border-zinc-800 flex flex-col transition-all duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          w-64
+        `}
+      >
+        {/* Header / Brand */}
+        <div className="h-14 flex items-center px-4 border-b border-white/5 shrink-0 relative">
+          <div className="flex items-center gap-3 text-white/90 group cursor-pointer" onClick={() => onVerticalChange(Vertical.Baseline)}>
+            <div className="w-6 h-6 flex items-center justify-center rounded bg-zinc-800 text-white font-bold font-mono text-[10px] group-hover:bg-zinc-700 transition-colors">F</div>
+            <span className="font-semibold text-sm tracking-tight text-zinc-300 group-hover:text-white transition-colors">Fodda</span>
           </div>
-          <button onClick={onClose} className="md:hidden p-1 text-stone-400 h-16 flex items-center"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            className="md:hidden p-2 -mr-2 text-zinc-500 hover:text-white transition-colors"
+            title="Close Sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-8 p-6 pr-4 -mr-4 scrollbar-hide">
-          <div className="pt-4">
-            <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 pl-1">Knowledge Graphs</h2>
-            <div className="space-y-1.5">
-              {graphs.map((g) => {
-                const info = GRAPH_INFO[g.id];
-                const isExpanded = expandedInfo === g.id;
-                const isBaseline = g.id === Vertical.Baseline;
-                const isWaldo = g.id === Vertical.Waldo;
-                const isSIC = g.id === Vertical.SIC;
-                
-                return (
-                  <div key={g.id} className="flex flex-col space-y-1">
-                    <button
-                      onClick={() => { onVerticalChange(g.id); onClose(); }}
-                      className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between group ${
-                        currentVertical === g.id 
-                          ? 'bg-white text-stone-900 shadow-sm border border-stone-200 ring-1 ring-stone-900/5' 
-                          : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
-                      }`}
-                    >
-                      <div className="flex items-center min-w-0">
-                        {isBaseline ? <PewLogo /> : (isWaldo ? <WaldoLogo /> : (isSIC ? <SICLogo /> : <PSFKLogo />))}
-                        <span className="truncate pr-1">{g.name}</span>
-                        {info && (
-                          <div 
-                            onClick={(e) => toggleInfo(g.id, e)}
-                            className={`ml-1.5 p-1 rounded-md transition-colors hover:bg-stone-200/50 ${isExpanded ? 'text-fodda-accent' : 'text-stone-300'}`}
-                            title="Learn about this graph"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      {currentVertical === g.id && <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-fodda-accent"></div>}
-                    </button>
-                    
-                    {isExpanded && info && (
-                      <div className="mx-2 p-3 bg-stone-100/50 border border-stone-200/60 rounded-xl animate-fade-in-up">
-                        <p className="text-[10px] text-stone-600 leading-relaxed mb-3 font-medium">
-                          {info.text}
-                        </p>
-                        <a 
-                          href={info.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-[10px] font-bold text-fodda-accent hover:underline flex items-center group/link"
-                        >
-                          <span>Learn how it works</span>
-                          <svg className="w-2.5 h-2.5 ml-1.5 group-hover/link:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                          </svg>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {/* Navigation Items */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-6 scrollbar-hide">
 
-          {accessMode !== 'waldo' && (
+          {/* Main Links */}
+
+
+
+          {/* Live Graphs Section */}
+          {liveGraphs.length > 0 && (
             <div>
-              <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3 pl-1">Graph Pipeline</h2>
-              <div className="space-y-2.5">
-                {futureVerticals.map((fv) => (
-                  <div key={fv.name} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/30 transition-all group cursor-not-allowed opacity-80 hover:opacity-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative h-10 w-10 shrink-0">
-                        <img src={fv.img} alt={fv.person} className="h-full w-full rounded-lg border border-stone-100 object-cover bg-stone-200" />
+              <div className="flex items-center justify-between px-2 mb-2 group cursor-pointer text-zinc-500 hover:text-zinc-300 transition-colors">
+                <span className="text-xs font-semibold uppercase tracking-wider">Live Graphs</span>
+              </div>
+              <div className="space-y-0.5">
+                {liveGraphs.map((g) => {
+                  const isSelected = currentVertical === g.id;
+                  const isBaseline = g.id === Vertical.Baseline;
+                  const isWaldo = g.id === Vertical.Waldo;
+                  const isSIC = g.id === Vertical.SIC;
+
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => { onVerticalChange(g.id); onClose(); }}
+                      className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all group border border-transparent
+                        ${isSelected ? 'bg-zinc-800 text-white border-white/5 shadow-sm' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'}
+                      `}
+                    >
+                      <div className="w-4 h-4 flex shrink-0 items-center justify-center">
+                        {isBaseline ? <span className="font-mono font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded bg-white/10 text-zinc-300">F</span>
+                          : (isWaldo ? <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><WaldoLogo /></div>
+                            : (isSIC ? <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><SICLogo /></div>
+                              : <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><PSFKLogo /></div>))}
                       </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center">
-                          <span className="text-stone-800 font-bold text-xs leading-none">{fv.name}</span>
-                          <span className="ml-1.5 text-[7px] font-bold text-stone-400 uppercase tracking-tighter">Coming Soon</span>
-                        </div>
-                        <span className="text-[9px] text-stone-400 mt-1 font-medium">Curated by {fv.person}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+
+                      <span className="text-sm font-medium truncate">{g.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
+
+          {/* Playground Section */}
+          {playgroundGraphs.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-2 mb-2 group cursor-pointer text-zinc-500 hover:text-zinc-300 transition-colors">
+                <span className="text-xs font-semibold uppercase tracking-wider">Playground</span>
+              </div>
+              <div className="space-y-0.5">
+                {playgroundGraphs.map((g) => {
+                  const isSelected = currentVertical === g.id;
+                  const isBaseline = g.id === Vertical.Baseline;
+                  const isWaldo = g.id === Vertical.Waldo;
+                  const isSIC = g.id === Vertical.SIC;
+
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => { onVerticalChange(g.id); onClose(); }}
+                      className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all group border border-transparent
+                        ${isSelected ? 'bg-zinc-800 text-white border-white/5 shadow-sm' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'}
+                      `}
+                    >
+                      <div className="w-4 h-4 flex shrink-0 items-center justify-center">
+                        {isBaseline ? <span className="font-mono font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded bg-white/10 text-zinc-300">F</span>
+                          : (isWaldo ? <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><WaldoLogo /></div>
+                            : (isSIC ? <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><SICLogo /></div>
+                              : <div className="w-4 h-4 opacity-70 group-hover:opacity-100"><PSFKLogo /></div>))}
+                      </div>
+
+                      <span className="text-sm font-medium truncate">{g.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+
         </div>
 
-        <div className="mt-auto p-6 border-t border-stone-200 space-y-3">
-          {/* Snowflake Button */}
-          <a 
-            href="https://www.fodda.ai/#/snowflake" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-between p-3 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/50 hover:shadow-md transition-all group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="bg-stone-900 p-1.5 rounded-lg group-hover:bg-stone-800 transition-colors border border-stone-800 flex items-center justify-center">
-                <SnowflakeLogo />
-              </div>
-              <div className="text-left">
-                <p className="text-[11px] font-bold text-stone-800 leading-none">Snowflake</p>
-                <p className="text-[9px] text-stone-400 mt-0.5 font-medium">Sample Data</p>
-              </div>
-            </div>
-            <svg className="w-3 h-3 text-stone-300 group-hover:text-fodda-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-
-          <button 
-            onClick={onApiClick}
-            className="w-full flex items-center justify-between p-3 rounded-xl border border-stone-200 bg-white shadow-sm hover:border-fodda-accent/50 hover:shadow-md transition-all group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="bg-stone-100 p-1.5 rounded-lg group-hover:bg-purple-50 transition-colors border border-stone-200/50 flex items-center justify-center">
-                <svg className="w-4 h-4 text-stone-400 group-hover:text-fodda-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <p className="text-[11px] font-bold text-stone-800 leading-none">Developer API</p>
-                <p className="text-[9px] text-stone-400 mt-0.5 font-medium">Documentation</p>
-              </div>
-            </div>
-            <svg className="w-3 h-3 text-stone-300 group-hover:text-fodda-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+        {/* Bottom Actions */}
+        <div className="p-2 border-t border-white/5 space-y-0.5 bg-black pb-safe md:pb-2">
+          <button onClick={() => window.open('https://app.fodda.ai/#/knowledge-graphs', '_blank')} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+            <span className="text-sm font-medium">Knowledge</span>
           </button>
-
-          <div className="flex items-center justify-between px-1 text-[10px] text-stone-400 font-bold tracking-widest uppercase mt-4">
-             <div className="flex items-center space-x-2">
-               <a href="https://www.fodda.ai" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">Fodda.ai</a>
-               <span className="text-stone-300">•</span>
-               {accessMode === 'waldo' ? (
-                 <a href="https://www.waldo.fyi" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">Waldo</a>
-               ) : (
-                 <a href="https://www.psfk.com" target="_blank" rel="noopener noreferrer" className="hover:text-fodda-accent transition-colors">PSFK</a>
-               )}
-               <span className="text-stone-300">•</span>
-               <button onClick={onAdminClick} className="hover:text-fodda-accent transition-colors font-bold">Admin</button>
-             </div>
-          </div>
+          <button onClick={onDevModeClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all group">
+            <svg className="w-4 h-4 group-hover:text-green-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span className="text-sm font-medium group-hover:text-green-400 transition-colors">Developer</span>
+          </button>
+          <button onClick={onAdminClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="text-sm font-medium">Settings</span>
+          </button>
+          <button onClick={onApiClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+            <span className="text-sm font-medium">API Docs</span>
+          </button>
+          <button onClick={onSecurityClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            <span className="text-sm font-medium">Security</span>
+          </button>
+          <button onClick={onDeterministicClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+            <span className="text-sm font-medium">Reliability</span>
+          </button>
+          <button onClick={onDashboardClick} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="text-sm font-medium">Profile</span>
+          </button>
         </div>
+
       </div>
     </>
   );
