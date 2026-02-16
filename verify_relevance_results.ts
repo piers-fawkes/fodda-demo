@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 const API_BASE = "https://api.fodda.ai";
-const API_KEY = "AIzaSyD75zmGJeNOzuF6tiev-ecYADY5Hmravy4"; // From Sandbox deploy script
+const API_KEY = process.env.GEMINI_API_KEY || ""; // Set via .env
 
 async function testQuery(q: string) {
     console.log(`\nTesting Query: "${q}"`);

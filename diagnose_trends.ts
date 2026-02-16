@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 const API_BASE = "https://fodda-contextual-demo-p3uz7zw7ja-uw.a.run.app";
-const API_KEY = "AIzaSyD75zmGJeNOzuF6tiev-ecYADY5Hmravy4";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 
 async function diagnoseTrends() {
     const titles = [
