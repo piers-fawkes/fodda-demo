@@ -8,7 +8,8 @@ import {
   Article,
   KnowledgeGraph,
   Vertical,
-  AuthResponse
+  AuthResponse,
+  AdjacentTrend
 } from "./types";
 
 export interface UserLog {
@@ -120,82 +121,324 @@ function normalizeVertical(v: any): Vertical | null {
   return null;
 }
 
+/**
+ * Strips conversational preambles and filler from a user query,
+ * returning the core search term(s) for brand/topic detection.
+ */
+export function cleanSearchQuery(query: string): string {
+  let q = query.trim();
+  // Remove common preambles
+  const preambles = [
+    /^(tell me|show me|what do you know|what can you tell me|i want to know|i want to learn|i'd like to know|deep dive into|deep dive on)\s+(more\s+)?(about\s+)?/i,
+    /^(what are|what is|how is|how are)\s+/i,
+    /^(can you|could you|please)\s+(tell|show|explain|describe)\s+(me\s+)?(about\s+)?/i,
+  ];
+  for (const p of preambles) {
+    q = q.replace(p, '');
+  }
+  // Remove trailing question marks and whitespace
+  q = q.replace(/\?+$/, '').trim();
+  return q;
+}
+
+// ── Static fallback graph list (used when API is unreachable) ──
+// IMPORTANT: graph_type values MUST match the Airtable Graph List table (source of truth).
+// Mapping: domain → Domain Context, expert → Expert Graphs, industry report → Industry Papers,
+//          supplemental → Institutional, user → Custom, skill → Skills
+const FALLBACK_GRAPHS: KnowledgeGraph[] = [
+  // ─── Domain Context ───
+  { id: Vertical.Retail, name: "PSFK Retail Trends", headline: "Commerce, CX, omnichannel, and emerging retail formats", description: "Commerce, CX, omnichannel, and emerging retail formats.", owner: "PSFK Editorial", isCustom: false, verticalName: "Retail & Commerce", graph_type: 'domain', status: 'live', topics: ['retail', 'technology'] },
+  { id: Vertical.Beauty, name: "PSFK Beauty Trends", headline: "Biotech, personalization, wellness, fragrance innovation", description: "Biotech, personalization, wellness, fragrance innovation.", owner: "PSFK Editorial", isCustom: false, verticalName: "Beauty & Wellness", graph_type: 'domain', status: 'live', topics: ['beauty', 'health'] },
+  { id: Vertical.Sports, name: "PSFK Sports Trends", headline: "Fandom, performance tech, media rights, fitness formats", description: "Fandom, performance tech, media rights, fitness formats.", owner: "PSFK Editorial", isCustom: false, verticalName: "Sports & Fitness", graph_type: 'domain', status: 'live', topics: ['sport', 'health', 'technology'] },
+  { id: "fashion", name: "PSFK Fashion Trends", headline: "Fashion design, streetwear, luxury, sustainability", description: "Fashion design, streetwear, luxury, sustainability.", owner: "PSFK Editorial", isCustom: false, verticalName: "Fashion & Apparel", graph_type: 'domain', status: 'beta', topics: ['fashion', 'culture', 'sustainability'] },
+
+  // ─── Expert Graphs ───
+  { id: Vertical.SIC, name: "Ben Dietz SIC Graph", headline: "Culture, media, marketing, and platform trends", description: "Culture, media, marketing, and platform trends from Streets Is Calling.", owner: "Ben Dietz", isCustom: false, verticalName: "Culture & Media", graph_type: 'expert', status: 'live', topics: ['culture', 'advertising', 'technology'] },
+  { id: "2026-macro-trend-graph", name: "Revisionary 2026 Macro Trends", headline: "About sensemaking: cutting through the noise, drawing connections, discerning meaning", description: "About sensemaking: cutting through the noise, drawing connections, discerning meaning.", owner: "Anu Lingala", isCustom: false, verticalName: "culture", graph_type: 'expert', status: 'live', topics: ['macro trends', 'sustainability', 'place', 'humanism'] },
+  { id: "marieke-neleman-trends", name: "Marieke Neleman Cultural Signals", headline: "Design and lifestyle trend intelligence", description: "Design and lifestyle trend intelligence from Marieke Neleman.", owner: "Marieke Neleman", isCustom: false, verticalName: "Design & Lifestyle", graph_type: 'expert', status: 'live', topics: ['design', 'fashion', 'culture'] },
+  { id: "ezra-eeman-wayfinder", name: "Ezra Eeman Future of Work", headline: "Future-of-work and digital transformation trends", description: "Future-of-work and digital transformation trends from Ezra Eeman.", owner: "Ezra Eeman", isCustom: false, verticalName: "Future of Work & Digital Transformation", graph_type: 'expert', status: 'live', topics: ['work', 'technology'] },
+  { id: "florian-schleicher-friction-unloaded", name: "Florian Schleicher — Friction Unloaded", headline: "Innovation and friction trends", description: "Innovation and friction trends from Florian Schleicher.", owner: "Florian Schleicher", isCustom: false, verticalName: "Innovation & Friction Design", graph_type: 'expert', status: 'live', topics: ['design', 'technology', 'culture'] },
+  { id: "common-ground-trail-trends", name: "Common-Ground Trail Trends", headline: "Outdoor recreation and trail culture trends", description: "Outdoor recreation and trail culture trends from Common-Ground.", owner: "Janice Carrie", isCustom: false, verticalName: "Outdoor Recreation & Trail Culture", graph_type: 'expert', status: 'live', topics: ['sport', 'travel', 'health'] },
+  { id: "joanna-haugen-travel-trends", name: "Joanna Haugen Travel Trends 2026", headline: "Sustainable and regenerative travel trends", description: "Sustainable and regenerative travel trends from Lemongrass Travel.", owner: "JoAnna Haugen", isCustom: false, verticalName: "Sustainable Travel & Tourism", graph_type: 'expert', status: 'live', topics: ['travel', 'culture', 'sustainability'] },
+  { id: "firefish-treat-culture", name: "Firefish — Treat Culture", headline: "Consumer indulgence and treat culture trends", description: "Consumer indulgence and treat culture trends from Firefish.", owner: "Susie Hogarth", isCustom: false, verticalName: "Consumer Behavior & Treat Culture", graph_type: 'expert', status: 'live', topics: ['food', 'culture', 'retail'] },
+  { id: "juan-isaza-trends", name: "Consumer Trends 2026", headline: "Consumer culture and marketing trend intelligence", description: "Consumer culture and marketing trend intelligence from Juan Isaza.", owner: "Juan Isaza", isCustom: false, verticalName: "Consumer Culture & Marketing", graph_type: 'expert', status: 'live', topics: ['culture', 'advertising', 'retail'] },
+  { id: "thrive-report", name: "The Craft Graph", headline: "Craft isn't just a buzzword, it is humanity in the marketing noise", description: "Craft isn't just a buzzword, it is humanity in the marketing noise.", owner: "Sean Roche", isCustom: false, verticalName: "On-Premise Beverage Marketing", graph_type: 'expert', status: 'live', topics: ['health', 'sustainability', 'culture'] },
+
+  // ─── Industry Papers ───
+  { id: "generative-realities", name: "Dentsu Creative Generative Realities", headline: "Dentsu Creative Trends 2026: Generative Realities explore technology and culture", description: "Dentsu Creative Trends 2026: Generative Realities explore technology and culture.", owner: "Dentsu Creative", isCustom: false, verticalName: "Technology & Culture", graph_type: 'industry_report', status: 'live', topics: ['technology', 'culture', 'advertising'] },
+  { id: "tipping-points", name: "Edelman Tipping Points Graph", headline: "Investigating four reactions pushing settled truths towards a new tipping point", description: "Investigating four reactions pushing settled truths towards a new tipping point.", owner: "Jay Gallagher", isCustom: false, verticalName: "Edelman Tipping Points Graph", graph_type: 'industry_report', status: 'live', topics: ['culture', 'advertising'] },
+  { id: "havas-media-trends", name: "2026 Trends", headline: "Media, advertising, and content trends from Havas Media Network", description: "Media, advertising, and content trends from Havas Media Network.", owner: "Havas Media Network", isCustom: false, verticalName: "Media & Advertising", graph_type: 'industry_report', status: 'live', topics: ['advertising', 'culture', 'technology'] },
+  { id: "publicis-sapient-next-graph", name: "Publicis Sapient Guide To Next", headline: "Digital business transformation and technology strategy trends", description: "Digital business transformation and technology strategy trends from Publicis Sapient.", owner: "Jay Gallagher", isCustom: false, verticalName: "Digital Transformation & Enterprise Tech", graph_type: 'industry_report', status: 'live', topics: ['technology', 'advertising', 'retail'] },
+  { id: "alyson-stevens-macro", name: "TBWA — Alyson Stevens Macro Trends", headline: "Macro cultural and strategic trends from TBWA", description: "Macro cultural and strategic trends from TBWA (Alyson Stevens).", owner: "Alyson Stevens", isCustom: false, verticalName: "Culture & Macro Strategy", graph_type: 'industry_report', status: 'live', topics: ['culture', 'advertising'] },
+  { id: "automotive-color-trends", name: "Automotive Color Trends", headline: "Automotive color and materials trend report by BASF", description: "Automotive color and materials trend report by BASF.", owner: "Renee Rashid-Merem", isCustom: false, verticalName: "Automotive Design & Color", graph_type: 'industry_report', status: 'live', topics: ['automotive', 'design'] },
+  { id: "dhl-ecommerce-trends-2026", name: "E-Commerce Trends 2026", headline: "Global logistics and e-commerce trend intelligence from DHL", description: "Global logistics and e-commerce trend intelligence from DHL.", owner: "DHL", isCustom: false, verticalName: "Logistics & E-Commerce", graph_type: 'industry_report', status: 'live', topics: ['retail', 'technology'] },
+  { id: "braze-2026-trends", name: "Braze 2026 Trends", headline: "Customer engagement and martech trends from Braze", description: "Customer engagement and martech trends from Braze.", owner: "Vicki Loomes", isCustom: false, verticalName: "Customer Engagement & Martech", graph_type: 'industry_report', status: 'live', topics: ['advertising', 'technology', 'retail'] },
+  { id: "mlb-sponsorship", name: "Comunicano MLB Sponsorship & Technology Graph", headline: "How technology and sponsorship are reshaping Major League Baseball", description: "Expert intelligence on how technology and sponsorship are reshaping Major League Baseball.", owner: "Andy Abramson", isCustom: false, verticalName: "Sports Sponsorship & Technology", graph_type: 'industry_report', status: 'live', topics: ['sport', 'advertising', 'technology'] },
+
+  // ─── Institutional (Supplemental) ───
+  { id: "google_trends", name: "Google Trends Demand Signals", headline: "Relative search interest data over time from Google Trends", description: "Relative search interest data over time from Google Trends.", owner: "Google", isCustom: false, verticalName: "Demand Data", graph_type: 'supplemental', status: 'live', topics: ['all'] },
+  { id: "fred_economic", name: "FRED Economic Indicators", headline: "14 key economic indicators from the Federal Reserve", description: "Consumer sentiment, CPI, unemployment, retail sales, interest rates.", owner: "Federal Reserve Bank of St. Louis", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'retail', 'all'] },
+  { id: "bls_economic", name: "BLS Labor & Price Statistics", headline: "CPI inflation, employment, wages, and hours data", description: "CPI inflation, employment, wages, and hours data from the Bureau of Labor Statistics.", owner: "US Bureau of Labor Statistics", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'retail', 'all'] },
+  { id: "census_retail", name: "US Census Retail Sales", headline: "Monthly retail sales and economic indicators", description: "Monthly retail sales and economic indicators from the Advance Monthly Retail Trade Survey.", owner: "US Census Bureau", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['retail', 'economics'] },
+  { id: "census_demographics", name: "US Census Demographics & Economics", headline: "Annual demographic, economic, education, and housing data", description: "Annual demographic, economic, education, and housing data from the American Community Survey.", owner: "US Census Bureau", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['demographics', 'economics', 'all'] },
+  { id: "bea_spending", name: "BEA Consumer Spending Breakdowns", headline: "Personal Consumption Expenditure data", description: "Where Americans spend their money across food, clothing, healthcare, recreation.", owner: "US Bureau of Economic Analysis", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'retail'] },
+  { id: "pubmed_research", name: "PubMed Scientific Literature Tracker", headline: "Track where scientific research is accelerating", description: "Publication counts, 10-year trends, recent articles.", owner: "National Library of Medicine / NCBI", isCustom: false, verticalName: "Health Data", graph_type: 'supplemental', status: 'live', topics: ['health', 'beauty', 'technology'] },
+  { id: "clinical_trials", name: "ClinicalTrials.gov Research Tracker", headline: "Track clinical research activity for any ingredient or condition", description: "Track clinical research activity for any ingredient, intervention, or condition.", owner: "NIH / ClinicalTrials.gov", isCustom: false, verticalName: "Health Data", graph_type: 'supplemental', status: 'live', topics: ['health', 'beauty', 'sport'] },
+  { id: "cdc_health", name: "CDC Health & Wellness Data", headline: "Health behavior and chronic disease surveillance data", description: "Health behavior and chronic disease surveillance data from the CDC BRFSS survey.", owner: "Centers for Disease Control and Prevention", isCustom: false, verticalName: "Health Data", graph_type: 'supplemental', status: 'live', topics: ['health', 'beauty', 'sport'] },
+  { id: "openfda_safety", name: "openFDA Ingredient & Product Safety", headline: "Real-time ingredient safety data from the FDA", description: "Real-time ingredient safety data from the FDA adverse event database.", owner: "US FDA", isCustom: false, verticalName: "Health Data", graph_type: 'supplemental', status: 'live', topics: ['health', 'beauty', 'food'] },
+  { id: Vertical.Baseline, name: "Pew Research Baseline Surveys", headline: "Weighted distributions of public beliefs and behaviors", description: "Weighted distributions of public beliefs and behaviors from Pew NPORS 2025 survey.", owner: "Pew Research Center", isCustom: false, verticalName: "Survey Data", graph_type: 'supplemental', status: 'live', topics: ['culture', 'technology', 'all'] },
+  { id: "pew", name: "Public Beliefs Baseline", headline: "US public opinion and behavioral data from Pew NPORS 2025", description: "Social media usage, technology adoption, news consumption, trust, and AI attitudes.", owner: "Pew Research Center", isCustom: false, verticalName: "Public Opinion & Demographics", graph_type: 'supplemental', status: 'live', topics: ['culture', 'technology'] },
+  { id: "wikipedia_pageviews", name: "Wikipedia Cultural Attention Tracker", headline: "Cultural attention signals — track what the world is reading about", description: "Cultural attention signals — track what the world is reading about.", owner: "Wikimedia Foundation", isCustom: false, verticalName: "Cultural Data", graph_type: 'supplemental', status: 'live', topics: ['culture', 'all'] },
+  { id: "amazon_products", name: "Amazon Product & Pricing Reality", headline: "Real-time product listings, pricing, brand distribution", description: "Real-time product listings, pricing, brand distribution, and competitive landscape from Amazon.", owner: "Amazon", isCustom: false, verticalName: "Commerce Data", graph_type: 'supplemental', status: 'live', topics: ['all', 'retail'] },
+  { id: "osm_locations", name: "OpenStreetMap Commerce Infrastructure", headline: "Global retail and commercial location data", description: "Global retail and commercial location data from OpenStreetMap.", owner: "OpenStreetMap / Overpass API", isCustom: false, verticalName: "Geographic Data", graph_type: 'supplemental', status: 'live', topics: ['all'] },
+  { id: "ridb_recreation", name: "Recreation.gov RIDB", headline: "US federal recreation areas, facilities, and activities", description: "US federal recreation areas, facilities, and activities for outdoor recreation.", owner: "US Federal Government (Recreation.gov)", isCustom: false, verticalName: "Geographic Data", graph_type: 'supplemental', status: 'live', topics: ['sport', 'travel'] },
+  { id: "openfoodfacts_products", name: "Open Food Facts Product Database", headline: "Crowdsourced global product database with ingredient composition", description: "Ingredient composition, additive prevalence, NOVA processing levels.", owner: "Open Food Facts", isCustom: false, verticalName: "Product Data", graph_type: 'supplemental', status: 'live', topics: ['food', 'beauty', 'health'] },
+  { id: "oecd_economic", name: "OECD Economic Indicators", headline: "Cross-country economic intelligence across 38 developed nations", description: "Cross-country economic intelligence across 38 developed nations.", owner: "OECD", isCustom: false, verticalName: "Global Data", graph_type: 'supplemental', status: 'live', topics: ['all', 'economics'] },
+  { id: "worldbank_global", name: "World Bank Global Economics", headline: "Economic indicators across 189 countries", description: "GDP, inflation, trade, population across 189 countries.", owner: "World Bank", isCustom: false, verticalName: "Global Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'all'] },
+  { id: "wto_trade", name: "WTO International Trade Statistics", headline: "Merchandise trade values, services trade, and tariff rates", description: "Merchandise trade values, services trade, and tariff rates across 160+ economies.", owner: "World Trade Organization", isCustom: false, verticalName: "Global Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'retail'] },
+  { id: "ons_uk", name: "UK ONS Economic Indicators", headline: "UK retail sales, GDP, and consumer card spending data", description: "UK retail sales, GDP, and consumer card spending data from the Office for National Statistics.", owner: "UK Office for National Statistics", isCustom: false, verticalName: "Economic Data", graph_type: 'supplemental', status: 'live', topics: ['economics', 'retail', 'all'] },
+
+  // ─── Skills ───
+  { id: "Igloo", name: "Igloo", headline: "A mathematical stability gate that evaluates knowledge graph output before it reaches your AI", description: "Only grounded, corroborated signals pass through.", owner: "", isCustom: false, verticalName: "Igloo", graph_type: 'skill', status: 'draft', topics: ['all', 'retail'] },
+  { id: "paralogy", name: "Paralogy", headline: "Structured creative friction for strategists who don't want the same answer as everyone else", description: "Paralogy adds structured creative friction to your Fodda workflows.", owner: "", isCustom: false, verticalName: "Paralogy", graph_type: 'skill', status: 'beta', topics: ['all', 'retail'] },
+
+  // ─── Custom (User) ───
+  { id: "ce-design", name: "Consumer Electronics & Design", headline: "Materials, form factors, aesthetics, and usage contexts", description: "Consumer electronics design trends.", owner: "piers-fawkes", isCustom: false, verticalName: "Consumer Electronics", graph_type: 'user', status: 'live', topics: ['technology', 'design', 'retail'] },
+];
+
 class DataService {
+  // Session-level cache for fetched graphs
+  private _cachedGraphs: KnowledgeGraph[] | null = null;
+  private _cachedSupplementalSources: any[] | null = null;
+  private _fetchPromise: Promise<KnowledgeGraph[]> | null = null;
+
+  /**
+   * Synchronous getter — returns cached API graphs or fallback.
+   * Use fetchGraphs() to populate the cache first.
+   */
   getGraphs(): KnowledgeGraph[] {
-    return [
-      {
-        id: Vertical.Retail,
-        name: "Future of Retail Graph",
-        headline: "Tracking the automation of physical commerce",
-        description: "Store automation data.",
-        owner: "PSFK",
+    return this._cachedGraphs || FALLBACK_GRAPHS;
+  }
+
+  async getAdjacentTrends(trendId: string): Promise<AdjacentTrend[]> {
+    return [];
+  }
+
+  /**
+   * Get the cached supplemental sources from the API response.
+   */
+  getSupplementalSources(): any[] {
+    return this._cachedSupplementalSources || [];
+  }
+
+  /**
+   * Async fetch from GET /api/graph-catalog (server-side Airtable proxy with 5-min cache).
+   * Falls back to external API, then FALLBACK_GRAPHS if both are unreachable.
+   */
+  async fetchGraphs(apiKey: string): Promise<KnowledgeGraph[]> {
+    // Return cache if already fetched
+    if (this._cachedGraphs) return this._cachedGraphs;
+
+    // Deduplicate concurrent calls
+    if (this._fetchPromise) return this._fetchPromise;
+
+    this._fetchPromise = (async () => {
+      try {
+        console.log('[DataService] Fetching graph catalog from /api/graph-catalog...');
+        const res = await fetch('/api/graph-catalog');
+
+        if (!res.ok) {
+          console.warn(`[DataService] Graph catalog API returned ${res.status}, trying external API...`);
+          return await this._fetchFromExternalApi(apiKey);
+        }
+
+        const data = await res.json();
+        if (!data.ok || !data.graphs?.length) {
+          console.warn('[DataService] Graph catalog returned empty, trying external API...');
+          return await this._fetchFromExternalApi(apiKey);
+        }
+
+        const rawGraphs = data.graphs;
+
+        // Map server response to KnowledgeGraph interface
+        const graphs: KnowledgeGraph[] = rawGraphs.map((g: any) => ({
+          // Core fields (backward compatible)
+          id: g.id || g.graph_id || '',
+          name: g.name || '',
+          description: g.description || '',
+          headline: g.headline || g.description || '',
+          owner: g.curator || g.owner || '',
+          isCustom: false,
+          verticalName: g.verticalName || g.domain || g.name || '',
+          updateFrequency: g.update_frequency || '',
+          sourceURL: g.curator_url || '',
+          // Catalog fields
+          curator: g.curator || '',
+          curator_url: g.curator_url || '',
+          domain: g.domain || '',
+          graph_type: g.graph_type || 'expert',
+          graph_sub_type: g.graph_sub_type || '',
+          topics: Array.isArray(g.topics) ? g.topics : [],
+          status: g.status || 'live',
+          last_updated: g.last_updated || '',
+          published_date: g.published_date || '',
+          example_queries: Array.isArray(g.example_queries) ? g.example_queries : [],
+          portrait_url: g.portrait_url || '',
+          quality_checker_name: g.quality_checker_name || '',
+          geography: g.geography || '',
+          available_as: g.available_as || '',
+          is_playground: g.is_playground || false,
+          trend_count: g.trend_count || 0,
+          evidence_count: g.evidence_count || 0,
+          last_synced: g.last_synced || '',
+          approved_date: g.approved_date || '',
+          accessible: true, // All graphs from our catalog are accessible
+        }));
+
+        // Fetch analysts/experts
+        let analystsGraphs: KnowledgeGraph[] = [];
+        try {
+          console.log('[DataService] Fetching expert roster from https://api.fodda.ai/v1/analysts...');
+          const analystsRes = await fetch('https://api.fodda.ai/v1/analysts');
+          if (analystsRes.ok) {
+            const analystsData = await analystsRes.json();
+            if (analystsData.ok && Array.isArray(analystsData.analysts)) {
+              analystsGraphs = analystsData.analysts.map((a: any) => {
+                const isBen = a.id === 'ben-dietz-sic' || a.id === 'ben_dietz_expert';
+                const isPiers = a.id === 'piers-fawkes-psfk';
+                const isReal = isBen || isPiers;
+                const isExec = a.id.startsWith('brand-');
+                const subType = isReal ? 'Digital Twin' : isExec ? 'Synthetic Executive' : 'Synthetic Expert';
+                const name = a.name || '';
+                
+                return {
+                  id: a.id,
+                  graph_id: a.id,
+                  name: name,
+                  description: a.description || '',
+                  headline: a.description || '',
+                  owner: isBen ? 'SIC Weekly' : isPiers ? 'PSFK' : 'Fodda',
+                  isCustom: false,
+                  verticalName: name,
+                  updateFrequency: '',
+                  sourceURL: isBen ? 'https://bendeitz.substack.com' : isPiers ? 'https://www.psfk.com' : '',
+                  curator: isBen ? 'SIC Weekly' : isPiers ? 'PSFK' : 'Fodda',
+                  curator_url: isBen ? 'https://bendeitz.substack.com' : isPiers ? 'https://www.psfk.com' : '',
+                  domain: a.topic ? (Array.isArray(a.topic) ? a.topic.join(', ') : a.topic) : '',
+                  graph_type: 'expert',
+                  graph_sub_type: subType,
+                  topics: Array.isArray(a.topic) ? a.topic : (a.topic ? [a.topic] : []),
+                  status: 'live',
+                  last_updated: '',
+                  published_date: '',
+                  example_queries: Array.isArray(a.example_queries)
+                    ? a.example_queries
+                    : typeof a.example_queries === 'string'
+                      ? (() => { try { return JSON.parse(a.example_queries); } catch { return []; } })()
+                      : [],
+                  portrait_url: isBen ? 'https://ucarecdn.com/a4704f3d-1321-4da9-bca6-0edd693a1b47/BENDIETZGRAPHFODDASIC.png' : isPiers ? 'https://ucarecdn.com/b461fb21-46cf-4118-905c-10146fea60e1/' : '',
+                  quality_checker_name: '',
+                  geography: '',
+                  available_as: 'MCP, API, Chat',
+                  is_playground: false,
+                  trend_count: 0,
+                  evidence_count: 0,
+                  last_synced: '',
+                  approved_date: '',
+                  accessible: true,
+                };
+              });
+              console.log(`[DataService] Loaded ${analystsGraphs.length} experts from roster`);
+            }
+          }
+        } catch (err) {
+          console.warn('[DataService] Failed to fetch analysts from external API:', err);
+        }
+
+        const combined = [...graphs, ...analystsGraphs];
+        console.log(`[DataService] Loaded ${combined.length} total graphs (source: ${data.source})`);
+        this._cachedGraphs = combined;
+        return combined;
+      } catch (err) {
+        console.warn('[DataService] /api/graph-catalog failed, trying external API:', err);
+        return await this._fetchFromExternalApi(apiKey);
+      } finally {
+        this._fetchPromise = null;
+      }
+    })();
+
+    return this._fetchPromise;
+  }
+
+  /**
+   * Fallback: fetch from external API (original path).
+   */
+  private async _fetchFromExternalApi(apiKey: string): Promise<KnowledgeGraph[]> {
+    try {
+      const res = await fetch('https://api.fodda.ai/v1/graphs', {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+
+      if (!res.ok) {
+        console.warn(`[DataService] External API returned ${res.status}, using fallback`);
+        this._cachedGraphs = FALLBACK_GRAPHS;
+        return FALLBACK_GRAPHS;
+      }
+
+      const data = await res.json();
+      const rawGraphs = data.graphs || [];
+      const accessibleIds = new Set<string>(data.plan_info?.accessible_graphs || []);
+
+      this._cachedSupplementalSources = data.supplemental_sources || [];
+
+      const graphs: KnowledgeGraph[] = rawGraphs.map((g: any) => ({
+        id: g.graph_id || g.id || '',
+        name: g.name || '',
+        description: g.description || '',
+        headline: g.description || '',
+        owner: g.curator || g.owner || '',
         isCustom: false,
-        verticalName: "Retail",
-        pricePerQuery: "$0.50",
-        updateFrequency: "Weekly",
-        sourceURL: "https://psfk.com/retail"
-      },
-      {
-        id: Vertical.Sports,
-        name: "Future of Sports Graph",
-        headline: "Decoding the next generation of fan engagement",
-        description: "Fan engagement data.",
-        owner: "PSFK",
-        isCustom: false,
-        verticalName: "Sports",
-        pricePerQuery: "$0.50",
-        updateFrequency: "Monthly",
-        sourceURL: "https://psfk.com/sports"
-      },
-      {
-        id: Vertical.Beauty,
-        name: "Future of Beauty Graph",
-        headline: "Exploring sensory tech and personalized aesthetics",
-        description: "Sensory tech data.",
-        owner: "PSFK",
-        isCustom: false,
-        verticalName: "Beauty",
-        pricePerQuery: "$0.50",
-        updateFrequency: "Bi-Weekly",
-        sourceURL: "https://psfk.com/beauty"
-      },
-      {
-        id: Vertical.SIC,
-        name: "SIC Graph (Beta)",
-        headline: "Strategic Independent Culture mapping",
-        description: "Strategic Independent Culture Graph exploring subcultures and fringe movements.",
-        owner: "Ben Dietz",
-        isCustom: false,
-        verticalName: "Culture",
-        pricePerQuery: "$1.00",
-        updateFrequency: "Daily",
-        sourceURL: "https://bendietz.com"
-      },
-      {
-        id: Vertical.Waldo,
-        name: "Waldo Trends Graph",
-        headline: "Multi-industry innovation intelligence",
-        description: "A multi-industry trends knowledge graph built from Waldo’s ongoing signal and analysis work.",
-        owner: "Waldo",
-        isCustom: false,
-        verticalName: "General",
-        pricePerQuery: "$0.75",
-        updateFrequency: "Real-time",
-        sourceURL: "https://waldo.fyi"
-      },
-      {
-        id: Vertical.Baseline,
-        name: "Pew Public Beliefs Graph",
-        headline: "US public sentiment and demographic trends",
-        description: "Built from Pew NPORS 2025. Measure public sentiment distribution.",
-        owner: "PSFK",
-        isCustom: false,
-        verticalName: "Public Policy",
-        pricePerQuery: "$0.25",
-        updateFrequency: "Quarterly",
-        sourceURL: "https://pewresearch.org"
-      },
-    ];
+        verticalName: g.domain || g.name || '',
+        updateFrequency: g.update_frequency || '',
+        sourceURL: g.curator_url || '',
+        curator: g.curator || '',
+        curator_url: g.curator_url || '',
+        domain: g.domain || '',
+        graph_type: g.graph_type || 'expert',
+        graph_sub_type: g.graph_sub_type || '',
+        topics: Array.isArray(g.topics) ? g.topics : [],
+        status: g.status || 'live',
+        last_updated: g.last_updated || '',
+        published_date: g.published_date || '',
+        example_queries: Array.isArray(g.example_queries) ? g.example_queries : [],
+        portrait_url: g.portrait_url || '',
+        quality_checker_name: g.quality_checker_name || '',
+        geography: g.geography || '',
+        available_as: g.available_as || '',
+        is_playground: g.is_playground || false,
+        trend_count: g.trend_count || 0,
+        evidence_count: g.evidence_count || 0,
+        last_synced: g.last_synced || '',
+        accessible: accessibleIds.has(g.graph_id || g.id || ''),
+      }));
+
+      console.log(`[DataService] Loaded ${graphs.length} graphs from external API`);
+      this._cachedGraphs = graphs;
+      return graphs;
+    } catch (err) {
+      console.warn('[DataService] External API also failed, using static fallback:', err);
+      this._cachedGraphs = FALLBACK_GRAPHS;
+      return FALLBACK_GRAPHS;
+    }
+  }
+
+  /**
+   * Clear the cached graph list (e.g., on page reload or returning from background).
+   */
+  clearGraphCache(): void {
+    this._cachedGraphs = null;
+    this._cachedSupplementalSources = null;
+    this._fetchPromise = null;
   }
 
   async updateGraph(id: string, updates: Partial<KnowledgeGraph>): Promise<{ ok: boolean; error?: string }> {
@@ -211,6 +454,42 @@ class DataService {
       return { ok: true };
     } catch (e: any) {
       console.error("Failed to update graph", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Persist the user's disabled graphs list to Airtable.
+   * @param email - User's email
+   * @param disabledGraphs - Comma-separated graph IDs (e.g. "fashion,waldo")
+   */
+  async updateDisabledGraphs(email: string, disabledGraphs: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await postJson<{ ok: boolean; error?: string }>('/api/user/disabled-graphs', { email, disabledGraphs });
+      return res;
+    } catch (e: any) {
+      console.error('[DataService] Failed to update disabled graphs:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Send a query through the MCP agentic pipeline.
+   * Returns the synthesized answer, suggested questions, and tool call log.
+   */
+  async mcpChat(query: string, vertical: string, email: string, firstName?: string, personaContext?: string, userContext?: string, accountContext?: string): Promise<{
+    ok: boolean;
+    answer?: string;
+    suggestedQuestions?: string[];
+    toolCalls?: Array<{ tool: string; args: any; durationMs: number; resultPreview: string }>;
+    totalDurationMs?: number;
+    error?: string;
+  }> {
+    try {
+      const res = await postJson<any>('/api/mcp/chat', { query, vertical, email, firstName, personaContext, userContext, accountContext });
+      return res;
+    } catch (e: any) {
+      console.error('[DataService] MCP chat failed:', e);
       return { ok: false, error: e.message };
     }
   }
@@ -249,7 +528,17 @@ class DataService {
     }
   }
 
-  async register(email: string, firstName: string, lastName: string, company: string, jobTitle: string, companyContextRaw?: string, userContextRaw?: string, apiUse?: string): Promise<AuthResponse> {
+  async resendConfirmation(email: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await postJson<{ ok: boolean; error?: string }>("/api/auth/resend-confirmation", { email });
+      return res;
+    } catch (e: any) {
+      console.error("[DataService] Resend confirmation failed", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async register(email: string, firstName: string, lastName: string, company: string, jobTitle: string, companyContextRaw?: string, userContextRaw?: string, apiUse?: string, intent?: string, referralGraph?: string, isProfessionalServices?: boolean, promoTag?: string): Promise<AuthResponse> {
     console.log("[DataService] register initiated for:", email);
     try {
       const res = await postJson<AuthResponse>("/api/auth/register", {
@@ -260,7 +549,11 @@ class DataService {
         jobTitle,
         companyContext: companyContextRaw,
         userContext: userContextRaw,
-        apiUse
+        apiUse,
+        intent,
+        referralGraph,
+        isProfessionalServices,
+        promoTag
       });
       console.log("[DataService] register response success:", { ok: res.ok });
       return res;
@@ -306,10 +599,35 @@ class DataService {
 
   async updateAccountContext(accountId: string, context: string) {
     try {
-      await postJson("/api/account/context", { accountId, context });
-      return { ok: true };
+      return this.updateAccount(accountId, { context });
     } catch (e: any) {
       console.error("Failed to update account context", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Submit a user contribution (correction, extension, authored content).
+   * Persists to the Context Contributions table for persona synthesis.
+   */
+  async submitContribution(
+    userEmail: string,
+    content: string,
+    originType: 'authored' | 'uploaded' | 'corrected' | 'extended',
+    taxonomyNode: string,
+    relatedQueryId?: string
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      return await postJson<{ ok: boolean; error?: string }>('/api/contributions', {
+        userEmail,
+        content,
+        originType,
+        taxonomyNode,
+        relatedQueryId,
+        source: 'app',
+      });
+    } catch (e: any) {
+      console.error('[DataService] submitContribution failed:', e);
       return { ok: false, error: e.message };
     }
   }
@@ -332,13 +650,15 @@ class DataService {
     }
   }
 
-  async logToAirtable(userId: string, email: string, query: string, vertical: string, accessKey: string, context?: any): Promise<{ ok: boolean; error?: string }> {
+  async logToAirtable(userId: string, email: string, query: string, vertical: string, accessKey: string, context?: any, graphIdOverride?: string, promptSource?: string): Promise<{ ok: boolean; error?: string }> {
     // Derive graphId
     const v = vertical.toLowerCase();
-    let graphId = "psfk";
-    if (v.includes("waldo")) graphId = "waldo";
-    else if (v.includes("sic")) graphId = "sic";
-    else if (v.includes("baseline")) graphId = "pew";
+    let graphId = graphIdOverride || "psfk";
+    if (!graphIdOverride) {
+      if (v.includes("waldo")) graphId = "waldo";
+      else if (v.includes("sic")) graphId = "sic";
+      else if (v.includes("baseline")) graphId = "pew";
+    }
 
     try {
       const _res = await postJson("/api/log", {
@@ -348,7 +668,8 @@ class DataService {
         vertical,
         graphId,
         accessKey,
-        context
+        context,
+        promptSource: promptSource || '',
       });
       return { ok: true };
     } catch (err: any) {
@@ -370,12 +691,36 @@ class DataService {
 
   async getPlans() {
     try {
-      const res = await fetch("/api/plans");
+      const res = await fetch("/api/account/plans");
       if (!res.ok) throw new Error("Failed to fetch plans");
       return await res.json();
     } catch (e: any) {
       console.error("Failed to get plans", e);
       return { ok: false, error: e.message, plans: [] };
+    }
+  }
+
+  async partnerInvite(data: { email: string; firstName?: string; companyName?: string; emailBody?: string; adminSecret: string }): Promise<{ ok: boolean; accountId?: string; apiKey?: string; error?: string; alreadyExists?: boolean }> {
+    try {
+      const res = await fetch("/api/account/partner-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error("[DataService] Partner invite failed:", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async convertToBase(email: string): Promise<{ ok: boolean; error?: string; alreadyConfirmed?: boolean }> {
+    try {
+      const res = await postJson<{ ok: boolean; error?: string; alreadyConfirmed?: boolean }>("/api/account/convert-to-base", { email });
+      return res;
+    } catch (e: any) {
+      console.error("[DataService] Convert to base failed:", e);
+      return { ok: false, error: e.message };
     }
   }
 
@@ -427,8 +772,9 @@ class DataService {
     const isWaldo = activeVertical === "waldo";
     const isSIC = activeVertical === "sic";
 
-    let graphId = "psfk";
+    let graphId = vertical || "psfk";
     let apiVertical = activeVertical;
+    const isGenerativeRealities = activeVertical === "generative-realities";
 
     if (isWaldo) {
       graphId = "waldo";
@@ -439,6 +785,9 @@ class DataService {
     } else if (isBaseline) {
       graphId = "pew";
       apiVertical = "baseline";
+    } else if (isGenerativeRealities) {
+      graphId = "generative-realities";
+      apiVertical = "general";
     }
 
     const payload = {
@@ -586,6 +935,20 @@ class DataService {
     }
   }
 
+  async updateUserRole(targetUserId: string, newRole: string, requesterEmail: string) {
+    try {
+      const res = await fetch(`/api/user/update-role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, newRole, requesterEmail })
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error("Failed to update user role", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
   async deleteUser(userId: string, requesterEmail: string) {
     try {
       const res = await fetch(`/api/user/${userId}`, {
@@ -627,6 +990,193 @@ class DataService {
       return { ok: true, data };
     } catch (e: any) {
       console.error("Failed to get macro overview", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Fetch graphs owned by the authenticated user.
+   * Returns owned graphs with trial access info (MCP URL, credits).
+   * Uses the local my-submissions endpoint which includes Trials table data.
+   * Gracefully returns empty array on failure.
+   */
+  async fetchOwnedGraphs(apiKey: string, email?: string): Promise<any[]> {
+    try {
+      if (!email) {
+        // Fallback: try to get email from stored user
+        try {
+          const stored = localStorage.getItem('fodda_user');
+          if (stored) email = JSON.parse(stored).email;
+        } catch {}
+      }
+      if (!email) {
+        console.warn('[DataService] fetchOwnedGraphs: no email available');
+        return [];
+      }
+
+      console.log('[DataService] Fetching owned graphs from /api/expert-graph/my-submissions...');
+      const res = await fetch(`/api/expert-graph/my-submissions?email=${encodeURIComponent(email)}`);
+
+      if (!res.ok) {
+        console.warn(`[DataService] /api/expert-graph/my-submissions returned ${res.status}`);
+        return [];
+      }
+
+      const data = await res.json();
+      if (!data.ok || !Array.isArray(data.submissions)) {
+        return [];
+      }
+
+      // Map submissions to the OwnedGraph shape MyGraphsPage expects
+      const owned = data.submissions
+        .filter((s: any) => s.status === 'active' || s.status === 'live' || s.status === 'pending_review')
+        .map((s: any) => ({
+          graph_id: s.graphSlug || '',
+          name: s.graphName || '',
+          status: s.status === 'active' ? 'live' : s.status,
+          curator: s.creator || '',
+          owner_email: email,
+          trial: s.trial || undefined,
+        }));
+
+      console.log(`[DataService] Loaded ${owned.length} owned graphs`);
+      return owned;
+    } catch (err) {
+      console.warn('[DataService] Failed to fetch owned graphs:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Delete the current user's account.
+   * Requires the user to be the Owner and to provide the confirmation phrase "DELETE".
+   * This anonymizes all users, revokes API keys, and marks the account as deleted.
+   */
+  async deleteAccount(email: string, confirmPhrase: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, confirmPhrase })
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Delete account failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+
+  /**
+   * Admin: Look up a user by email.
+   * Returns user profile, account, plan, API key, and usage stats from Airtable.
+   */
+  async adminLookupUser(email: string, adminSecret: string): Promise<{
+    ok: boolean;
+    user?: any;
+    account?: any;
+    plan?: any;
+    apiKey?: string | null;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch('/api/account/admin/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, adminSecret }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Admin lookup failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Admin: Change a user's plan by planCode.
+   * Updates the account's plan link in Airtable.
+   */
+  async adminChangePlan(email: string, planCode: number, adminSecret: string): Promise<{
+    ok: boolean;
+    message?: string;
+    plan?: any;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch('/api/account/admin/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, planCode, adminSecret }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Admin change plan failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Admin: Fetch trial API keys and MCP URLs for all graphs.
+   * Returns a map of graphId → { trial_key, mcp_url, status, credits_remaining, credits_total, owner_email }
+   */
+  async fetchGraphTrials(adminSecret: string): Promise<Record<string, any>> {
+    try {
+      const res = await fetch(`/api/graph-trials?secret=${encodeURIComponent(adminSecret)}`);
+      if (!res.ok) return {};
+      const data = await res.json();
+      return data.trials || {};
+    } catch (e: any) {
+      console.error('[DataService] Fetch graph trials failed:', e);
+      return {};
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout Session for a subscription plan.
+   * Returns a checkout URL that the frontend should redirect to.
+   */
+  async createSubscriptionCheckout(planCode: number, email: string, trialDays?: number): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/account/checkout/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, planCode, trialDays }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Subscription checkout failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async createCustomCheckout(planCode: number, email?: string, trialDays?: number): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/account/checkout/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planCode, email, trialDays }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Custom checkout failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Create a Stripe Billing Portal session for subscription management.
+   * Returns a portal URL that opens Stripe's hosted portal (cancel, update payment, invoices).
+   */
+  async createBillingPortal(email: string): Promise<{ ok: boolean; portal_url?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/account/billing/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Billing portal failed:', e);
       return { ok: false, error: e.message };
     }
   }
