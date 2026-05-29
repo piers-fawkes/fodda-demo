@@ -27,6 +27,21 @@ import { detectAccountType } from "../services/accountTypeService.js";
 
 const router = Router();
 
+/**
+ * Helper to fetch active API keys for a given account ID.
+ * Since the Account field in the API Keys table is a linked record,
+ * comparing {Account} = 'rec...' in Airtable formulas evaluates by Account Name rather than record ID.
+ * We resolve this by first retrieving the Account Name and then querying by that name.
+ */
+async function getActiveKeysForAccount(accountId: string) {
+  const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+  const accountName = accountQuery.records?.[0]?.fields?.['Account Name'];
+  if (!accountName) return { records: [] };
+
+  const { API_KEYS_TABLE } = await import('../constants.js');
+  return await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountName)}', {API Key Status} = 'Active')`);
+}
+
 // --- Account & Profile Endpoints ---
 
 router.post("/invite", async (req, res) => {
@@ -56,7 +71,7 @@ router.post("/invite", async (req, res) => {
 
     for (const singleEmail of emails) {
       try {
-        const existingUser = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(singleEmail)}'`);
+        const existingUser = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(singleEmail)}'`);
         if (existingUser.records && existingUser.records.length > 0) {
           results.failed.push({ email: singleEmail, reason: "User already exists" });
           continue;
@@ -237,6 +252,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
       const session = event.data?.object || event;
       const customerEmail = session.customer_email || session.customer_details?.email;
       if (!customerEmail) return res.status(400).json({ error: "No email" });
+      const normalizedEmail = customerEmail.toLowerCase().trim();
 
       const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
       const stripePriceId = lineItems.data?.[0]?.price?.id || null;
@@ -246,16 +262,16 @@ router.post("/stripe/webhook", async (req: any, res) => {
       const planRecord = planQuery.records?.[0];
       if (!planRecord) return res.status(400).json({ error: "Plan not found" });
 
-      const userQuery = await queryAirtable(USERS_TABLE, `{email} = '${customerEmail}'`);
+      const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
       let userRecord = userQuery.records?.[0];
       let accountId = userRecord?.fields?.["Account"]?.[0];
 
       // ═══ FALLBACK: Domain-match if buyer email not in Users table ═══
       if (!userRecord || !accountId) {
-        const buyerDomain = customerEmail.split('@')[1]?.toLowerCase();
+        const buyerDomain = normalizedEmail.split('@')[1];
         if (buyerDomain) {
           // Search for any Owner or Admin with the same email domain
-          const domainUsers = await queryAirtable(USERS_TABLE, `AND(OR({Role} = 'Owner', {Role} = 'Admin'), FIND('${buyerDomain}', {email}))`);
+          const domainUsers = await queryAirtable(USERS_TABLE, `AND(OR({Role} = 'Owner', {Role} = 'Admin'), FIND('${buyerDomain}', LOWER({email})))`);
           const domainMatches = (domainUsers.records || []).filter((u: any) => {
             const uDomain = (u.fields.email || '').split('@')[1]?.toLowerCase();
             return uDomain === buyerDomain && u.fields.Account?.[0];
@@ -266,16 +282,16 @@ router.post("/stripe/webhook", async (req: any, res) => {
             const matchedUser = domainMatches[0];
             accountId = matchedUser.fields.Account[0];
             const amountStr = `$${(Number(session.amount_total || 0) / 100).toFixed(2)}`;
-            console.log(`[Stripe] Domain-matched ${customerEmail} to account ${accountId} via ${matchedUser.fields.email}`);
+            console.log(`[Stripe] Domain-matched ${normalizedEmail} to account ${accountId} via ${matchedUser.fields.email}`);
 
             // Notify admin that auto-matching succeeded
-            sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers@psfk.com', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: `✅ AUTO-RESOLVED: Domain-matched to account ${accountId} via ${matchedUser.fields.email}. No action needed.` }).catch(() => {});
+            sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers@psfk.com', { customerEmail: normalizedEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: `✅ AUTO-RESOLVED: Domain-matched to account ${accountId} via ${matchedUser.fields.email}. No action needed.` }).catch(() => {});
 
             if (!userRecord) {
               // Create user record for the buyer and link to the matched account
-              const buyerName = customerEmail.split('@')[0];
+              const buyerName = normalizedEmail.split('@')[0];
               const newUser = await createAirtableRecord(USERS_TABLE, {
-                "email": customerEmail,
+                "email": normalizedEmail,
                 "First Name": buyerName,
                 "Role": "Owner", // Buyer becomes Owner
                 "Account": [accountId],
@@ -433,8 +449,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
         // Look up the account's API key so we can include MCP URLs in the upgrade email
         let upgradeApiKey = '';
         try {
-          const { API_KEYS_TABLE } = await import('../constants.js');
-          const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${accountId}', {API Key Status} = 'Active')`);
+          const keysQuery = await getActiveKeysForAccount(accountId);
           upgradeApiKey = keysQuery.records?.[0]?.fields?.['API Key'] || '';
         } catch (e) { /* non-critical — email will just omit MCP URLs */ }
 
@@ -660,7 +675,8 @@ router.post("/billing/portal", async (req, res) => {
     const user = await authenticateSession(req);
     if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
-    if (email.toLowerCase().trim() !== user.email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail !== user.email) {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
 
@@ -668,7 +684,7 @@ router.post("/billing/portal", async (req, res) => {
     if (!stripeKey) return res.status(500).json({ ok: false, error: "Stripe not configured" });
 
     // Look up user → account → stripeCustomerId
-    const userQuery = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     const userRecord = userQuery.records?.[0];
     if (!userRecord) return res.status(404).json({ ok: false, error: "User not found" });
 
@@ -711,6 +727,8 @@ router.post("/trial-convert", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Email and trialKey are required." });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Validate the trial key format
     if (!trialKey.startsWith('sk_trial_')) {
       return res.status(400).json({ ok: false, error: "Invalid trial key format." });
@@ -720,7 +738,7 @@ router.post("/trial-convert", async (req, res) => {
     const graphId = trialKey.replace('sk_trial_', '');
 
     // Check if user already exists
-    const existingUser = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const existingUser = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     if (existingUser.records && existingUser.records.length > 0) {
       // User already exists — just return success so the MCP doesn't show an error
       const existingAccountId = existingUser.records[0].fields?.Account?.[0];
@@ -738,7 +756,7 @@ router.post("/trial-convert", async (req, res) => {
     const basePlanId = basePlanRecord?.id;
 
     // Create the account
-    const displayName = firstName || email.split('@')[0];
+    const displayName = firstName || normalizedEmail.split('@')[0];
     const companyName = `${displayName}'s Account`;
     const todayISO = new Date().toISOString().split('T')[0];
 
@@ -754,7 +772,7 @@ router.post("/trial-convert", async (req, res) => {
     };
     if (basePlanId) accountFields["Plan"] = [basePlanId];
 
-    const corpDomain = extractCorporateDomain(email);
+    const corpDomain = extractCorporateDomain(normalizedEmail);
     if (corpDomain) {
       accountFields["autoProvisionDomain"] = corpDomain;
       accountFields["autoProvisionToggle"] = true;
@@ -788,7 +806,7 @@ router.post("/trial-convert", async (req, res) => {
       "User Name": uniqueHandle,
       "First Name": displayName,
       "User Full Name": displayName,
-      "email": email,
+      "email": normalizedEmail,
       "Role": "Owner",
       "Account": [accountId],
       "emailConfirmed": false,
@@ -803,8 +821,8 @@ router.post("/trial-convert", async (req, res) => {
 
     // Send confirmation email
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-    const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(email)}`;
-    sendSystemEmail('SIGNUP_CONFIRMATION', email, {
+    const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
+    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
       name: displayName,
       confirmationLink,
       intent: 'account',
@@ -812,7 +830,7 @@ router.post("/trial-convert", async (req, res) => {
     }).catch(e => console.error("[Trial-Convert] Email failed:", e));
 
     // Fire-and-forget: enrich the user
-    enrichUserBuyerType(email, displayName, '', '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
+    enrichUserBuyerType(normalizedEmail, displayName, '', '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
 
     // Schedule onboarding prompts email (5 mins delay to allow enrichment to populate buyer_type)
     setTimeout(async () => {
@@ -827,7 +845,7 @@ router.post("/trial-convert", async (req, res) => {
         }
 
         const candidates = selectPrompts(graphId, fuf.buyer_type || 'Unknown', fuf.buyer_industry || '', 10);
-        const { prompts } = await validateAndSelectPrompts(candidates, graphId, email, sendSystemEmail) as any;
+        const { prompts } = await validateAndSelectPrompts(candidates, graphId, normalizedEmail, sendSystemEmail) as any;
         const finalPrompts = prompts.length >= 3 ? prompts : candidates.slice(0, 5);
         
         // Contextual Onboarding
@@ -890,18 +908,19 @@ router.post("/b2b-provision", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Email is required." });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
     const { API_KEYS_TABLE } = await import('../constants.js');
 
     // 2. Check if user already exists
-    const existingUser = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const existingUser = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     if (existingUser.records && existingUser.records.length > 0) {
       const existingAccountId = existingUser.records[0].fields?.Account?.[0];
       if (existingAccountId) {
         // Fetch existing active API key
-        const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(existingAccountId)}', {API Key Status} = 'Active')`);
+        const keysQuery = await getActiveKeysForAccount(existingAccountId);
         const existingKey = keysQuery.records?.[0]?.fields?.['API Key'];
         if (existingKey) {
-          console.log(`[B2B Provision] User ${email} already exists. Returning existing key.`);
+          console.log(`[B2B Provision] User ${normalizedEmail} already exists. Returning existing key.`);
           return res.json({ ok: true, apiKey: existingKey, accountId: existingAccountId });
         }
       }
@@ -912,7 +931,7 @@ router.post("/b2b-provision", async (req, res) => {
     const basePlanQuery = await queryAirtable(PLANS_TABLE, `{planCode} = 2`);
     const basePlanId = basePlanQuery.records?.[0]?.id;
 
-    const companyName = company || email.split('@')[0] + "'s Account";
+    const companyName = company || normalizedEmail.split('@')[0] + "'s Account";
     const graphId = sourceGraphId || 'retail';
     const todayISO = new Date().toISOString().split('T')[0];
 
@@ -927,7 +946,7 @@ router.post("/b2b-provision", async (req, res) => {
     };
     if (basePlanId) accountFields["Plan"] = [basePlanId];
 
-    const corpDomain = extractCorporateDomain(email);
+    const corpDomain = extractCorporateDomain(normalizedEmail);
     if (corpDomain) {
       accountFields["autoProvisionDomain"] = corpDomain;
       accountFields["autoProvisionToggle"] = true;
@@ -1181,12 +1200,13 @@ router.post("/delete", async (req, res) => {
     const user = await authenticateSession(req);
     if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
-    if (email.toLowerCase().trim() !== user.email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail !== user.email) {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
 
     // Verify the user exists and is the Owner
-    const userQuery = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     const userRecord = userQuery.records?.[0];
     if (!userRecord) {
       return res.status(404).json({ ok: false, error: "User not found." });
@@ -1203,8 +1223,8 @@ router.post("/delete", async (req, res) => {
     }
 
     // 1. Revoke all API keys for this account
+    const keysQuery = await getActiveKeysForAccount(accountId);
     const { API_KEYS_TABLE } = await import('../constants.js');
-    const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountId)}', {API Key Status} = 'Active')`);
     for (const keyRec of (keysQuery.records || [])) {
       await updateAirtableRecord(API_KEYS_TABLE, keyRec.id, {
         "API Key Status": "Revoked",
@@ -1270,8 +1290,10 @@ router.post("/partner-invite", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Partner email is required." });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user already exists
-    const existingUser = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const existingUser = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     if (existingUser.records && existingUser.records.length > 0) {
       return res.status(409).json({
         ok: false,
@@ -1286,7 +1308,7 @@ router.post("/partner-invite", async (req, res) => {
     const basePlanId = basePlanRecord?.id;
 
     // Create the account
-    const displayName = firstName || email.split('@')[0];
+    const displayName = firstName || normalizedEmail.split('@')[0];
     const accountName = companyName || `${displayName}'s Account`;
     const todayISO = new Date().toISOString().split('T')[0];
 
@@ -1329,7 +1351,7 @@ router.post("/partner-invite", async (req, res) => {
       "User Name": uniqueHandle,
       "First Name": displayName,
       "User Full Name": displayName,
-      "email": email,
+      "email": normalizedEmail,
       "Role": "Owner",
       "Account": [accountId],
       "emailConfirmed": false,
@@ -1350,14 +1372,14 @@ router.post("/partner-invite", async (req, res) => {
         .replace(/will be sent separately with your API key/g, `Standard (Claude Web): https://mcp.fodda.ai/mcp?api_key=${apiKeyString}\nSSE (Cursor/Desktop): https://mcp.fodda.ai/sse?api_key=${apiKeyString}`);
 
       // Send via Resend (formal) — falls back to Gmail if Resend isn't configured
-      sendDirectEmail(email, "Your Fodda Studio Beta access is ready", finalBody, 'formal')
-        .then(ok => console.log(`[Partner-Invite] Email ${ok ? 'sent' : 'failed'} to ${email}`))
+      sendDirectEmail(normalizedEmail, "Your Fodda Studio Beta access is ready", finalBody, 'formal')
+        .then(ok => console.log(`[Partner-Invite] Email ${ok ? 'sent' : 'failed'} to ${normalizedEmail}`))
         .catch(e => console.error('[Partner-Invite] Email send failed:', e));
     } else {
       // Fallback to template
-      sendSystemEmail('PARTNER_WELCOME', email, {
+      sendSystemEmail('PARTNER_WELCOME', normalizedEmail, {
         name: displayName,
-        email,
+        email: normalizedEmail,
         apiKey: apiKeyString,
         stripeLink: 'https://buy.stripe.com/cNi28qbhT2l7gmY9c76g80b',
         companyName: accountName,
@@ -1365,15 +1387,15 @@ router.post("/partner-invite", async (req, res) => {
     }
 
     // Fire-and-forget: enrich the user
-    enrichUserBuyerType(email, displayName, '', '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
+    enrichUserBuyerType(normalizedEmail, displayName, '', '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
 
-    console.log(`[Partner-Invite] Created partner account for ${email} (company: ${accountName})`);
+    console.log(`[Partner-Invite] Created partner account for ${normalizedEmail} (company: ${accountName})`);
 
     res.json({
       ok: true,
       accountId,
       apiKey: apiKeyString,
-      message: `Partner account created for ${email}. Welcome email sent.`,
+      message: `Partner account created for ${normalizedEmail}. Welcome email sent.`,
     });
   } catch (err: any) {
     console.error("[Partner-Invite] Error:", err);
@@ -1402,11 +1424,13 @@ router.post("/admin/lookup", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Email or handle is required." });
     }
 
-    // 1. Look up user — support both email and handle (User Name)
     const isEmail = email.includes('@');
+    const normalizedEmail = isEmail ? email.toLowerCase().trim() : email.trim();
+
+    // 1. Look up user — support both email and handle (User Name)
     const userQuery = isEmail
-      ? await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`)
-      : await queryAirtable(USERS_TABLE, `{User Name} = '${escapeAirtableString(email)}'`);
+      ? await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`)
+      : await queryAirtable(USERS_TABLE, `{User Name} = '${escapeAirtableString(normalizedEmail)}'`);
     const userRecord = userQuery.records?.[0];
     if (!userRecord) {
       return res.status(404).json({ ok: false, error: `No user found with ${isEmail ? 'email' : 'handle'}: ${email}` });
@@ -1444,8 +1468,7 @@ router.post("/admin/lookup", async (req, res) => {
         }
 
         // 4. Look up API key
-        const { API_KEYS_TABLE } = await import('../constants.js');
-        const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountId)}', {API Key Status} = 'Active')`);
+        const keysQuery = await getActiveKeysForAccount(accountId);
         const keyRec = keysQuery.records?.[0];
         if (keyRec) {
           apiKey = keyRec.fields['API Key'] || null;
@@ -1518,10 +1541,12 @@ router.post("/admin/change-plan", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Email and planCode are required." });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Look up user → account
-    const userQuery = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(email)}'`);
+    const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     const userRecord = userQuery.records?.[0];
-    if (!userRecord) return res.status(404).json({ ok: false, error: `No user found with email: ${email}` });
+    if (!userRecord) return res.status(404).json({ ok: false, error: `No user found with email: ${normalizedEmail}` });
 
     const accountId = userRecord.fields.Account?.[0];
     if (!accountId) return res.status(404).json({ ok: false, error: "User has no linked account." });
@@ -1756,7 +1781,7 @@ function isTrialRateLimited(ip: string): boolean {
  */
 router.post('/trial-provision', async (req, res) => {
   const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
-  const { email, firstName, lastName, company, jobTitle, vertical, adminSecret } = req.body;
+  const { email, firstName, lastName, company, jobTitle, vertical, adminSecret, suppressEmail } = req.body;
 
   if (!email) {
     return res.status(400).json({ ok: false, error: 'Email is required' });
@@ -1774,20 +1799,29 @@ router.post('/trial-provision', async (req, res) => {
     }
 
     // 2. Check if user already exists
-    const existingUser = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(normalizedEmail)}'`);
+    const existingUser = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     if (existingUser.records && existingUser.records.length > 0) {
       const userRec = existingUser.records[0];
       const accountId = userRec.fields.Account?.[0];
       if (accountId) {
         // Fetch active key for this account
-        const { API_KEYS_TABLE } = await import('../constants.js');
-        const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountId)}', {API Key Status} = 'Active')`);
-        const apiKey = keysQuery.records?.[0]?.fields?.['API Key'];
-        if (apiKey) {
-          const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
-          const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
-          return res.json({ ok: true, apiKey, mcpUrl, claudeUrl, alreadyExists: true });
+        const keysQuery = await getActiveKeysForAccount(accountId);
+        let apiKey = keysQuery.records?.[0]?.fields?.['API Key'];
+        if (!apiKey) {
+          // Generate a new API key for the existing account
+          const { API_KEYS_TABLE } = await import('../constants.js');
+          const apiKeyString = `sk_live_${randomBytes(24).toString('hex')}`;
+          await createAirtableRecord(API_KEYS_TABLE, {
+            "API Key": apiKeyString,
+            "API Key Status": "Active",
+            "Account": [accountId]
+          });
+          apiKey = apiKeyString;
+          console.log(`[Trial-Provision] Generated new API key for existing account ${accountId}: ${apiKey}`);
         }
+        const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
+        const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
+        return res.json({ ok: true, apiKey, mcpUrl, claudeUrl, alreadyExists: true });
       }
     }
 
@@ -1870,12 +1904,14 @@ router.post('/trial-provision', async (req, res) => {
     // 7. Send Welcome email (SIGNUP_CONFIRMATION with intent: 'trial')
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
-    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
-      name: displayName,
-      confirmationLink,
-      intent: 'trial',
-      apiKey: apiKeyString
-    }).catch(e => console.error('[Trial-Provision] Welcome email failed:', e));
+    if (!suppressEmail) {
+      sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
+        name: displayName,
+        confirmationLink,
+        intent: 'trial',
+        apiKey: apiKeyString
+      }).catch(e => console.error('[Trial-Provision] Welcome email failed:', e));
+    }
 
     // Fire-and-forget: enrich user profile
     enrichUserBuyerType(normalizedEmail, displayName, lastName || '', company || '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
@@ -1907,7 +1943,7 @@ router.post('/convert-to-base', async (req, res) => {
 
   try {
     // 1. Find user & account
-    const userQuery = await queryAirtable(USERS_TABLE, `{email} = '${escapeAirtableString(normalizedEmail)}'`);
+    const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
     const userRec = userQuery.records?.[0];
     if (!userRec) {
       return res.status(404).json({ ok: false, error: 'User not found' });
@@ -1966,8 +2002,7 @@ router.post('/convert-to-base', async (req, res) => {
       const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
       
       // Get API Key to include in confirmation email
-      const { API_KEYS_TABLE } = await import('../constants.js');
-      const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountId)}', {API Key Status} = 'Active')`);
+      const keysQuery = await getActiveKeysForAccount(accountId);
       const apiKey = keysQuery.records?.[0]?.fields?.['API Key'] || '';
 
       sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
