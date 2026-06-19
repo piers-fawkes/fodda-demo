@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,14 +11,21 @@ import authRouter from "./routers/authRouter.js";
 import accountRouter from "./routers/accountRouter.js";
 import queryRouter from "./routers/queryRouter.js";
 import mcpRouter from "./routers/mcpRouter.js";
-import expertGraphRouter from "./routers/expertGraphRouter.js";
 import catalogRouter from "./routers/catalogRouter.js";
 import userRouter from "./routers/userRouter.js";
 import cronRouter from "./routers/cronRouter.js";
 import slackEventsRouter from "./routers/slackEventsRouter.js";
 import contributionRouter from "./routers/contributionRouter.js";
+import webhookRouter from "./routers/webhookRouter.js";
+import creatorRouter from "./routers/creatorRouter.js";
+import expertRouter from "./routers/expertRouter.js";
+import { resolveIdentity, isPendingKey, handleLegacyTrialKey } from './helpers.js';
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 
 dotenv.config();
+
+// Clerk Express SDK expects CLERK_PUBLISHABLE_KEY, but VITE_CLERK_PUBLISHABLE_KEY is standard in the environment config.
+process.env.CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 console.log("--------------------------------------------------");
 console.log("FODDA DISCOVERY ENGINE: MODULAR INITIALIZATION");
@@ -33,6 +41,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Use Helmet for security headers, allowing external assets like GTM, GA, Tailwind, ESM.sh, Clerk, and Stripe
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "'unsafe-eval'", 
+        "https://www.googletagmanager.com", 
+        "https://www.google-analytics.com", 
+        "https://cdn.tailwindcss.com", 
+        "https://esm.sh", 
+        "https://*.clerk.accounts.dev",
+        "https://clerk.fodda.ai",
+        "https://clerk.com",
+        "https://challenges.cloudflare.com",
+        "https://js.stripe.com"
+      ],
+      connectSrc: [
+        "'self'", 
+        "https://www.google-analytics.com", 
+        "https://*.clerk.accounts.dev", 
+        "https://clerk.fodda.ai", 
+        "https://clerk.com", 
+        "https://api.stripe.com", 
+        "https://upload.uploadcare.com"
+      ],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://www.googletagmanager.com", "https://challenges.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://ucarecdn.com", "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    },
+  },
+}));
 
 // Standard Middlewares
 // Restrict CORS to known origins only — do not mirror arbitrary origins
@@ -54,7 +98,7 @@ app.use(cors({
   credentials: true,
 }) as any);
 app.use(express.json({
-  limit: "75mb", // Supports base64-encoded PDF uploads up to ~50MB
+  limit: "1mb", // Standard JSON limit
   verify: (req: any, res, buf) => {
     req.rawBody = buf.toString();
   }
@@ -74,7 +118,12 @@ app.use((req, res, next) => {
   const signature = req.headers["x-fodda-signature"];
   if (signature) {
     const secret = process.env.FODDA_MCP_SECRET;
-    if (!secret) return next();
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(500).json({ error: "HMAC signature secret is not configured" });
+      }
+      return next();
+    }
 
     const timestamp = req.headers["x-fodda-timestamp"] || "";
     const bodyContent = (req as any).rawBody || JSON.stringify(req.body);
@@ -103,21 +152,69 @@ app.use((req, res, next) => {
     }
     return originalJson.call(this, body);
   };
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  const authHeader = req.headers.authorization;
+  const authStatus = authHeader 
+    ? `Auth: Present (len: ${authHeader.length})` 
+    : 'Auth: NONE';
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${authStatus}`);
+  next();
+});
+
+
+// Reconstruct the PEM key structure (convert literal \n to actual newlines) if set
+if (process.env.CLERK_JWT_KEY) {
+  process.env.CLERK_JWT_KEY = process.env.CLERK_JWT_KEY.replace(/\\n/g, '\n');
+}
+
+// Global Clerk authentication middleware
+app.use(clerkMiddleware({
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY,
+  secretKey: process.env.CLERK_SECRET_KEY,
+  jwtKey: process.env.CLERK_JWT_KEY,
+  debug: process.env.NODE_ENV !== 'production'
+}));
+
+// ── Pending API Key Gate ─────────────────────────────────────────────
+// Website-provisioned Base accounts get a 'Pending' API key until email
+// is confirmed. Reject those keys globally so no router needs to check.
+app.use('/api', async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'] as string;
+  if (!apiKey) return next(); // No API key = session/Clerk auth, not our concern
+
+  // Legacy trial keys — block and auto-migrate if we have an email
+  if (apiKey.startsWith('sk_trial_')) {
+    return handleLegacyTrialKey(req, res);
+  }
+
+  try {
+    const identity = await resolveIdentity(apiKey);
+    if (identity && isPendingKey(identity)) {
+      return res.status(403).json({
+        ok: false,
+        error: 'API key pending activation. Check your email and click the confirmation link.',
+        code: 'KEY_PENDING_CONFIRMATION'
+      });
+    }
+  } catch (err) {
+    console.error('[PendingKeyGate] Error checking key status:', err);
+    // Fail-open: don't block on identity resolution errors
+  }
   next();
 });
 
 // Mount Routers
+app.use("/api/webhooks", webhookRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/account", accountRouter);
 app.use("/api", queryRouter); // Search, log, and gemini-search are often called at /api/query etc
 app.use("/api/mcp", mcpRouter);
-app.use("/api/expert-graph", expertGraphRouter);
 app.use("/api", catalogRouter);
 app.use("/api/user", userRouter);
 app.use("/api/cron", cronRouter);
 app.use("/api/slack/events", slackEventsRouter);
 app.use("/api/contributions", contributionRouter);
+app.use("/api/creator", creatorRouter);
+app.use("/api/expert", requireAuth(), expertRouter);
 
 // Health Check
 app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
