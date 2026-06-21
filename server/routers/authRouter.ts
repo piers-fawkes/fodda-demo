@@ -797,36 +797,34 @@ router.get("/profile", async (req: any, res) => {
     }
 
     // ── One-time Expert detection ──────────────────────────────────────────────
-    // Runs for ANY user who hasn't been checked yet (isExpert field absent AND
-    // analystId absent), regardless of whether it's their first login. This
-    // ensures existing experts who were registered before this feature deployed
-    // are still picked up on their next profile fetch.
-    // Once checked, we cache the result (true or false) so we never query again.
+    // Runs for ANY user whose isExpert flag hasn't been set yet.
+    // Uses the 'Linked to' linked-record field on the Analyst record (CE base)
+    // which links directly to this user's record ID — far more reliable than
+    // email matching. Once checked, result is cached so future logins skip it.
     if (userData.isExpert === undefined && !userData.analystId) {
-      const normalizedEmail = String(userData.email || userData.Email || '').toLowerCase().trim();
-      if (normalizedEmail) {
-        (async () => {
-          try {
-            const { queryAirtableCE } = await import('../db.js');
-            const analystRes = await queryAirtableCE(
-              CE_ANALYSTS_TABLE,
-              `LOWER({expertEmail}) = '${escapeAirtableString(normalizedEmail)}'`,
-              'fields%5B%5D=Analyst+ID&fields%5B%5D=expertEmail&maxRecords=1'
-            );
-            const analystRec = analystRes.records?.[0];
-            if (analystRec) {
-              const analystId = String(analystRec.fields['Analyst ID'] || analystRec.id || '');
-              await updateAirtableRecord(USERS_TABLE, userRecord.id, { isExpert: true, analystId });
-              console.log(`[AuthRouter] Expert detected: ${normalizedEmail} → ${analystId}`);
-            } else {
-              // Mark as checked-not-an-expert so future logins skip this lookup
-              await updateAirtableRecord(USERS_TABLE, userRecord.id, { isExpert: false });
-            }
-          } catch (expertErr: any) {
-            console.error('[AuthRouter] Expert detection failed (non-critical):', expertErr.message);
+      const userId = userRecord.id;
+      (async () => {
+        try {
+          const { queryAirtableCE } = await import('../db.js');
+          // FIND on ARRAYJOIN handles both single and multi-linked records
+          const analystRes = await queryAirtableCE(
+            CE_ANALYSTS_TABLE,
+            `FIND('${escapeAirtableString(userId)}', ARRAYJOIN({Linked to})) > 0`,
+            'fields%5B%5D=Analyst+ID&fields%5B%5D=Linked+to&maxRecords=1'
+          );
+          const analystRec = analystRes.records?.[0];
+          if (analystRec) {
+            const analystId = String(analystRec.fields['Analyst ID'] || analystRec.id || '');
+            await updateAirtableRecord(USERS_TABLE, userId, { isExpert: true, analystId });
+            console.log(`[AuthRouter] Expert detected via linked record: ${userId} → ${analystId}`);
+          } else {
+            // Mark as checked-not-an-expert so future logins skip this lookup
+            await updateAirtableRecord(USERS_TABLE, userId, { isExpert: false });
           }
-        })();
-      }
+        } catch (expertErr: any) {
+          console.error('[AuthRouter] Expert detection failed (non-critical):', expertErr.message);
+        }
+      })();
     }
 
     res.json({ ok: true, user, account, isFirstLogin });
