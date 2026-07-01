@@ -3,15 +3,227 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-01] — Stop Payment Nudge Emails
 
-## [2026-05-29] — Conversational Trial Welcome Email, Case-Insensitive Email Lookups & Trial Provisioning Fixes
+### Changed
+- **Payment Nudge Kill Switch** (`deploy_gcp.sh`): Added `DISABLE_AGENT_PAYMENT_NUDGE=true` to the `--set-env-vars` line in the deploy script. This hard-disables all "Quick tip — set up payment…" nudge emails at the environment level. Added to the deploy script (not just the Cloud Run console) because `--set-env-vars` replaces all env vars on every deploy and would wipe a console-only setting. To re-enable nudges later, set to `false` or remove the var and redeploy — the account-age gate in commit `4538491` makes that safe.
+
+### Deployed
+- Deployed to Cloud Run: revision `fodda-sandbox-00445-nrw` serving 100% traffic. Includes fix commit `4538491` (gate payment nudge to new accounts only + stop duplicates) and the env-level kill switch.
+
+## [2026-06-24] — Claude Tag Dashboard Support & Credit Freshness
 
 ### Added
+- **Claude Tag Setup Card** (`AccountPortal.tsx`): Added a new "Claude Tag — Slack Integration" card to the `claude` tab, positioned between Quick Connect and Team Enrollment. Links to the setup guide and Anthropic's Claude Tag announcement. Explains that Claude Tag enables multiplayer Slack access to Fodda graphs via `@Claude` mentions. Includes a "Requires" footer noting Claude for Work dependency and credit metering behavior.
+- **Visibility-Change Account Refresh** (`App.tsx`): Added a `visibilitychange` event listener that silently re-fetches the user's account profile when they return to the Fodda tab. This keeps credit balance, usage counts, and account state fresh — especially important for Claude Tag users where multiple team members may be consuming credits via Slack while the dashboard is in the background. Silent fail on error to avoid breaking the UI.
+
+### Investigated
+- **Claude Tag Dashboard Review** (`Brief_App_Claude_Tag_Slack_Review_RESPONSE.md`): Completed evaluation of schedule management compatibility, dashboard features, and credit metering for Claude Tag. Key findings: scheduled research is entirely unimplemented (greenfield), usage breakdown by source is blocked on API Agent adding a server-side `source` enum, and credit metering is structurally correct for multi-user usage but previously showed stale data (now fixed by visibility refresh). Backburnered: usage source breakdown, schedule management UI, burn rate projection, "Connected via Claude Tag" badge.
+
+## [2026-06-21] — Expert CTA Deep-Link, Sign Up UX & OAuth Fixes
+
+
+### Added
+- **Expert Deep-Link Context Persistence** (`AuthGate.tsx`, `App.tsx`): When a user arrives via `/expert/<slug>?q=<question>`, the expert slug and pre-filled question are stored in `localStorage` (`fodda.pendingExpert`, `fodda.pendingQ`) before the Clerk signup round-trip. After auth, `App.tsx` reads them back, routes to `expert-chat`, auto-selects the expert, and auto-submits the question.
+- **Catalog `expert_slug` Enrichment** (`catalogRouter.ts`): The `/api/graph-catalog` endpoint now cross-references the Fodda Analysts API to populate `expert_slug` on every expert graph, backfill blank `graph_sub_type`, and — most importantly — **derive `graph_type='expert'` from Digital Twin analyst records**. Graphs backed by a Digital Twin analyst are automatically promoted to `graph_type='expert'`, making the Analyst table the single source of truth. No manual Graph List typing is needed for future experts. Gracefully degrades if the analysts API is unavailable.
+- **"Already registered?" Signpost** (`AuthGate.tsx`): Added a right-margin link on both the standard signup Step 1 and the Referral Landing screens so returning users can easily switch to sign-in mode.
+- **Expert Portraits in Referral Landing** (`AuthGate.tsx`): Extended `GRAPH_LOOKUP` with `portrait_url` and added entries for Jeremy Bergstein, Piers Fawkes, and Ben Dietz expert graphs. The "Free Access" badge now renders the expert's portrait when available.
+- **`prefilledQuestion` Auto-Submit** (`App.tsx`): New `useEffect` watches for `isUnlocked`, `activeView === 'expert-chat'`, and a matching expert graph to be loaded, then auto-submits the prefilled question and clears the state.
+
+### Changed
+- **AuthGate Sign-up Copy** (`AuthGate.tsx`): Removed the trailing email-specific sentence ("You'll be reading by the bottom of this email.") from the step 1 sign-up paragraph to avoid user confusion.
+- **Company Input Field** (`AuthGate.tsx`): Removed the hint `"employer · client"` from the company name field to clean up the registration UI.
+
+### Fixed
+- **Fodda Upstream API CSP Block** (`index.ts`): Added `https://api.fodda.ai` and `https://*.fodda.ai` to the CSP `connectSrc` directive in Helmet to allow the frontend to query the upstream Fodda API directly.
+- **App Component Initialization Order (Temporal Dead Zone ReferenceError)** (`App.tsx`): Fixed a critical white-screen crash on production caused by referencing `handleSendMessage` in the dependency array of the auto-submit `useEffect` hook before the callback was initialized. Fixed by relocating the `useEffect` hook below the `handleSendMessage` declaration.
+- **Fuzzy Expert Slug Matching & Airtable Direct Query** (`unclaimedRouter.ts`, `index.ts`): Refactored the unclaimed expert lookup endpoint to query the Airtable `Analysts` database table directly instead of calling the production Fodda API (which only exposes Active/Claimed experts). Added a comprehensive normalization and variation matching algorithm to handle slug generation differences (e.g. `dr-c-line-gounder` vs `dr-celine-gounder` due to character encoding, and short slugs like `ben-dietz` mapping to `ben-dietz-sic`).
+- **ES Modules Dotenv Initialization Hoisting** (`index.ts`): Solved a local database connection hoisting issue where server routers imported database helpers that evaluated environment variables before `dotenv.config()` was executed. Fixed by importing `dotenv/config` at the very top of `index.ts` imports.
+- **Stripe Publishable Key Initialization** (`PaymentSetupModal.tsx`, `Dockerfile`, `deploy_gcp.sh`): Fixed a white-screen crash on production caused by the Stripe SDK being initialized with an empty publishable key. Root cause: the build-time environment variable `VITE_STRIPE_PUBLISHABLE_KEY` was missing from `Dockerfile`. Also refactored the frontend to load Stripe conditionally and show a clean fallback UI instead of crashing when the key is not configured.
+- **Clerk Content Security Policy (CSP) Block** (`server/index.ts`): Fixed a blocking issue where browsers blocked Clerk's Web Worker creation because of strict script-src CSP rules. Added `workerSrc` and `childSrc` directives allowing `blob:` URLs in CSP.
+- **OAuth Signup Flow** (`AuthGate.tsx`): Fixed Google & LinkedIn signup buttons not redirecting on the "Let's sign you up" page. Routed signup OAuth calls through `signUp.authenticateWithRedirect` instead of reusing `signIn` methods, which Clerk blocks during registration attempts.
+- **`setShowIntent` Crash Bug** (`AuthGate.tsx`): Fixed runtime crash when a sign-in attempt returned `form_identifier_not_found` — replaced the call to undeclared `setShowIntent(true)` with `setIsSignUp(true); setStep(1)` to gracefully redirect the user to registration.
+- **Catalog Pagination** (`catalogRouter.ts`): Fixed Graph List fetch being silently truncated to 100 records (Airtable's single-page default). Added `offset`-based pagination loop so the catalog now returns all ~224 graphs. This was blocking expert deep-links — expert graphs (including Jeremy) were beyond the 100-record cut and never reached the frontend.
+
+## [2026-06-19] — Billing UX Consistency: "API Calls" Language, Trial Removal, Spend Visibility
+
+### Changed
+- **Terminology — "tokens" → "API calls"** (`UsageWarningBanner.tsx`, `PaymentSetupModal.tsx`, `GraphCard.tsx`): All user-facing billing copy now uses "API calls" instead of "tokens", matching the MCP `get_my_account` labeling. Overage rate displays as "$0.20/API call".
+- **BillingPage Rewrite** (`frontend/components/BillingPage.tsx`): Complete rewrite of the billing dashboard. Now surfaces: API calls remaining/total/used with progress bar, billing cycle reset date, overage state banner when over limit, per-query cost table (fetched from `GET /v1/research/pricing` — single source of truth, no hardcoding), "Add Payment Method" and "Buy More API Calls" CTAs aligned with MCP exhaustion-state flows. Removed hardcoded invoice stubs. `trialing` Stripe status now maps to "Active" badge label.
+- **`?view=billing` Deep Link** (`frontend/App.tsx`): Added support for `?view=billing` query parameter and `/account/billing` path route, both navigating to `account-billing` view. This is the URL the MCP hands agents via `errorHandling.ts:303` when users hit `PLAN_LIMIT_EXCEEDED`.
+- **DataService Methods** (`shared/dataService.ts`): Added `fetchQueryPricing()` (calls `GET /v1/research/pricing`) and `createAgentCheckout()` (calls `POST /api/account/checkout/agent-session`).
+- **Account Type** (`shared/types.ts`): Added `resetDate?: string` field to the `Account` interface.
+
+### Removed
+- **Trial UI** (`BillingPage.tsx`, `AccountPortal.tsx`): Removed all trial-specific badges, status messages, and the `.includes('trial')` API access check. New users default to free Base (100 API calls/month). Stripe `trialing` status is still handled gracefully (mapped to Active) but no trial-specific UI is rendered.
+
+## [2026-06-18] — LinkedIn & Google OAuth Sign-In + Expert Onboarding Clerk Brief
+
+### Added
+- **OAuth Sign-In / Sign-Up Buttons** (`frontend/components/AuthGate.tsx`): Added Google and LinkedIn OIDC OAuth buttons to both the Sign In screen and Sign Up Step 1 screen. Uses Clerk Core 3's `signIn.sso()` API. Provider logos are inline SVGs (no icon library dependency). An `OR VIA EMAIL` / `OR WITH EMAIL` divider separates the OAuth buttons from the existing magic-link email flow. A new `OAuthBtn` atom component handles hover state and brand-consistent pill styling.
+- **SSO Callback Page** (`frontend/components/SsoCallbackPage.tsx`): New page that handles the OAuth redirect back from Clerk via `<AuthenticateWithRedirectCallback />`. For new users it shows a "Tell us a little more" GateFrame modal to collect company, job title, and platform preference (since OAuth providers don't return these). Calls `PATCH /api/auth/patch-oauth-metadata` and `user.update()` to backfill `unsafeMetadata`, then redirects to `/`. Returning users bypass the modal and go straight to the app.
+- **`/sso-callback` Route** (`frontend/App.tsx`): Added a pathname intercept for `/sso-callback` that renders `SsoCallbackPage` before the `isUnlocked` / Clerk-loading guard, so the OAuth handshake completes correctly even during session resolution.
+- **`PATCH /api/auth/patch-oauth-metadata`** (`server/routers/authRouter.ts`): New Clerk-JWT-authenticated endpoint that backfills `Job Title`, `Company`, and `apiUse` on the Airtable User record after an OAuth sign-in. Also updates the linked Account name if the current value looks like an auto-generated placeholder (email domain, "Default Company", or bare email address).
+- **Clerk OAuth Infrastructure Note** (`brain/clerk_note_for_website_agent.md`): Wrote a detailed briefing note for the Website Agent explaining how Clerk works across the Fodda stack, how `user.created` webhooks drive Airtable provisioning, what `unsafe_metadata` fields are used, and three options (A/B/C) for integrating Clerk into the expert onboarding wizard at `www.fodda.ai/join-experts`. Recommended approach: a new `signupIntent: "expert"` path in `webhookRouter.ts`.
+
+### Changed
+- **GCP OAuth Client** (manual): Added `https://app.fodda.ai/sso-callback` to the Authorized Redirect URIs on GCP OAuth client `1921946112-1f980e49qbvqtn7f8iqnqndhdvgrsahc` (project `1921946112`).
+- **LinkedIn Developer App** (manual): Added `https://app.fodda.ai/sso-callback` to the Authorized redirect URLs alongside the existing `https://clerk.fodda.ai/v1/oauth_callback` entry.
+
+## [2026-06-11] — Tech, Food & Travel Graphs Surfaced in Frontend + PSFK Favicon in Graph Selector
+
+### Added
+- **Tech, Food & Travel Verticals** (`shared/types.ts`, `shared/dataService.ts`, `shared/constants.ts`): Confirmed that all three new PSFK PSFK vertical graphs (`tech`, `food`, `travel`) were already wired end-to-end: `Vertical` enum entries, `FALLBACK_GRAPHS` entries with correct display names/descriptions, `SUGGESTED_QUESTIONS` (4 per vertical), `MOCK_TRENDS` (3 per vertical), and `MOCK_ARTICLES` (3 per vertical). No changes needed — completed by a prior API Agent pass.
+- **PSFK Favicon in Graph Selector** (`frontend/App.tsx`): Added the PSFK favicon (`https://psfk.com/favicon.ico`, 16×16, `rounded-sm`) as a left-aligned prefix icon in both the graph selector trigger button and each dropdown row for the 7 PSFK domain graphs: `retail`, `beauty`, `sports`, `fashion`, `tech`, `food`, `travel`. Non-PSFK graphs (supplemental data, user/custom, etc.) retain the existing animated green dot indicator. A `PSFK_GRAPH_IDS` Set is defined locally in the sandbox view render path for clean, O(1) membership checks.
+
+## [2026-06-09] — Drop Website Widget, Clerk-Only Sign-Up, Gemini 2.5 Flash Migration & Onboarding QA
+
+### Investigated
+- **David Cutler Onboarding Failure**: QA'd a user report (`dcutler@eatmedia.com`) where the SIGNUP_CONFIRMATION email was never received. Root cause: user signed up via the `GetStartedWidget` on `fodda.ai/forrester-predictions2026_b2bmarketing`, which called `/api/account/trial-provision`. This endpoint creates Airtable records and API keys but **does not create a Clerk user**, leaving the user unable to log in to `app.fodda.ai`. The SIGNUP_CONFIRMATION email was either silently lost (`.catch()` on line 2130 of `accountRouter.ts` swallows errors) or the Resend/Gmail send failed — original Cloud Run logs from June 5 had rotated out.
+- **49 Stuck Users Audit**: Discovered 49 users with no `clerkUserId` (Role=Owner, never logged in). A batch of 35+ from May 29 appears to be a bulk import (`onboardingIntent: trial`). Recent organic signups (June 1–9) also affected. All have `buyer_type: NOT ENRICHED` due to the deprecated Gemini model.
+
+### Fixed
+- **Deprecated Gemini Model (`gemini-2.0-flash` → `gemini-2.5-flash`)**: The `gemini-2.0-flash` model was deprecated and returning 404 errors, breaking user enrichment (buyer type classification), MCP chat, query digests, persona synthesis, and Gemini proxy calls. Updated all 15 references across 9 files: `userEnrichmentService.ts`, `helpers.ts`, `queryRouter.ts`, `mcpChatService.ts`, `personaSynthesisService.ts`, `queryDigestService.ts`, `App.tsx`, `geminiService.ts`, `fodda-take-pipeline.ts`.
+- **David's API Key Activation**: Manually activated David's API key from `Pending` to `Active` via Airtable API (`sk_live_8d2f…`).
+
+### Changed
+- **AuthGate Dynamic Graph Referrals** (`AuthGate.tsx`): Previously only 6 hardcoded graphs in `GRAPH_LOOKUP` triggered the referral landing screen. Now accepts any `?graph=<id>` value — known graphs show their name/owner, unknown graph IDs (e.g. `forrester-predictions2026_b2bmarketing`) get auto-formatted as a title with a generic "Expert-curated knowledge graph" message. Also parses and persists `?view=api` to `localStorage` for post-login routing.
+- **Post-Login Routing Priority** (`App.tsx`): Added a 3-tier routing priority in `handleSessionStart`: (1) `?view=api` from localStorage → MCP connections page, (2) `?graph=<id>` → sandbox with that graph auto-selected as `currentVertical`, (3) existing `apiUse`/`onboardingIntent`-based routing for first logins.
+- **Website Widget Removal** (`fodda.ai`): Replaced `GraphTrialWidget` and `GetStartedWidget` across 4 pages (Graph Detail, Connect, Graphs Marketplace, C-Suite Landing) with CTA buttons linking to `app.fodda.ai?graph={graphId}&signup=true`. All CTAs route through Clerk sign-up, eliminating the broken `/trial-provision` path from the marketing site.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Deployed revision `fodda-sandbox-00415-ndg` to Google Cloud Run with the Gemini 2.5 Flash migration and AuthGate/App.tsx routing changes, serving 100 percent of traffic. Health check confirmed (200 OK).
+
+## [2026-06-08] — Update Prompting Guide Link
+
+### Changed
+- **Integration Auditor Link** (`AuthGate.tsx`): Updated the "Prompting Guide" button on the Auth Gate page to link to the new `Fodda_Integration_Auditor.md` skill guide, changing its label and description to reflect the codebase auditing functionality per the Agent-First consolidation.
+
+## [2026-06-07] — Experts Roster CORS Fix, Suggested Questions Refinements & Agent-First Refactor
+
+### Added
+- **Proxy Experts API Route** (`catalogRouter.ts`): Added a backend proxy endpoint `GET /api/analysts` that forwards requests to the official Fodda experts API (`https://api.fodda.ai/v1/analysts`). This prevents browser CORS errors when loading the expert list from sandbox/staging and local development domains.
+
+### Changed
+- **Agent-First Prompting Tip** (`App.tsx` & `AccountPortal.tsx`): Added a prominent "Agentic Prompting Tip" to the MCP connection snippets guiding users to provide high-level goals instead of rigid tool execution scripts.
+- **Documentation Refactor** (`public/Fodda_Quickstart.md`): Updated architecture descriptions to emphasize self-describing MCP tools and replaced legacy conversational prompts with goal-driven Agent Mandates.
+- **Stacking Context Fixes** (`App.tsx`): Added `relative z-20` to the Page Header in both Sandbox and Expert Chat views. This resolves a layout bug where the expert dropdown select menu fell behind the Evidence drawer.
+- **Expert Chat Prompts Gating** (`ChatInterface.tsx` & `App.tsx`): Passed `isExpertChat` prop to `ChatInterface` and disabled falling back to static PSFK domain questions (`SUGGESTED_QUESTIONS`) in Expert Chat. Suggested prompts are now only displayed in Expert Chat if the selected expert has explicit queries.
+- **Case-Insensitive Suggested Questions Lookup** (`ChatInterface.tsx`): Updated the suggested questions lookup to be case-insensitive, fixing a bug where sandbox graphs with lowercase IDs (e.g. `'retail'`, `'beauty'`) failed to match the capital-cased static `SUGGESTED_QUESTIONS` keys.
+- **Experts Roster Source** (`dataService.ts`): Updated the expert list fetch to call the new `/api/analysts` proxy endpoint instead of fetching directly from the external `api.fodda.ai` address, bypassing mixed content/CORS restrictions.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Deployed revision to Google Cloud Run to push the Agent-First prompting tips and updated Quickstart documentation.
+
+## [2026-06-04] — Security Hardening, Endpoint Authorization & Graph Analytics Dashboard
+
+### Added
+- **Graph Creator Analytics Dashboard** (`creatorRouter.ts`, `index.ts`, `dataService.ts`, `types.ts`, `MyGraphsPage.tsx`): Added an inline stats panel for graph owners on their owned cards. Features a Clerk-gated and Registry-verified API (`GET /api/creator/analytics`) that aggregates 30-day query volume, unique users, daily trends, top queries, recent queries with color-coded quality pills, and masked top audience emails. Displays an interactive panel with summary metrics, SVG trend graphs, and splits for audience and query lists.
+- **Security Headers (Helmet)** (`server/index.ts` & `package.json`): Installed `helmet` and mounted the middleware to enforce Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, and a customized Content-Security-Policy supporting Clerk, Stripe, GTM, GA, Tailwind, and ESM.sh.
+- **Endpoint Authorization (Gemini Search & Contributions)** (`queryRouter.ts` & `contributionRouter.ts`): Enforced authentication on `/api/gemini-search` and `/api/contributions` requiring either a valid Clerk session or a valid `X-API-Key`.
+- **Custom Checkout Authorization** (`accountRouter.ts`): Authenticated `/api/account/checkout/custom` and restricted access to users with Owner or Admin privileges.
+- **Admin Secret Header Support** (`catalogRouter.ts`): Added HTTP header support (`X-Cron-Secret`, `X-Admin-Secret`, and `Authorization: Bearer`) for `/api/graph-trials` authentication.
+
+### Changed
+- **Fail-Closed Verification in Production** (`index.ts`, `cronRouter.ts`, `webhookRouter.ts`, `slackEventsRouter.ts`): Tightened security checks to fail-closed in production if required environment secrets are unset, while maintaining fail-open/warning behavior in development.
+- **JSON Payload Limit** (`index.ts`): Decreased default payload parsing limit from `75mb` to `1mb` to prevent memory exhaustion / DoS attacks.
+- **Sensitive Log Sanitization** (`index.ts`): Safe-masked authorization token logging to prevent partial credential exposure.
+
+### Fixed
+- **HMAC Outbound Signing Bug** (`helpers.ts`): Fixed a critical bug in `signOutboundRequest` where signatures were generated via plain SHA-256 hash without the secret. Replaced `createHash` with `createHmac`.
+- **Airtable Formula Injection Prevention** (`helpers.ts`): Escaped dynamic API key parameters in Airtable query formulas using `escapeAirtableString()`.
+- **Docker Build Exclusions** (`.dockerignore`): Excluded local test, debug, and scratch files from production Docker builds to reduce image attack surface.
+
+## [2026-06-03] — Overage Billing System
+
+### Added
+- **Stripe Overage Service** (`server/services/stripeOverageService.ts`): New service encapsulating all overage billing logic — `ensureStripeCustomer()`, `createSetupIntent()` for card collection, `createOverageSubscription()` for $0 metered subscriptions, `reportOverageToStripe()` for Stripe Meter usage events, and `generateSetupUrl()` for one-click setup links in API/MCP 403 responses.
+- **Setup Payment Endpoint** (`POST /api/account/setup-payment`): Authenticated endpoint that creates a Stripe Customer and SetupIntent for card collection. Returns `client_secret` for frontend Stripe Elements.
+- **Activate Overage Endpoint** (`POST /api/account/activate-overage`): Creates a $0 Stripe subscription with a metered price component ($0.20/unit) after card is saved.
+- **Setup URL Endpoint** (`POST /api/account/setup-url`): Public endpoint generating one-click Stripe Checkout URLs (setup mode) for API/MCP 403 responses.
+- **Webhook Handlers** (`accountRouter.ts`): Added `setup_intent.succeeded` and `invoice.payment_failed` event handlers.
+- **PaymentSetupModal** (`frontend/components/PaymentSetupModal.tsx`): Stripe Elements card collection modal using SetupIntent flow.
+- **UsageWarningBanner** (`frontend/components/UsageWarningBanner.tsx`): Amber warning at 80%+ usage; blue info bar when overage active.
+- **Overage Email Templates** (`emailTemplates.ts`): `OVERAGE_ACTIVATED` and `OVERAGE_PAYMENT_FAILED` templates with pricing page CTAs.
+- **Stripe Meter** (`fodda_overage_tokens`): Created via Stripe API — $0.20/unit metered monthly billing.
+- **Airtable Fields**: `hasPaymentMethod`, `overageEnabled`, `overageTokensThisCycle` on Accounts table.
+
+### Changed
+- **Soft Cap Logic** (`queryRouter.ts`): Hard block replaced with soft cap — accounts with card + overage enabled continue at $0.20/token. No card → 403 with `setupUrl` for one-click card addition.
+- **Usage Warning Headers** (`queryRouter.ts`): `X-Usage-Warning` + `X-Usage-Percent` headers at 80%, `overage-active` headers when over limit. Also in `meta.usageWarning` response body.
+- **Overage Tracking** (`helpers.ts`): `incrementUsage` reports to Stripe Meter when in overage and triggers `OVERAGE_ACTIVATED` email on first overage token.
+- **PLAN_LIMIT_EXCEEDED Handler** (`App.tsx`): Opens `PaymentSetupModal` when `setupUrl` is present, falls back to `UpgradeModal`.
+- **Plan Limit Warning Email** (`emailTemplates.ts`): Updated to mention $0.20/token overage and link to billing page.
+- **Account Interface** (`shared/types.ts`): Added `hasPaymentMethod`, `overageEnabled`, `overageTokensThisCycle`, `overageRate`.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Deployed revision `fodda-sandbox-00395-pxd` with overage billing and new env vars (`STRIPE_OVERAGE_METER_EVENT`, `STRIPE_OVERAGE_PRICE_ID`, `VITE_STRIPE_PUBLISHABLE_KEY`).
+
+## [2026-06-02] — Intent-Based Account Provisioning & Pending API Key Gating
+
+### Added
+- **Pending API Key Gate Middleware** (`server/index.ts`): Intercepts all `/api` requests with a pending API key and returns a 403 `KEY_PENDING_CONFIRMATION` error. Automatically bypasses Clerk session auth (missing `X-API-Key`) and legacy `sk_trial_` keys to prevent breaking normal dashboard features.
+- **Pending Key Verification & Activation Helpers** (`server/helpers.ts`): Added `keyStatus` field resolving to `resolveIdentity()` and exported `isPendingKey()` helper.
+
+### Changed
+- **Intent-Based Account Provisioning** (`server/routers/accountRouter.ts`): Branched behavior of the public `/api/account/trial-provision` endpoint based on the presence of the `intent` parameter:
+  - *Website Signups* (with `intent`): Provisions a **Base** plan (planCode 2) with a **Pending** API key, requiring email confirmation to activate.
+  - *Sales Channels* (no `intent`): Provisions a **Trial** plan (planCode 13) with an **Active** API key, preserving existing behavior.
+- **Verification Email Activation** (`server/routers/authRouter.ts`): Clicking the email confirmation link (`GET /api/auth/confirm`) now marks the user as `emailConfirmed: true` in Airtable, activates all "Pending" API keys for their account, and redirects them to the App dashboard with intent-specific query params (e.g. `/dashboard?tab=claude`, `/sandbox`).
+- **Clerk Integration Auto-Activation Sync** (`server/routers/webhookRouter.ts` & `server/routers/authRouter.ts`): Configured Clerk webhook signups (`user.created` event) and profile fallback lookup linking (`GET /api/auth/profile`) to automatically set `emailConfirmed: true` and activate all "Pending" API keys for matched users. Since Clerk has already verified the email, this guarantees a seamless transition to an active API key when logging in to Clerk.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Built and deployed revision `fodda-sandbox-00390-2vz` to Google Cloud Run, serving 100 percent of traffic. Tested health endpoint successfully (200 OK).
+
+## [2026-06-01] — Self-Healing Clerk Profile Linking, Local JWT Verification & AuthGate UX Fixes
+
+### Fixed
+- **Self-Healing Profile Linking Loop** (`authRouter.ts`): Fixed a redirect loop bug where clicking the magic link signed the user in via Clerk but redirected them back to the sign-in page. The root cause was that `/api/auth/profile` returned a 404/failure when `clerkUserId` was not yet mapped in Airtable. Implemented an email fallback lookup (which checks `sessionClaims.email` or queries Clerk's API directly) to find the user in Airtable and link their `clerkUserId` on the fly.
+- **Redirect Loop & Race Condition on Redirect Urls** (`App.tsx`): Added polling for the Clerk token and a retry loop for `/api/auth/profile` profile fetches to handle initial page load race conditions where `getToken()` resolves to `null` before the redirect session parameters are fully consumed.
+- **Clerk Express publishableKey Startup Race** (`index.ts` & `deploy_gcp.sh`): Resolved a critical production issue where Clerk rejected all JWT tokens with a 401. The root cause was that Cloud Run only defined `VITE_CLERK_PUBLISHABLE_KEY` and not `CLERK_PUBLISHABLE_KEY`. Because ES module static imports are hoisted, the Clerk SDK initialized with an undefined key at startup before dynamic fallbacks executed. Fixed by explicitly configuring `clerkMiddleware()` with keys and injecting `CLERK_PUBLISHABLE_KEY` in the Cloud Run deploy script.
+- **Clerk Email Delivery for Gmail** (`reset_gmail_user.js`): Programmatically reset the Clerk user and Airtable association for `piers.fawkes@gmail.com` to clear any SendGrid/Clerk email suppression blocks.
+- **Clerk JWT Signature Validation Failures in Cloud Run** (`index.ts` & `deploy_gcp.sh`): Configured local/networkless JWT verification by setting `CLERK_JWT_KEY` environment variable and explicitly passing `jwtKey` to `clerkMiddleware()` in `server/index.ts`. This resolves OIDC issuer verification and DNS resolution lookup failures (to `clerk.fodda.ai`) inside the Cloud Run container.
+- **Outdated frontend profile loading retry loop** (`App.tsx`): Updated the profile fetching retry loop to directly check for `profile.user` and `profile.account` on the response object instead of catching exceptions (since `getCurrentProfile()` resolves to a status envelope rather than throwing), enabling retries for transient 401s.
+- **Clerk Multi-Session Login Trap** (`AuthGate.tsx`): Updated the "Use a different email" click handler to invoke `signOut()`, clearing any stale or unauthorized Clerk session cookies from the browser to ensure a clean subsequent sign-in.
+- **Clerk Team Members Custom UI & Layout Fix** (`AccountPortal.tsx`): Replaced the prebuilt Clerk `<OrganizationProfile />` component inside the Team tab with a custom-themed, Fodda-native UI using the low-level `@clerk/react` `useOrganization()` hook. This completely resolves the mobile-collapsing, layout deformation, and horizontal clipping/scrolling issues inside the Clerk organization view, allowing the members list and pending invitations tables to scale dynamically to the full desktop width.
+
+### Changed
+- **Authorization Header Diagnostic Logging** (`index.ts`): Added truncated `Authorization` header logging and custom JWT diagnostic decoding logs for incoming request paths to identify missing/invalid tokens on the server.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Built and deployed revision `fodda-sandbox-00388-v6n` to Google Cloud Run with the custom Fodda-native Clerk UI layout fix, serving 100 percent of traffic.
+
+## [2026-05-31] — Clerk Auth Startup Fix & AuthGate UX Improvements
+
+### Added
+- **Manual Trial Provisioning Command** (`slack_bot.js`): Added a new `PROVISION_TRIAL` action to the Sales Bot natural language handler. It handles requests to provision a trial account, retrieve active API keys, and formats standard MCP, SSE MCP, and Claude 1-Click Connect URLs directly inside Slack.
+- **Streak Onboarding Trigger Integration** (`slack_bot.js`): If a new trial is provisioned, the Sales Bot automatically queues the Streak CRM MCP follow-up sequence.
+
+### Fixed
+- **Clerk Sign-In Silent Hang & Loop Deadlock** (`index.tsx`, `App.tsx` & `package.json`): Fixed a critical bug where calling `signIn.create` would hang indefinitely without making network requests. Identified two root causes:
+  1. *Version Mismatch*: Browser had a cached v5 `__clerk_environment` in `localStorage` which caused `@clerk/react` v6 to fetch the outdated `@clerk/clerk-js@5` script. Added a programmatic cache-clearing routine in `index.tsx` that removes stale v5/non-v6 `__clerk_environment` entries on load. Removed the deprecated `@clerk/clerk-react` dependency.
+  2. *Fetch Interceptor Deadlock*: The global fetch interceptor in `App.tsx` intercepted and called `globalGetToken()` for all requests, causing a circular promise chain deadlock on Clerk's internal loading fetches. Refactored the interceptor to only execute `globalGetToken()` for requests targeting `/api/`.
+- **Silent Clerk SDK Load Failures** (`AuthGate.tsx`): Upgraded sign-in, sign-up, and verification resend form handlers to throw explicit, user-friendly errors when the Clerk SDK fails to load (e.g., due to an adblocker blocking `clerk.accounts.dev`). This replaces previous silent early returns which left the UI in an inactive state without feedback.
+- **Clerk Express SDK publishableKey Crash** (`index.ts`): Resolved a critical startup crash in production where the `@clerk/express` middleware threw a fatal error because it expects `CLERK_PUBLISHABLE_KEY` (while Fodda's environment conventions standardize on `VITE_CLERK_PUBLISHABLE_KEY`). Added a fallback to default the SDK's expected variable to `VITE_CLERK_PUBLISHABLE_KEY` if undefined.
+- **Client-side White Screen Fix** (`Dockerfile` & Deploy Command): Baked the public `VITE_CLERK_PUBLISHABLE_KEY` into the frontend build environment inside the `Dockerfile`. Since `.env` is excluded by `.dockerignore` during container compilation on Cloud Build, Vite previously compiled without a publishable key, throwing a fatal startup exception in the browser. Sourcing parser failures in the deploy shell script were also resolved.
+
+### Deployed
+- **Fodda App (`app.fodda.ai`)**: Built and deployed revision `fodda-sandbox-00362-hwd` to Google Cloud Run, serving 100 percent of traffic.
+- **Fodda Sales Bot (`fodda-sales-agent`)**: Built and deployed revision `fodda-sales-agent-00158-65m` to Cloud Run.
+
+## [2026-05-29] — Clerk Auth Integration, Conversational Trial Welcome Email, Case-Insensitive Email Lookups & Trial Provisioning Fixes
+
+### Added
+- **Clerk Webhook Sync Handler** (`webhookRouter.ts`): Cryptographically verifies svix signatures and routes events for `user.created`, `user.updated`, `user.deleted`, `organization.created`, and `organizationMembership.created` to keep Airtable in sync.
+- **Organization and Team Joining Support** (`webhookRouter.ts` & `AuthGate.tsx`): Integrates team registration and domain-based mapping to Fodda Accounts using `signupCode` or Clerk organizations.
+- **Dynamic Profile Retrieval API** (`authRouter.ts`): Added a `/profile` endpoint to load combined user-account profiles from Airtable by mapping `req.auth.userId`.
 - **Conversational Trial Welcome Email** (`emailTemplates.ts`): Re-designed the `SIGNUP_CONFIRMATION` email template for `intent === 'trial'` to use a conversational agent tone ("Hi - I'm an automated agent that helps Piers..."). Corrected spelling ("to day" -> "to say"), normalized formatting, and corrected numbering mismatch ("2 things" -> "3 things").
 - **Prefilled Claude Installer** (`emailTemplates.ts`): Embedded a fully pre-filled 1-click Claude MCP connector install link in the welcome email to bypass manual URL copy-pasting.
 - **Email Suppression Flag** (`accountRouter.ts`): Added a `suppressEmail` body parameter to `POST /api/account/trial-provision` to allow external tools (like sales bots) to disable redundant automated system welcome emails.
 
 ### Changed
+- **Headless Authentication UI** (`AuthGate.tsx`): Refactored custom magic link forms to run headless Clerk sign-up (`useSignUp`) and sign-in (`useSignIn`) verification flows under Fodda's custom UI theme.
+- **Global Session State** (`App.tsx`): Bound `useAuth` hook and dynamically injected Clerk JWT Bearer tokens to the global `window.fetch` interceptor registry. Migrated legacy token session restoration to Clerk profile synchronization.
 - **Formal Email Sender** (`emailService.ts`): Updated the default Resend outbound email address `RESEND_FROM` from `hello@fodda.ai` to `team@fodda.ai`.
 - **Case-Insensitive Email Queries** (`accountRouter.ts`, `authRouter.ts`, `helpers.ts`): Audited and upgraded user database lookups across 17+ endpoints to perform case-insensitive Airtable queries using `LOWER({email})`, preventing duplicate user/account creations from casing variations.
 
