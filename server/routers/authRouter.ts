@@ -591,6 +591,7 @@ router.get("/profile", async (req: any, res) => {
 
     let clerkUserId = clerkAuth?.userId;
     let claimsEmail = clerkAuth?.sessionClaims?.email;
+    let clerkSessionId: string | undefined = clerkAuth?.sessionId;
 
     // Fallback: if Clerk middleware didn't resolve userId, verify JWT locally
     if (!clerkUserId) {
@@ -613,6 +614,7 @@ router.get("/profile", async (req: any, res) => {
                 console.log(`[AuthRouter] JWT fallback verification SUCCESS. User: ${payload.sub}`);
                 clerkUserId = payload.sub;
                 claimsEmail = payload.email || payload.sessionClaims?.email;
+                clerkSessionId = clerkSessionId || payload.sid;
               } else {
                 console.warn(`[AuthRouter] JWT fallback verification FAILED: signature mismatch`);
               }
@@ -775,11 +777,56 @@ router.get("/profile", async (req: any, res) => {
     if (isFirstLogin) {
       updateAirtableRecord(USERS_TABLE, userRecord.id, { lastLogin: new Date().toISOString() })
         .catch(e => console.error('[AuthRouter] Failed to stamp firstLogin:', e));
+    }
 
-      // Schedule agent payment nudge email 30 min after first login
+    // ── Distinct-login tracking ──────────────────────────────────────────────
+    // "Login" = a new Clerk session, NOT a profile fetch. The Clerk session id is
+    // stable across page reloads within a session and changes on each new sign-in,
+    // so counting distinct session ids counts genuine logins rather than app-opens.
+    const prevSessionId = userData.lastSessionId;
+    const isNewLogin = !!clerkSessionId && clerkSessionId !== prevSessionId;
+    let loginCount = Number(userData.loginCount) || 0;
+    if (isNewLogin) {
+      loginCount += 1;
+      updateAirtableRecord(USERS_TABLE, userRecord.id, { loginCount, lastSessionId: clerkSessionId })
+        .catch(e => console.error('[AuthRouter] Failed to update loginCount/lastSessionId:', e));
+    }
+
+    // Schedule agent payment nudge email on the user's SECOND distinct login, once ever.
+    // By the second login, expert detection from the first login has already
+    // set isExpert/analystId, so experts are properly excluded.
+    //
+    // HARD GUARD — this is an ONBOARDING email, so only genuinely NEW accounts may
+    // ever receive it. An established account (e.g. months old) must never be
+    // nudged, regardless of login count or whether loginCount/paymentNudgeSent were
+    // backfilled. This check is read-only against the record's immutable Airtable
+    // creation time, so it holds even if those flag writes fail. Fail-closed: if we
+    // can't determine the age, treat the account as old and do NOT nudge.
+    const NUDGE_MAX_AGE_DAYS = 14;
+    const createdMs = userRecord.createdTime ? new Date(userRecord.createdTime).getTime() : NaN;
+    const accountAgeDays = Number.isFinite(createdMs)
+      ? (Date.now() - createdMs) / (1000 * 60 * 60 * 24)
+      : Infinity;
+    const isNewAccount = accountAgeDays <= NUDGE_MAX_AGE_DAYS;
+
+    // Env kill-switch — set DISABLE_AGENT_PAYMENT_NUDGE=true to stop all nudges
+    // instantly via config, no code deploy needed.
+    const nudgeDisabled = process.env.DISABLE_AGENT_PAYMENT_NUDGE === 'true';
+
+    const isExpert = userData.isExpert || userData.analystId;
+    const alreadyNudged = userData.paymentNudgeSent;
+    if (!nudgeDisabled && isNewAccount && isNewLogin && loginCount === 2 && !isExpert && !alreadyNudged) {
       const scheduledAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
       const ownerEmail = (userData.email || userData.Email) as string;
       if (ownerEmail) {
+        // Mark as nudged BEFORE scheduling, and await it so rapid *sequential*
+        // session calls observe the flag and skip re-scheduling. Note: userData
+        // was read at the top of this handler, so truly *concurrent* calls can
+        // both still pass the guard above — the Resend idempotency key below is
+        // what guarantees at most one email actually goes out.
+        await updateAirtableRecord(USERS_TABLE, userRecord.id, { paymentNudgeSent: true })
+          .catch(e => console.error('[AuthRouter] Failed to stamp paymentNudgeSent:', e));
+
         (async () => {
           let setupUrl: string | undefined;
           try {
@@ -790,9 +837,9 @@ router.get("/profile", async (req: any, res) => {
           sendSystemEmail('AGENT_PAYMENT_NUDGE', ownerEmail, {
             name: userData['First Name'] || 'there',
             setupUrl,
-          }, { scheduledAt }).catch(e => console.error('[AuthRouter] Agent payment nudge failed:', e));
+          }, { scheduledAt, idempotencyKey: `agent-nudge-${userRecord.id}` }).catch(e => console.error('[AuthRouter] Agent payment nudge failed:', e));
         })();
-        console.log(`[AuthRouter] Scheduled agent payment nudge for ${ownerEmail} at ${scheduledAt}`);
+        console.log(`[AuthRouter] Scheduled agent payment nudge for ${ownerEmail} (login #${loginCount}) at ${scheduledAt}`);
       }
     }
 
