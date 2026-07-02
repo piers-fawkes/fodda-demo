@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User, Account, Plan } from '../../shared/types';
 import { dataService } from '../../shared/dataService';
-import { UsersList } from './UsersList';
+
 
 interface UserStats {
     totalQueries: number;
@@ -32,27 +32,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const loadStats = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const res = await dataService.getUserStats(user.email);
-                if (res.ok) {
-                    setStats(res.stats);
-                } else {
-                    setError(res.error || "Failed to load stats");
-                }
-            } catch (err: any) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         if (isOpen && user?.email) {
-            loadStats();
+            // Build stats from user/account props — no separate API call needed
+            setStats({
+                totalQueries: (user as any).monthlyQueries || 0,
+                monthlyQueries: (user as any).monthlyQueries || 0,
+                maxplanQueries: account.monthlyQueryLimit || 10,
+            });
+            setLoading(false);
         }
-    }, [isOpen, user]);
+    }, [isOpen, user, account]);
 
     const [_plans, setPlans] = useState<Plan[]>([]);
     const [_loadingPlans, setLoadingPlans] = useState(false);
@@ -105,16 +94,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsContextLocked(!isContextLocked);
     };
 
-    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-    const [isEditEmailModalOpen, setIsEditEmailModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [newEmail, setNewEmail] = useState('');
-    const [adminForm, setAdminForm] = useState({
-        name: account.name,
-        context: account.accountContext,
-        authPolicy: account.authPolicy || 'RELAXED'
-    });
     const [userForm, setUserForm] = useState({
         firstName: user.name?.split(' ')[0] || '',
         lastName: user.name?.split(' ').slice(1).join(' ') || '',
@@ -122,31 +101,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         company: user.company || '',
         email: user.email || ''
     });
-    const [regeneratingKey, setRegeneratingKey] = useState(false);
     const [savingUser, setSavingUser] = useState(false);
+    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [isEditEmailModalOpen, setIsEditEmailModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [newEmail, setNewEmail] = useState('');
+    const [accountUsers, setAccountUsers] = useState<User[]>([]);
     const isAdmin = user.role === 'Admin' || user.role === 'Owner';
 
-    // Team / Users List State
-    const [activeTab, setActiveTab] = useState<'profile' | 'team'>('profile');
-    const [accountUsers, setAccountUsers] = useState<User[]>([]);
-    const [loadingUsers, setLoadingUsers] = useState(false);
-    const [usersError, setUsersError] = useState<string | null>(null);
-
     const loadAccountUsers = async () => {
-        setLoadingUsers(true);
-        setUsersError(null);
         try {
             const res = await dataService.getAccountUsers(account.id);
-            if (res.ok && res.users) {
-                setAccountUsers(res.users);
-            } else {
-                setUsersError(res.error || "Failed to load users");
-            }
-        } catch (e: any) {
-            setUsersError(e.message);
-        } finally {
-            setLoadingUsers(false);
-        }
+            if (res.ok && res.users) setAccountUsers(res.users);
+        } catch (e) { console.error("Failed to load users", e); }
     };
 
     const handleEditUser = (targetUser: User) => {
@@ -189,21 +156,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const handleAccountUpdate = async () => {
-        try {
-            const res = await dataService.updateAccount(account.id, adminForm, user.role);
-            if (res.ok) {
-                alert("Account updated successfully!");
-                onUpdate?.(undefined, { ...account, ...adminForm });
-                setIsAdminModalOpen(false);
-            } else {
-                alert("Failed to update account: " + res.error);
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error updating account");
-        }
-    };
+
 
     const handleUserUpdate = async () => {
         setSavingUser(true);
@@ -229,100 +182,79 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const handleRegenerateKey = async () => {
-        if (!confirm("⚠️ WARNING: Regenerating the API Key will immediately invalidate the old key. integrations using the old key will break.")) return;
-        setRegeneratingKey(true);
-        try {
-            const res = await fetch('/api/account/regenerate-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountId: account.id, role: user.role })
-            });
-            const data = await res.json();
-            if (data.ok) {
-                alert(`New API Key Generated: \n\n${data.apiKey} \n\nPlease copy this now.`);
-            } else {
-                alert("Failed to regenerate key: " + data.error);
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error regenerating key");
-        } finally {
-            setRegeneratingKey(false);
-        }
-    }
+
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={onClose}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/40 backdrop-blur-md" onClick={onClose}>
             {/* User Profile Edit Modal */}
             {isUserModalOpen && (
-                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 m-4 animate-fade-in-up border border-zinc-700">
+                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-ink/40 backdrop-blur-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 m-4 animate-fade-in-up border border-line">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white">Edit Profile</h3>
-                            <button onClick={() => setIsUserModalOpen(false)} className="text-zinc-500 hover:text-white">
+                            <h3 className="font-serif italic text-lg text-ink">Edit Profile</h3>
+                            <button onClick={() => setIsUserModalOpen(false)} className="text-ink-3 hover:text-ink">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">First Name</label>
+                                    <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">First Name</label>
                                     <input
                                         type="text"
                                         value={userForm.firstName}
                                         onChange={e => setUserForm({ ...userForm, firstName: e.target.value })}
-                                        className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                        className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">Last Name</label>
+                                    <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">Last Name</label>
                                     <input
                                         type="text"
                                         value={userForm.lastName}
                                         onChange={e => setUserForm({ ...userForm, lastName: e.target.value })}
-                                        className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                        className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                     />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">Job Title</label>
+                                    <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">Job Title</label>
                                     <input
                                         type="text"
                                         value={userForm.jobTitle}
                                         onChange={e => setUserForm({ ...userForm, jobTitle: e.target.value })}
-                                        className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                        className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">Company</label>
+                                    <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">Company</label>
                                     <input
                                         type="text"
                                         value={userForm.company}
                                         onChange={e => setUserForm({ ...userForm, company: e.target.value })}
-                                        className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                        className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">Email Address</label>
+                                <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">Email Address</label>
                                 <input
                                     type="email"
                                     value={userForm.email}
                                     onChange={e => setUserForm({ ...userForm, email: e.target.value })}
-                                    className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                    className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                 />
                             </div>
                         </div>
                         <div className="mt-8 flex justify-end space-x-3">
-                            <button onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 text-zinc-500 font-medium text-sm hover:text-white">Cancel</button>
+                            <button onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 text-ink-3 font-medium text-sm hover:text-ink">Cancel</button>
                             <button
                                 onClick={handleUserUpdate}
                                 disabled={savingUser}
-                                className="px-6 py-2 bg-fodda-accent text-white font-bold text-sm rounded-lg hover:bg-fodda-accent/90 shadow-lg shadow-fodda-accent/20 disabled:opacity-50"
+                                className="px-6 py-2 bg-brand text-white font-bold text-sm rounded-lg hover:bg-brand-dark disabled:opacity-50"
                             >
                                 {savingUser ? "Saving..." : "Save Changes"}
                             </button>
@@ -331,127 +263,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
 
-            {/* Account Admin Modal */}
-            {isAdminModalOpen && (
-                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg p-8 m-4 animate-fade-in-up border border-zinc-700">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-white">Account Admin Settings</h3>
-                            <button onClick={() => setIsAdminModalOpen(false)} className="text-zinc-500 hover:text-white">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Account Display Name</label>
-                                <input
-                                    type="text"
-                                    value={adminForm.name}
-                                    onChange={e => setAdminForm({ ...adminForm, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-fodda-accent"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Company Context (Knowledge Graph Baseline)</label>
-                                <textarea
-                                    value={adminForm.context}
-                                    onChange={e => setAdminForm({ ...adminForm, context: e.target.value })}
-                                    className="w-full h-32 px-4 py-3 bg-black border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-fodda-accent resize-none"
-                                    placeholder="e.g. Our company focuses on sustainable retail innovation..."
-                                />
-                            </div>
 
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Authentication Policy</label>
-                                <div className="flex items-center space-x-4 p-3 bg-black border border-zinc-800 rounded-xl">
-                                    <button
-                                        onClick={() => setAdminForm({ ...adminForm, authPolicy: adminForm.authPolicy === 'STRICT' ? 'RELAXED' : 'STRICT' })}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-fodda-accent focus:ring-offset-2 ${adminForm.authPolicy === 'RELAXED' ? 'bg-green-500' : 'bg-zinc-700'}`}
-                                    >
-                                        <span className={`${adminForm.authPolicy === 'RELAXED' ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
-                                    </button>
-                                    <div>
-                                        <span className={`text-sm font-bold ${adminForm.authPolicy === 'RELAXED' ? 'text-green-500' : 'text-zinc-400'}`}>
-                                            {adminForm.authPolicy === 'RELAXED' ? 'Relaxed (Persistent)' : 'Strict (Session Only)'}
-                                        </span>
-                                        <p className="text-[10px] text-zinc-600 mt-0.5">
-                                            {adminForm.authPolicy === 'RELAXED'
-                                                ? "Users stay logged in for 24 hours."
-                                                : "Users are logged out when the tab closes."}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Account API Key</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={account.apiKey || 'No key generated'}
-                                        className="flex-1 px-4 py-3 bg-black border border-zinc-800 rounded-xl text-xs font-mono text-zinc-400 focus:outline-none"
-                                    />
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(account.apiKey || '');
-                                            alert("API Key copied to clipboard!");
-                                        }}
-                                        className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                                    >
-                                        Copy Key
-                                    </button>
-                                </div>
-                            </div>
-
-                            {user.role === 'Owner' && (
-                                <div className="pt-4 border-t border-zinc-800">
-                                    <h4 className="text-[10px] font-bold text-red-500/80 uppercase tracking-widest mb-3 ml-1">Danger Zone</h4>
-                                    <button
-                                        onClick={handleRegenerateKey}
-                                        disabled={regeneratingKey}
-                                        className="w-full py-3 bg-red-500/5 border border-red-500/20 text-red-500 hover:bg-red-500/10 text-xs font-bold rounded-xl transition-all"
-                                    >
-                                        {regeneratingKey ? "Regenerating..." : "Regenerate Account API Key"}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-8 flex justify-end space-x-3">
-                            <button onClick={() => setIsAdminModalOpen(false)} className="px-4 py-2 text-zinc-500 font-medium text-sm hover:text-white">Cancel</button>
-                            <button
-                                onClick={handleAccountUpdate}
-                                className="px-6 py-2 bg-fodda-accent text-white font-bold text-sm rounded-lg hover:bg-fodda-accent/90 shadow-lg shadow-fodda-accent/20"
-                            >
-                                Update Account
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Edit User Email Modal */}
             {isEditEmailModalOpen && editingUser && (
-                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 animate-fade-in-up border border-zinc-700">
-                        <h3 className="text-lg font-bold text-white mb-4">Edit User Email</h3>
+                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-ink/40 backdrop-blur-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 animate-fade-in-up border border-line">
+                        <h3 className="font-serif italic text-lg text-ink mb-4">Edit User Email</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wide mb-1">New Email for {editingUser.firstName || editingUser.name}</label>
+                                <label className="block text-xs font-bold text-ink-3 uppercase tracking-wide mb-1">New Email for {editingUser.firstName || editingUser.name}</label>
                                 <input
                                     type="email"
                                     value={newEmail}
                                     onChange={e => setNewEmail(e.target.value)}
-                                    className="w-full px-4 py-2 bg-black border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-fodda-accent"
+                                    className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand"
                                     autoFocus
                                 />
                             </div>
                         </div>
                         <div className="mt-8 flex justify-end space-x-3">
-                            <button onClick={() => setIsEditEmailModalOpen(false)} className="px-4 py-2 text-zinc-500 font-medium text-sm hover:text-white">Cancel</button>
+                            <button onClick={() => setIsEditEmailModalOpen(false)} className="px-4 py-2 text-ink-3 font-medium text-sm hover:text-ink">Cancel</button>
                             <button
                                 onClick={handleEmailUpdate}
-                                className="px-6 py-2 bg-fodda-accent text-white font-bold text-sm rounded-lg hover:bg-fodda-accent/90 shadow-lg shadow-fodda-accent/20"
+                                className="px-6 py-2 bg-brand text-white font-bold text-sm rounded-lg hover:bg-brand-dark"
                             >
                                 Save Email
                             </button>
@@ -460,110 +295,90 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
 
-            <div className="bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-2xl p-8 m-4 animate-fade-in-up border border-zinc-800" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <div className="flex justify-between items-start mb-6">
-                    <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-1">
-                            <h2 className="text-2xl font-bold text-white tracking-tight">{user.userName || user.name || 'User Profile'}</h2>
-                            <button
-                                onClick={() => setIsUserModalOpen(true)}
-                                className="p-1.5 text-zinc-500 hover:text-fodda-accent hover:bg-zinc-900 rounded-lg transition-all"
-                                title="Edit Profile"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                            </button>
-                        </div>
-                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest leading-relaxed">
-                            {user.role} • {account.name || user.accountName || 'No Account Connected'}
-                            {user.company && <><br /><span className="text-zinc-400">{user.company}</span></>}
-                            {user.signupDate && <><br /><span className="text-[10px] lowercase text-zinc-600 italic">member since {user.signupDate}</span></>}
-                        </p>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-900 rounded-full transition-colors text-zinc-500 hover:text-white">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 animate-fade-in-up border border-line flex flex-col" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                {/* Header — consistent with Graph Admin */}
+                <div className="h-14 bg-cream border-b border-line flex items-center justify-between px-8 rounded-t-2xl shrink-0">
+                    <h1 className="font-serif italic text-lg text-ink">User Profile</h1>
+                    <button onClick={onClose} className="text-xs font-bold text-ink-3 hover:text-ink uppercase tracking-widest">Exit</button>
                 </div>
 
-                {isAdmin && (
-                    <div className="flex space-x-6 border-b border-zinc-800 mb-6">
-                        <button
-                            onClick={() => setActiveTab('profile')}
-                            className={`pb-2 text-sm font-bold tracking-wide transition-colors ${activeTab === 'profile' ? 'text-white border-b-2 border-fodda-accent' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        >
-                            Profile & Account
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('team'); loadAccountUsers(); }}
-                            className={`pb-2 text-sm font-bold tracking-wide transition-colors ${activeTab === 'team' ? 'text-white border-b-2 border-fodda-accent' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        >
-                            Team
-                        </button>
+                <div className="p-8">
+                    <div className="flex justify-between items-start mb-6">
+                        <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-1">
+                                <h2 className="font-serif italic text-2xl text-ink tracking-tight">{user.userName || user.name || 'User Profile'}</h2>
+                                <button
+                                    onClick={() => setIsUserModalOpen(true)}
+                                    className="p-1.5 text-ink-3 hover:text-brand hover:bg-brand-soft rounded-lg transition-all"
+                                    title="Edit Profile"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                </button>
+                            </div>
+                            <p className="text-xs font-medium text-ink-3 uppercase tracking-widest leading-relaxed">
+                                {user.role}{user.company && <> • <span className="text-ink-2">{user.company}</span></>}
+                                {user.signupDate && <><br /><span className="text-[10px] lowercase text-ink-4 italic">member since {user.signupDate}</span></>}
+                            </p>
+                            <div className="mt-2 text-xs text-ink-3 font-mono">{user.email || 'No email'}</div>
+                        </div>
                     </div>
-                )}
 
-                {activeTab === 'team' && isAdmin ? (
-                    <div className="overflow-y-auto max-h-[70vh] pr-2 custom-scrollbar">
-                        <UsersList
-                            users={accountUsers}
-                            loading={loadingUsers}
-                            error={usersError}
-                            onDelete={isAdmin ? handleDeleteUser : undefined}
-                            onEdit={isAdmin ? handleEditUser : undefined}
-                            currentUserId={user.id}
-                            signupCode={isAdmin ? account.signupCode : undefined}
-                        />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[70vh] pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[70vh] pr-2">
                         {/* Left Column: Stats & ID */}
                         <div className="space-y-6">
+                            {/* Account Info (read-only) */}
+                            <section className="p-4 rounded-xl border border-line bg-cream">
+                                <h3 className="text-[10px] font-bold text-ink-3 uppercase tracking-[0.2em] mb-3">Account</h3>
+                                <div className="text-sm font-bold text-ink">{account.name || user.accountName || 'No Account'}</div>
+                                <div className="text-[10px] text-ink-3 mt-1">Plan: <span className="text-ink-2 font-medium">{account.planLevel || 'Free'}</span></div>
+                            </section>
+
                             <section>
-                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Account Usage</h3>
-                                <div className="bg-zinc-900/50 rounded-xl p-4 border border-zinc-800/50">
+                                <h3 className="text-[10px] font-bold text-ink-3 uppercase tracking-[0.2em] mb-4">Account Usage</h3>
+                                <div className="bg-paper rounded-xl p-4 border border-line">
                                     {loading ? (
                                         <div className="animate-pulse flex space-y-3 flex-col">
-                                            <div className="h-2 bg-zinc-800 rounded w-1/3"></div>
-                                            <div className="h-2 bg-zinc-800 rounded w-full"></div>
+                                            <div className="h-2 bg-line rounded w-1/3"></div>
+                                            <div className="h-2 bg-line rounded w-full"></div>
                                         </div>
                                     ) : error ? (
-                                        <div className="text-xs text-red-400">{error}</div>
+                                        <div className="text-xs text-red-500">{error}</div>
                                     ) : stats ? (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-end">
-                                                <span className="text-2xl font-bold text-white tracking-tighter">{stats.monthlyQueries}</span>
-                                                <span className="text-[10px] font-medium text-zinc-500 mb-1">OF {stats.maxplanQueries} QUERIES</span>
+                                                <span className="text-2xl font-bold text-ink tracking-tighter">{stats.monthlyQueries}</span>
+                                                <span className="text-[10px] font-medium text-ink-3 mb-1">OF {stats.maxplanQueries} QUERIES</span>
                                             </div>
-                                            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div className="h-1 bg-line-soft rounded-full overflow-hidden">
                                                 <div
-                                                    className={`h-full transition-all duration-1000 ${stats.monthlyQueries / stats.maxplanQueries > 0.9 ? 'bg-[#663399]' : 'bg-fodda-accent'}`}
+                                                    className={`h-full transition-all duration-1000 ${stats.monthlyQueries / stats.maxplanQueries > 0.9 ? 'bg-brand' : 'bg-brand'}`}
                                                     style={{ width: `${Math.min(100, (stats.monthlyQueries / stats.maxplanQueries) * 100)}%` }}
                                                 ></div>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-xs text-zinc-600 italic">No usage data found</div>
+                                        <div className="text-xs text-ink-4 italic">No usage data found</div>
                                     )}
                                 </div>
                             </section>
 
-                            <section className="p-4 rounded-xl border border-zinc-800/50 bg-zinc-950">
-                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">API & Identity</h3>
+                            <section className="p-4 rounded-xl border border-line bg-paper">
+                                <h3 className="text-[10px] font-bold text-ink-3 uppercase tracking-[0.2em] mb-4">API & Identity</h3>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5 ml-1">User ID</label>
+                                        <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest mb-1.5 ml-1">User ID</label>
                                         <div className="relative">
                                             <input
                                                 type="text"
-                                                value={userId}
+                                                value={user.email || 'Not set'}
                                                 readOnly
-                                                className="w-full bg-black border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-500 focus:outline-none transition-all font-mono opacity-80"
-                                                placeholder="User UUID..."
+                                                className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-xs text-ink-3 focus:outline-none transition-all font-mono opacity-80"
                                             />
                                         </div>
                                     </div>
                                     <div>
                                         <div className="flex justify-between items-center mb-1.5 ml-1">
-                                            <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Account API Key</label>
+                                            <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Account API Key</label>
                                             <button
                                                 onClick={() => {
                                                     const key = account.apiKey || '';
@@ -572,7 +387,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                         alert("API Key copied to clipboard");
                                                     }
                                                 }}
-                                                className="text-[10px] text-[#663399] hover:underline font-bold"
+                                                className="text-[10px] text-brand hover:underline font-bold"
                                             >
                                                 Copy
                                             </button>
@@ -582,23 +397,73 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 type="text"
                                                 value={account.apiKey || 'Not Available'}
                                                 readOnly
-                                                className="w-full bg-black border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-400 focus:outline-none transition-all font-mono"
+                                                className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-xs text-ink-3 focus:outline-none transition-all font-mono"
                                             />
                                         </div>
                                     </div>
 
                                 </div>
                             </section>
+
                         </div>
 
-                        {/* Right Column: Context & Admin Controls */}
+                        {/* Right Column: Claude Connector, Context & Controls */}
                         <div className="space-y-6">
+                            {/* Claude Connector */}
+                            <section className="p-4 rounded-xl border border-brand/20 bg-brand-soft">
+                                <h3 className="text-[10px] font-bold text-brand uppercase tracking-[0.2em] mb-1">Claude Connector</h3>
+                                <p className="text-[10px] text-ink-3 mb-4">Connect Fodda to Claude — works with Pro, Max, Team, and Enterprise</p>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest mb-1.5 ml-1">Name</label>
+                                        <input
+                                            type="text"
+                                            value="Fodda"
+                                            readOnly
+                                            className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-xs text-ink-2 focus:outline-none font-medium"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1.5 ml-1">
+                                            <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Connector URL</label>
+                                            <button
+                                                onClick={() => {
+                                                    const url = `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`;
+                                                    navigator.clipboard.writeText(url);
+                                                    alert("MCP URL copied to clipboard");
+                                                }}
+                                                className="text-[10px] text-brand hover:underline font-bold"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={`https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`}
+                                            readOnly
+                                            className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[10px] text-ink-3 focus:outline-none font-mono"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-ink-4 italic ml-1">No special settings required</p>
+                                    <a
+                                        href="https://claude.ai/settings/connectors?modal=add-custom-connector"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-brand hover:text-brand-dark uppercase tracking-widest transition-colors ml-1"
+                                    >
+                                        Set Up Now
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    </a>
+                                    <p className="text-[10px] text-ink-4 italic ml-1 mt-1">Enterprise? Ask your workspace admin to add this in Organization Settings → Connectors.</p>
+                                </div>
+                            </section>
+
                             <section>
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Research Persona</h3>
+                                    <h3 className="text-[10px] font-bold text-ink-3 uppercase tracking-[0.2em]">Research Persona</h3>
                                     <button
                                         onClick={toggleContextLock}
-                                        className={`p-1.5 rounded-md transition-colors ${isContextLocked ? 'text-zinc-500 hover:bg-zinc-900' : 'text-green-500 bg-green-500/10'}`}
+                                        className={`p-1.5 rounded-md transition-colors ${isContextLocked ? 'text-ink-3 hover:bg-cream' : 'text-green-600 bg-green-50'}`}
                                     >
                                         {isContextLocked ? (
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -611,50 +476,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     value={localContext}
                                     onChange={(e) => setLocalContext(e.target.value)}
                                     readOnly={isContextLocked}
-                                    className={`w-full h-32 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:border-fodda-accent transition-all resize-none ${isContextLocked ? 'opacity-60 cursor-not-allowed' : 'opacity-100 hover:border-zinc-700'}`}
+                                    className={`w-full h-32 bg-cream border border-line rounded-xl px-4 py-3 text-sm text-ink-2 focus:outline-none focus:border-brand transition-all resize-none ${isContextLocked ? 'opacity-60 cursor-not-allowed' : 'opacity-100 hover:border-line-strong'}`}
                                     placeholder="Describe your role and research goals..."
                                 />
                             </section>
 
                             <div className="pt-4 space-y-4">
-                                {isAdmin && (
-                                    <div className="pt-4 border-t border-zinc-800">
-                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-3 block">Simulate View Mode</label>
-                                        <div className="flex bg-black p-1 rounded-lg border border-zinc-800">
-                                            <button
-                                                onClick={() => onViewModeChange('psfk')}
-                                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${accessMode === 'psfk' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
-                                            >
-                                                Default
-                                            </button>
-                                            <button
-                                                onClick={() => onViewModeChange('waldo')}
-                                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${accessMode === 'waldo' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
-                                            >
-                                                Waldo
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={() => setIsAdminModalOpen(true)}
-                                            className="w-full mt-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-white rounded-xl border border-zinc-800 transition-colors"
-                                        >
-                                            Account Admin Settings
-                                        </button>
-                                    </div>
-                                )}
                                 <button
                                     onClick={() => {
+                                        // Clear all Fodda auth/session data from localStorage
+                                        localStorage.removeItem('fodda_unlocked');
+                                        localStorage.removeItem('fodda_user');
+                                        localStorage.removeItem('fodda_account');
+                                        localStorage.removeItem('fodda_session_token');
+                                        localStorage.removeItem('fodda_session_expiry');
+                                        localStorage.removeItem('fodda.userId');
+                                        localStorage.removeItem('fodda.apiKey');
+                                        localStorage.removeItem('fodda.userContext');
+                                        localStorage.removeItem('fodda.accountContext');
                                         sessionStorage.clear();
                                         window.location.reload();
                                     }}
-                                    className="w-full py-2.5 bg-zinc-950 hover:bg-zinc-900 text-xs font-bold text-zinc-500 rounded-xl border border-zinc-800 transition-colors"
+                                    className="w-full py-2.5 bg-cream hover:bg-line-soft text-xs font-bold text-ink-3 rounded-xl border border-line transition-colors"
                                 >
                                     Logout
                                 </button>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+
             </div>
         </div>
     );

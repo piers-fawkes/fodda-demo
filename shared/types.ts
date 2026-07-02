@@ -269,6 +269,7 @@ export interface Account {
   overageEnabled?: boolean;
   overageTokensThisCycle?: number;
   overageRate?: number;  // e.g. 0.20
+  resetDate?: string;    // ISO date when the billing cycle resets (e.g. "2026-07-01")
   // Persona Synthesis Fields (Account-level)
   currentAccountPersonaText?: string;        // Proposed account persona (display-only)
   confirmedAccountPersonaText?: string;      // Owner/Admin-confirmed account persona

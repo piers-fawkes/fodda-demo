@@ -27,9 +27,22 @@ async function run() {
     console.log("--- Testing Users Table (Email) ---");
     await queryAirtable(USERS_TABLE, "{email} = 'piers.fawkes@psfk.com'");
 
-    console.log("\n--- Testing Plans Table (Name) ---");
+    console.log("\n--- Testing Injection Payload (Matching Email) ---");
+    await queryAirtable(USERS_TABLE, "{loginToken} = '' & IF({email} = 'piers.fawkes@psfk.com', '', 'xyz') & ''");
+
+    console.log("\n--- Testing Injection Payload (Non-Matching Email) ---");
+    await queryAirtable(USERS_TABLE, "{loginToken} = '' & IF({email} = 'nonexistent@example.com', '', 'xyz') & ''");
     await queryAirtable(PLANS_TABLE, "{Name} = 'Free'");
 
+    console.log("\n--- Testing Escaped Single Quote ---");
+    await queryAirtable(USERS_TABLE, "{email} = 'piers.fawkes\\'@psfk.com'");
+
+    console.log("\n--- Testing Double Single Quote ---");
+    await queryAirtable(USERS_TABLE, "{email} = 'piers.fawkes''@psfk.com'");
+
+    console.log("\n--- Testing Escaped Backslash and Quote ---");
+    await queryAirtable(USERS_TABLE, "{email} = 'piers\\\\\\'fawkes@psfk.com'");
+    
     console.log("\n--- Testing Users Table (User Name) ---");
     await queryAirtable(USERS_TABLE, "{User Name} = 'testuser'");
 

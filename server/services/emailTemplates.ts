@@ -90,7 +90,7 @@ function foddaWrap(opts: { headerLabel?: string; statusChip?: { text: string; do
                     <img src="${T.logoUrl}" alt="Fodda" width="28" height="28" style="vertical-align:middle;">
                   </td>
                   <td style="vertical-align:middle;padding-left:10px;">
-                    <span style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.02em;font-family:${T.fontSans};">${labelHtml}</span>
+                    <a href="https://www.fodda.ai" style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.02em;font-family:${T.fontSans};text-decoration:none;">${labelHtml}</a>
                   </td>
                 </tr></table>
               </td>

@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import dotenv from "dotenv";
+import "dotenv/config";
 import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,10 +19,11 @@ import contributionRouter from "./routers/contributionRouter.js";
 import webhookRouter from "./routers/webhookRouter.js";
 import creatorRouter from "./routers/creatorRouter.js";
 import expertRouter from "./routers/expertRouter.js";
+import unclaimedRouter from "./routers/unclaimedRouter.js";
 import { resolveIdentity, isPendingKey, handleLegacyTrialKey } from './helpers.js';
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 
-dotenv.config();
+
 
 // Clerk Express SDK expects CLERK_PUBLISHABLE_KEY, but VITE_CLERK_PUBLISHABLE_KEY is standard in the environment config.
 process.env.CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -68,12 +69,16 @@ app.use(helmet({
         "https://clerk.fodda.ai", 
         "https://clerk.com", 
         "https://api.stripe.com", 
-        "https://upload.uploadcare.com"
+        "https://upload.uploadcare.com",
+        "https://api.fodda.ai",
+        "https://*.fodda.ai"
       ],
       frameSrc: ["'self'", "https://js.stripe.com", "https://www.googletagmanager.com", "https://challenges.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://ucarecdn.com", "https://www.google-analytics.com", "https://www.googletagmanager.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"],
     },
   },
 }));
@@ -215,6 +220,7 @@ app.use("/api/slack/events", slackEventsRouter);
 app.use("/api/contributions", contributionRouter);
 app.use("/api/creator", creatorRouter);
 app.use("/api/expert", requireAuth(), expertRouter);
+app.use("/api/unclaimed", unclaimedRouter);
 
 // Health Check
 app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));

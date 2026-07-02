@@ -26,6 +26,7 @@ import { ProfileUsagePage } from './components/ProfileUsagePage';
 import { PaymentSetupModal } from './components/PaymentSetupModal';
 import { UsageWarningBanner } from './components/UsageWarningBanner';
 import { ExpertTwinPage } from './components/ExpertTwinPage';
+import { UnclaimedExpertModal } from './components/UnclaimedExpertModal';
 import { dataService, ApiError } from '../shared/dataService';
 import { generateResponse } from './services/geminiService';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -79,7 +80,7 @@ const App: React.FC = () => {
   });
 
   // Detect /expert/<slug> or ?expert=<slug> deep-link for expert chat auto-selection
-  const [initialExpertSlug] = useState<string | null>(() => {
+  const [initialExpertSlug, setInitialExpertSlug] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       // Check pathname first: /expert/<slug>
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -91,6 +92,18 @@ const App: React.FC = () => {
     }
     return null;
   });
+  // Pre-filled question from ?q= param or localStorage (for auto-submit after auth)
+  const [prefilledQuestion, setPrefilledQuestion] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('q') || null;
+    }
+    return null;
+  });
+
+  // Unclaimed expert modal state
+  const [unclaimedExpert, setUnclaimedExpert] = useState<{ id: string; name: string; portraitUrl?: string } | null>(null);
+  const [showUnclaimedModal, setShowUnclaimedModal] = useState(false);
+
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
@@ -162,6 +175,7 @@ const App: React.FC = () => {
         '/sandbox': 'sandbox',
         '/research': 'sandbox',
         '/expert': 'expert-chat',
+        '/account/billing': 'account-billing',
         '/knowledge/api-docs': 'knowledge-api-docs',
       };
       if (deepLinkMap[path]) {
@@ -169,8 +183,15 @@ const App: React.FC = () => {
         window.history.replaceState({}, document.title, '/');
         return deepLinkMap[path];
       }
+      // Handle ?view=billing deep link (MCP hands this URL to agents — errorHandling.ts:303)
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam === 'billing') {
+        window.history.replaceState({}, document.title, '/');
+        return 'account-billing' as AppView;
+      }
       // Handle ?expert= query param (navigate to expert-chat)
-      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('expert')) {
+      if (typeof window !== 'undefined' && urlParams.get('expert')) {
         window.history.replaceState({}, document.title, '/');
         return 'expert-chat' as AppView;
       }
@@ -312,6 +333,35 @@ const App: React.FC = () => {
     localStorage.setItem('fodda.accountContext', accountContext);
   }, [accountContext]);
 
+  // ── Refresh account data on tab re-focus (keeps credit balance fresh) ──
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!clerkUserId || !currentAccount) return;
+
+      try {
+        const profile = await dataService.getCurrentProfile();
+        if (profile?.account) {
+          setCurrentAccount(profile.account);
+          localStorage.setItem('fodda_account', JSON.stringify(profile.account));
+          if (profile.account.accountContext) {
+            setAccountContext(profile.account.accountContext);
+          }
+        }
+        if (profile?.user) {
+          setCurrentUser(profile.user);
+          localStorage.setItem('fodda_user', JSON.stringify(profile.user));
+        }
+      } catch (e) {
+        // Silent fail — stale data is better than breaking the UI
+        console.warn('[App] Visibility refresh failed:', e);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [clerkUserId, currentAccount]);
+
   useEffect(() => {
     if (userId) localStorage.setItem('fodda.userId', userId);
   }, [userId]);
@@ -366,6 +416,8 @@ const App: React.FC = () => {
     }
   }, [currentAccount?.authPolicy]);
 
+
+
   const handleSessionStart = (auth: Required<AuthResponse>) => {
     console.log("[App] Session Start. Setting State components...");
     setCurrentUser(auth.user);
@@ -411,14 +463,26 @@ const App: React.FC = () => {
 
     // ─── Set initial view based on onboarding choices ───
     if (!hasSetInitialView) {
-      // Priority 1: ?view= param from website CTA (stored by AuthGate in localStorage)
+      // Priority 0: Expert deep-link stored by AuthGate during signup round-trip
+      const pendingExpert = localStorage.getItem('fodda.pendingExpert');
       const pendingView = localStorage.getItem('fodda.pendingView');
-      if (pendingView) {
+      if (pendingExpert) {
+        localStorage.removeItem('fodda.pendingExpert');
+        const pendingQ = localStorage.getItem('fodda.pendingQ');
+        localStorage.removeItem('fodda.pendingQ');
+        console.log(`[App] Expert deep-link resuming: expert=${pendingExpert}, q=${pendingQ || '(none)'}`);
+        setInitialExpertSlug(pendingExpert);
+        if (pendingQ) setPrefilledQuestion(pendingQ);
+        setActiveView('expert-chat');
+      // Priority 1: ?view= param from website CTA (stored by AuthGate in localStorage)
+      } else if (pendingView) {
         localStorage.removeItem('fodda.pendingView');
         if (pendingView === 'api') {
           setActiveView('connections-mcp');
         } else if (pendingView === 'sandbox' || pendingView === 'chat') {
           setActiveView('sandbox');
+        } else if (pendingView === 'billing') {
+          setActiveView('account-billing');
         }
       // Priority 2: ?graph= param — open the chat with that graph selected
       } else if (initialReferralGraph) {
@@ -768,7 +832,28 @@ const App: React.FC = () => {
     }
   }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId, inferBaselineQuestion]);
 
-
+  // ─── Auto-submit prefilled question when expert is loaded ───
+  useEffect(() => {
+    if (!isUnlocked || !prefilledQuestion || activeView !== 'expert-chat') return;
+    if (!initialExpertSlug) return;
+    // Check if the current vertical matches the target expert (by slug or id)
+    const currentId = (currentVertical || '').toLowerCase();
+    const targetSlug = initialExpertSlug.toLowerCase();
+    // The expert may be matched by expert_slug or graph id — accept either
+    const expertLoaded = graphCatalog.some(g =>
+      g.id.toLowerCase() === currentId &&
+      g.graph_type === 'expert' &&
+      (g.expert_slug?.toLowerCase() === targetSlug || g.id.toLowerCase() === targetSlug)
+    );
+    if (!expertLoaded) return;
+    console.log(`[App] Auto-submitting prefilled question for expert ${initialExpertSlug}: "${prefilledQuestion}"`);
+    // Delay slightly to ensure the chat interface is mounted
+    const timer = setTimeout(() => {
+      handleSendMessage(prefilledQuestion);
+      setPrefilledQuestion(null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isUnlocked, prefilledQuestion, activeView, initialExpertSlug, currentVertical, graphCatalog, handleSendMessage]);
 
   const handleVerticalChange = (newVertical: string) => {
     const v = newVertical as Vertical;
@@ -835,7 +920,7 @@ const App: React.FC = () => {
     if (isAdminOpen) {
       return <AdminPortal onBack={() => setIsAdminOpen(false)} userId={userId || 'at-gate'} />;
     }
-    return <AuthGate onAdminOpen={() => setIsAdminOpen(true)} initialReferralGraph={initialReferralGraph} />;
+    return <AuthGate onAdminOpen={() => setIsAdminOpen(true)} initialReferralGraph={initialReferralGraph} initialExpertSlug={initialExpertSlug} />;
   }
 
   const handleUpdateUserContext = (ctx: string, saveToDb: boolean) => {
@@ -953,6 +1038,7 @@ const App: React.FC = () => {
           account={currentAccount}
           onNavigate={(view: string) => setActiveView(view as any)}
           onViewPlans={() => setIsUpgradeModalOpen(true)}
+          onSetupPayment={() => setIsPaymentSetupOpen(true)}
         />
       );
     }
@@ -1215,7 +1301,31 @@ const App: React.FC = () => {
         );
         if (slugMatch && slugMatch.id !== currentVertical) {
           setTimeout(() => handleVerticalChange(slugMatch.id), 0);
+        } else if (!slugMatch && !showUnclaimedModal && !unclaimedExpert) {
+          // No live graph match — check if this is an unclaimed expert
+          fetch(`/api/unclaimed/lookup/${encodeURIComponent(initialExpertSlug)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.ok && data.analyst) {
+                setUnclaimedExpert(data.analyst);
+                setShowUnclaimedModal(true);
+                setInitialExpertSlug(null); // Prevent re-fetching on re-render
+              }
+            })
+            .catch(err => console.warn('[App] Unclaimed expert lookup failed:', err));
         }
+      } else if (initialExpertSlug && expertGraphs.length === 0 && !showUnclaimedModal && !unclaimedExpert) {
+        // No expert graphs loaded yet but we have a slug — try unclaimed lookup
+        fetch(`/api/unclaimed/lookup/${encodeURIComponent(initialExpertSlug)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.ok && data.analyst) {
+              setUnclaimedExpert(data.analyst);
+              setShowUnclaimedModal(true);
+              setInitialExpertSlug(null);
+            }
+          })
+          .catch(err => console.warn('[App] Unclaimed expert lookup failed:', err));
       }
 
       // If current vertical isn't in the expert list, switch to the first expert
@@ -1227,7 +1337,7 @@ const App: React.FC = () => {
       // Sub-type grouping for expert dropdown
       const expertSubTypes: Record<string, KnowledgeGraph[]> = {};
       expertGraphs.forEach(g => {
-        const sub = g.graph_sub_type || 'Synthetic Expert';
+        const sub = g.graph_sub_type === 'Digital Twin' ? 'Human Agent' : (g.graph_sub_type || 'Synthetic Expert');
         if (!expertSubTypes[sub]) expertSubTypes[sub] = [];
         expertSubTypes[sub].push(g);
       });
@@ -1243,7 +1353,7 @@ const App: React.FC = () => {
               <div>
                 <p className="eyebrow mb-1">Expert Chat</p>
                 <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Expert Consultations</h1>
-                <p className="text-sm text-ink-3 mt-1">Chat with digital twins, synthetic experts & C-suite executives.</p>
+                <p className="text-sm text-ink-3 mt-1">Chat with human agents, synthetic experts & C-suite executives.</p>
               </div>
               
               <div className="flex items-center gap-3 shrink-0">
@@ -1744,6 +1854,15 @@ const App: React.FC = () => {
       <ApiModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
       <SecurityModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
       <DeterministicModal isOpen={isDeterministicModalOpen} onClose={() => setIsDeterministicModalOpen(false)} />
+      <UnclaimedExpertModal
+        isOpen={showUnclaimedModal}
+        onClose={() => {
+          setShowUnclaimedModal(false);
+          setUnclaimedExpert(null);
+        }}
+        expert={unclaimedExpert || { id: '', name: '' }}
+        currentUser={currentUser ? { id: currentUser.id, email: currentUser.email, name: currentUser.name || currentUser.userName } : undefined}
+      />
       <DevToolsDrawer
         isOpen={isDevMode}
         onClose={() => setIsDevMode(false)}
@@ -1789,6 +1908,7 @@ const App: React.FC = () => {
           <AuthGate
             onAdminOpen={() => setIsAdminOpen(true)}
             initialReferralGraph={initialReferralGraph}
+            initialExpertSlug={initialExpertSlug}
           />
         ) : (
           <>

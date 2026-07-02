@@ -1,0 +1,81 @@
+frontend/components/AccountPortal.tsx(688,60): error TS2339: Property 'byGraph' does not exist on type 'UsageStats'.
+frontend/components/AccountPortal.tsx(688,73): error TS7006: Parameter 'graph' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(718,68): error TS2339: Property 'byUser' does not exist on type 'UsageStats'.
+frontend/components/AccountPortal.tsx(718,93): error TS7006: Parameter 'user' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(739,60): error TS2339: Property 'dailyTrend' does not exist on type 'UsageStats'.
+frontend/components/AccountPortal.tsx(739,76): error TS7006: Parameter 'day' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(739,81): error TS7006: Parameter 'i' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(740,92): error TS2339: Property 'dailyTrend' does not exist on type 'UsageStats'.
+frontend/components/AccountPortal.tsx(740,107): error TS7006: Parameter 'd' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(757,75): error TS2339: Property 'periodStart' does not exist on type 'UsageStats'.
+frontend/components/AccountPortal.tsx(758,75): error TS2339: Property 'periodEnd' does not exist on type 'UsageStats'.
+frontend/components/AdminPortal.tsx(170,61): error TS2339: Property 'endpoint' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(462,34): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(473,95): error TS2339: Property 'source' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(478,36): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(480,40): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(484,37): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(484,87): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(494,37): error TS2339: Property 'frequency' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(496,35): error TS2339: Property 'categories' does not exist on type 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(496,50): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+frontend/components/AdminPortal.tsx(504,33): error TS2339: Property 'status' does not exist on type 'SupplementalSource'.
+frontend/components/CompareModal.tsx(66,16): error TS2367: This comparison appears to be unintentional because the types 'ReasoningMode' and '"graph"' have no overlap.
+frontend/components/CompareModal.tsx(66,49): error TS2367: This comparison appears to be unintentional because the types 'ReasoningMode' and '"gemini"' have no overlap.
+frontend/components/CompareModal.tsx(423,61): error TS2345: Argument of type '"graph"' is not assignable to parameter of type 'ReasoningMode | (() => ReasoningMode)'.
+frontend/components/CompareModal.tsx(470,5): error TS2322: Type '"graph"' is not assignable to type 'ReasoningMode'.
+frontend/components/CompareModal.tsx(482,5): error TS2322: Type '"gemini"' is not assignable to type 'ReasoningMode'.
+frontend/components/CompareModal.tsx(494,5): error TS2322: Type '"blended"' is not assignable to type 'ReasoningMode'.
+frontend/components/EvidenceDrawer.tsx(69,27): error TS2339: Property 'description' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(69,46): error TS2339: Property 'description' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(70,11): error TS2339: Property 'description' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(71,11): error TS2339: Property 'description' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(77,38): error TS2339: Property 'trendName' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(81,16): error TS2339: Property 'trendName' does not exist on type 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(117,67): error TS2554: Expected 1 arguments, but got 3.
+frontend/components/EvidenceDrawer.tsx(118,31): error TS2339: Property 'adjacent' does not exist on type 'AdjacentTrend[]'.
+frontend/components/EvidenceDrawer.tsx(224,32): error TS2339: Property 'trendId' does not exist on type 'AdjacentTrend'.
+frontend/components/GraphVisualization.tsx(8,5): error TS2561: Object literal may only specify known properties, but 'Trend' does not exist in type 'Record<GraphNodeType, string>'. Did you mean to write 'TREND'?
+frontend/components/GraphVisualization.tsx(17,5): error TS2561: Object literal may only specify known properties, but 'Trend' does not exist in type 'Record<GraphNodeType, string>'. Did you mean to write 'TREND'?
+frontend/components/GraphVisualization.tsx(79,14): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(80,14): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(81,15): error TS2339: Property 'vx' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(82,15): error TS2339: Property 'vy' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(188,35): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(199,19): error TS2339: Property 'summary' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(202,31): error TS2339: Property 'summary' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(226,85): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(243,56): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(258,42): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(342,27): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(343,27): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(357,28): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(357,45): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(358,28): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(358,45): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(418,28): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(418,40): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(419,28): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(419,40): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(425,60): error TS2339: Property 'relationship' does not exist on type 'GraphEdge'.
+frontend/components/GraphVisualization.tsx(435,34): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(435,49): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(436,34): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(436,49): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(441,36): error TS2339: Property 'relationship' does not exist on type 'GraphEdge'.
+frontend/components/GraphVisualization.tsx(459,28): error TS2339: Property 'x' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(460,28): error TS2339: Property 'y' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(507,30): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(582,44): error TS2339: Property 'relationship' does not exist on type 'GraphEdge'.
+frontend/components/GraphVisualization.tsx(636,25): error TS2339: Property 'name' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(638,28): error TS2339: Property 'summary' does not exist on type 'GraphNode'.
+frontend/components/GraphVisualization.tsx(644,33): error TS2339: Property 'relationship' does not exist on type 'GraphEdge'.
+frontend/components/ReasoningModeSelector.tsx(12,9): error TS2322: Type '"graph"' is not assignable to type 'ReasoningMode'.
+frontend/components/ReasoningModeSelector.tsx(27,9): error TS2322: Type '"gemini"' is not assignable to type 'ReasoningMode'.
+frontend/components/ReasoningModeSelector.tsx(37,9): error TS2322: Type '"blended"' is not assignable to type 'ReasoningMode'.
+frontend/components/UpgradeModal.tsx(27,65): error TS2367: This comparison appears to be unintentional because the types 'string | undefined' and 'number' have no overlap.
+frontend/components/UpgradeModal.tsx(30,51): error TS2367: This comparison appears to be unintentional because the types 'string | undefined' and 'number' have no overlap.
+frontend/components/UpgradeModal.tsx(78,67): error TS2367: This comparison appears to be unintentional because the types 'string | undefined' and 'number' have no overlap.
+frontend/components/UpgradeModal.tsx(115,52): error TS2367: This comparison appears to be unintentional because the types 'string | undefined' and 'number' have no overlap.
+frontend/components/UpgradeModal.tsx(159,104): error TS2339: Property 'toLowerCase' does not exist on type 'string | number'.
+  Property 'toLowerCase' does not exist on type 'number'.

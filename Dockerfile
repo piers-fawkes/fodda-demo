@@ -11,14 +11,21 @@ COPY package*.json ./
 ENV NODE_ENV=development
 RUN npm install --include=dev --legacy-peer-deps
 
+# Cache-bust: unique value per deploy
+ARG CACHEBUST=20260310T2000
+
 # Copy the rest of the application
 COPY . .
+
+# Embed public build-time Vite environment variables
+ENV VITE_CLERK_PUBLISHABLE_KEY=pk_live_Y2xlcmsuZm9kZGEuYWkk
+ENV VITE_STRIPE_PUBLISHABLE_KEY=pk_live_5DArtkR3TY6xa2l3GtGXIo3r
 
 # Build:
 # - Vite frontend build
 # - Compile API TypeScript -> dist/
 # - Copy OpenAPI YAML into dist so the runtime route can serve it
-RUN npm run build
+RUN echo "Build timestamp: $CACHEBUST" && rm -rf dist && npm run build
 # OPTIONS:
 #   --something
 

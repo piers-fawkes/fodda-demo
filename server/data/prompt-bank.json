@@ -1,0 +1,222 @@
+{
+  "_readme": "Prompt bank for onboarding emails. Prompts should be 10-25 words, ready to paste into Fodda or Claude with Fodda connected. Edit this file and redeploy to update prompts without code changes.",
+  "_buyer_types": ["Agency Strategist", "Enterprise Research/AI", "AI Startup/Developer", "Publisher/Thought Leader", "Unknown"],
+  "_graph_ids": ["retail", "beauty", "sports", "ce-design"],
+
+  "retail": {
+    "general": [
+      "Where are retailers removing friction from the buying journey, and how are they actually doing it?",
+      "How are brands turning in-store technology into a competitive advantage right now?",
+      "What trends are shaping small format retail and convenience-led shopping?",
+      "Show me signals around loyalty innovation that go beyond points and discounts.",
+      "Where is fulfillment-first thinking changing how retailers design their stores?"
+    ],
+    "Agency Strategist": [
+      "What retail trends should I be briefing clients on this quarter and why do they matter?",
+      "Give me a competitive intelligence snapshot on omnichannel retail innovation.",
+      "Where are brands doing something genuinely new in the physical retail experience?",
+      "Show me examples of retail campaigns built around friction removal rather than promotion."
+    ],
+    "Enterprise Research/AI": [
+      "What are the strongest signals in retail operations and shopper behavior right now?",
+      "Show me data points around checkout friction and how retailers are solving it.",
+      "Where is AI changing the store associate role and how are brands piloting this?",
+      "What operational shifts are showing up across the largest retail chains?"
+    ],
+    "AI Startup/Developer": [
+      "What retail use cases are brands actively piloting with AI and automation?",
+      "Show me where computer vision and sensor tech are being deployed in retail environments.",
+      "Where is automation changing store operations in ways that create new product opportunities?",
+      "What inventory and supply chain problems are retailers trying to solve with software?"
+    ],
+    "Publisher/Thought Leader": [
+      "What retail shifts are underreported and worth writing about this month?",
+      "Which fulfillment trends are getting mainstream traction and which are still niche?",
+      "Show me examples of retail brands doing something counterintuitive that is actually working.",
+      "Where is physical retail proving sceptics wrong about its relevance?"
+    ],
+    "Unknown": [
+      "Where are retailers removing friction from the buying journey, and how are they actually doing it?",
+      "What trends are shaping small format retail and convenience-led shopping?",
+      "Show me signals around loyalty innovation that go beyond points and discounts.",
+      "How are brands turning in-store technology into a competitive advantage right now?",
+      "Where is fulfillment-first thinking changing how retailers design their stores?"
+    ]
+  },
+
+  "beauty": {
+    "general": [
+      "How is beauty personalization moving beyond skin tone matching into something more meaningful?",
+      "What ingredients are getting serious attention in prestige beauty right now and why?",
+      "Where are beauty brands building loyalty in ways that go beyond the transaction?",
+      "Show me signals around sustainability in beauty that are actually changing purchasing behavior.",
+      "What is driving growth in wellness crossover products and who is winning?"
+    ],
+    "Agency Strategist": [
+      "What beauty category shifts are worth building campaigns around this season?",
+      "Give me a brief on changing consumer behavior in skincare that would surprise a client.",
+      "Where are beauty brands doing something new in the retail experience that deserves attention?",
+      "Show me examples of beauty marketing that connects product to identity in a non-obvious way."
+    ],
+    "Enterprise Research/AI": [
+      "What are the strongest emerging signals in beauty retail and direct-to-consumer?",
+      "Show me examples of brands using data to personalize the beauty experience at scale.",
+      "Where is clinical credentialing changing the prestige beauty conversation?",
+      "What consumer shifts are putting pressure on legacy beauty brands to reformulate?"
+    ],
+    "AI Startup/Developer": [
+      "Where is AI being used in beauty product development, recommendation, or personalization?",
+      "Show me examples of beauty tech that is changing how consumers find and try products.",
+      "What diagnostic tools are brands building into the beauty purchase journey?",
+      "Where is augmented reality in beauty moving from novelty to actual conversion driver?"
+    ],
+    "Publisher/Thought Leader": [
+      "What beauty trends are underreported and worth a feature right now?",
+      "Which ingredient stories are crossing from niche to mainstream and deserve closer attention?",
+      "Show me beauty brands doing something that challenges the category's default assumptions.",
+      "Where is the wellness-beauty crossover creating genuinely new consumer behaviors?"
+    ],
+    "Unknown": [
+      "How is beauty personalization moving beyond skin tone matching into something more meaningful?",
+      "What ingredients are getting serious attention in prestige beauty right now and why?",
+      "Where are beauty brands building loyalty in ways that go beyond the transaction?",
+      "Show me signals around sustainability in beauty that are actually changing purchasing behavior.",
+      "What is driving growth in wellness crossover products and who is winning?"
+    ]
+  },
+
+  "sports": {
+    "general": [
+      "How are sports brands turning one-off experiences into repeatable formats, and where is that showing up?",
+      "What is changing in how teams build community beyond the game itself?",
+      "Show me signals around athlete brand partnerships that go beyond traditional sponsorship.",
+      "Where are media rights and streaming changing how fans actually watch sport?",
+      "Which sports sponsorship models are evolving and what is replacing the old playbook?"
+    ],
+    "Agency Strategist": [
+      "What sports marketing trends should brands be acting on now rather than waiting for?",
+      "Give me a brief on fan loyalty innovation in major leagues that a brand could learn from.",
+      "Where are sponsorship formats changing in ways that create new creative opportunities?",
+      "Show me examples of sports brands building cultural relevance outside their core audience."
+    ],
+    "Enterprise Research/AI": [
+      "What are the strongest signals in sports media and fan engagement right now?",
+      "Show me how AI is being used in sports performance tracking and the fan experience.",
+      "Where is data changing how clubs make decisions about athlete development and fan retention?",
+      "What operational shifts are the major leagues making in response to changing viewer behavior?"
+    ],
+    "AI Startup/Developer": [
+      "What technical problems are sports organizations actively trying to solve with software?",
+      "Show me where AI and sensor data are changing athlete performance analysis.",
+      "Where is the fan experience being rebuilt with personalization and real-time data?",
+      "What does the sports data infrastructure look like and where are the gaps?"
+    ],
+    "Publisher/Thought Leader": [
+      "What sports business stories are underreported and worth digging into right now?",
+      "Where is fan behavior shifting in ways that the mainstream sports media is missing?",
+      "Show me which sports sponsorship trends are getting traction before they become obvious.",
+      "Which sports are gaining cultural relevance and why is that happening now?"
+    ],
+    "Unknown": [
+      "How are sports brands turning one-off experiences into repeatable formats, and where is that showing up?",
+      "What is changing in how teams build community beyond the game itself?",
+      "Show me signals around athlete brand partnerships that go beyond traditional sponsorship.",
+      "Where are media rights and streaming changing how fans actually watch sport?",
+      "Which sports sponsorship models are evolving and what is replacing the old playbook?"
+    ]
+  },
+
+  "ce-design": {
+    "general": [
+      "Which consumer electronics products are genuinely blurring the line between technology and furniture?",
+      "How is emotional design showing up in hardware categories that used to compete only on specs?",
+      "Show me signals around material innovation in consumer electronics that are actually reaching market.",
+      "Where are CE brands redefining everyday objects and what is making that work?",
+      "What design trends are shaping the next generation of consumer electronics products?"
+    ],
+    "Agency Strategist": [
+      "What CE design trends are worth building creative briefs around this year?",
+      "Give me a snapshot of what is driving premium product design in consumer electronics right now.",
+      "Where are hardware brands doing something in design that deserves a case study?",
+      "Show me examples of CE products that have successfully repositioned around lifestyle rather than specs."
+    ],
+    "Enterprise Research/AI": [
+      "What hardware design signals should product teams be tracking in consumer electronics?",
+      "Show me how sustainability requirements are showing up in CE product design decisions.",
+      "Where is the miniaturisation trend creating new product categories in CE?",
+      "What manufacturing and material shifts are changing what is possible in hardware design?"
+    ],
+    "AI Startup/Developer": [
+      "Where is the integration of AI changing the design brief for consumer electronics products?",
+      "Show me examples of CE products where the software experience is now driving the hardware design.",
+      "What sensor and connectivity advances are enabling new form factors in CE design?",
+      "Where are CE startups successfully competing against legacy hardware brands on design?"
+    ],
+    "Publisher/Thought Leader": [
+      "What CE design stories are underreported and worth writing about right now?",
+      "Which product design trends are moving from luxury niches into mainstream CE?",
+      "Show me CE brands doing something counterintuitive in design that is actually working.",
+      "Where is the boundary between CE product design and architecture or furniture genuinely dissolving?"
+    ],
+    "Unknown": [
+      "Which consumer electronics products are genuinely blurring the line between technology and furniture?",
+      "How is emotional design showing up in hardware categories that used to compete only on specs?",
+      "Show me signals around material innovation in consumer electronics that are actually reaching market.",
+      "Where are CE brands redefining everyday objects and what is making that work?",
+      "What design trends are shaping the next generation of consumer electronics products?"
+    ]
+  },
+
+  "cross-graph": {
+    "_comment": "Bridge prompts for users whose industry (finance, legal, healthcare, etc.) is not one of our graphs. These connect their world to Fodda's available knowledge.",
+    "general": [
+      "What can financial services brands learn from how retailers are rebuilding customer loyalty?",
+      "Show me examples of brands in any sector using data to personalize the customer experience at scale.",
+      "Where are companies removing friction from complex service journeys in ways that any industry could learn from?",
+      "What does premium brand positioning look like in categories that used to compete only on price?",
+      "Show me how consumer expectations shaped in retail and beauty are now changing what people want from other services."
+    ],
+    "Agency Strategist": [
+      "What brand strategy trends from retail and CE design are transferable to a professional services client?",
+      "Give me a snapshot of how brands in adjacent sectors are building cultural relevance right now.",
+      "Where are the most interesting examples of experience design crossing between consumer and B2B contexts?",
+      "Show me loyalty and community-building strategies from sports and retail that could apply in regulated industries."
+    ],
+    "Enterprise Research/AI": [
+      "What operational signals from retail automation are relevant to enterprise service delivery?",
+      "Show me how brands are using AI to personalize high-consideration purchases and what that means for complex sales.",
+      "Where are the strongest signals around consumer behavior shifts that cut across multiple sectors?",
+      "What does the evidence say about which digital experience investments are actually driving retention?"
+    ],
+    "AI Startup/Developer": [
+      "What technology problems in retail and CE design are creating opportunities for horizontal software solutions?",
+      "Show me where AI automation is changing customer-facing operations in ways that generalize beyond one sector.",
+      "Where are brands building data infrastructure that could serve as a model for other industries?",
+      "What consumer-facing AI applications from retail are creating user behavior patterns worth studying?"
+    ],
+    "Publisher/Thought Leader": [
+      "What trends in retail and CE design have implications that no one in adjacent industries is writing about?",
+      "Show me consumer behavior shifts that are happening in one sector but will clearly spread to others.",
+      "Where are brand and design strategies crossing between consumer categories in an underreported way?",
+      "Which Fodda trend stories would resonate with an audience outside retail, beauty, sports, or CE?"
+    ],
+    "Unknown": [
+      "What can any brand learn from how retailers are rebuilding the customer relationship right now?",
+      "Show me examples of product and experience design that is changing what consumers expect across sectors.",
+      "Where are the most transferable lessons from retail and CE innovation for any business?",
+      "What consumer behavior shifts are showing up in Fodda data that have cross-industry implications?",
+      "Show me signals around brand loyalty and community that work beyond any single product category."
+    ]
+  },
+
+  "default": {
+    "_comment": "Fallback for unknown or multi-graph accounts.",
+    "general": [
+      "What trends are shaping small format retail and convenience-led shopping right now?",
+      "How is beauty personalization moving beyond skin tone matching into something more meaningful?",
+      "How are sports brands turning one-off experiences into repeatable formats, and where is that showing up?",
+      "Which consumer electronics products are genuinely blurring the line between technology and furniture?",
+      "Show me examples of brands doing something new in the customer experience across any of Fodda's graphs."
+    ]
+  }
+}

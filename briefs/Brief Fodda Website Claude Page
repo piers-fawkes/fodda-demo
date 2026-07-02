@@ -1,0 +1,197 @@
+# Brief: Update the Fodda Website Claude Integration Page
+
+## Context
+
+When a user asks Claude to "connect to a PSFK or Fodda knowledge graph," Claude gives them generic instructions but can't provide the specific URL. If the user then visits the Fodda website's Claude page (`fodda.ai/#/platform-integration-anthropic-claude`), they find an enterprise-focused page about plugin manifests, CORS, and OIDC — nothing that helps a regular Claude Pro/Max user paste a URL into Settings → Connectors.
+
+The page needs to serve **two audiences**:
+1. **Individual users** (Claude Pro / Max / Team) who want to add Fodda as a custom connector in ~60 seconds
+2. **Enterprise admins** (Claude Enterprise) who need admin-managed connector registration, security details, and compliance info
+
+---
+
+## Current State
+
+The page (`IntegrationClaude.tsx`) currently:
+- ✅ Has a good hero and "What This Integration Does" section
+- ✅ Lists capabilities (search, neighbors, evidence, node fetch)
+- ❌ "How It Works" section is developer/enterprise-only (manifest hosting, CORS, OIDC)
+- ❌ Never shows the actual URL: `https://mcp.fodda.ai/mcp`
+- ❌ "Getting Started" steps are enterprise-centric (host manifest, configure CORS, etc.)
+- ❌ FAQ says "Yes — enterprise plugin support is required" (this is wrong — any Claude Pro/Max/Team user can add custom connectors)
+- ❌ No mention of MCP or the connector flow that Claude web users actually use
+
+---
+
+## Proposed Changes
+
+### Change 1: Add a "Connect in 60 Seconds" Section
+
+Add a prominent, user-friendly section **immediately after the hero** (before "What This Integration Does"). This should be the highest-visibility element on the page.
+
+**Content:**
+
+```
+## Connect Fodda to Claude in 60 Seconds
+
+Works with Claude Pro, Max, Team, and Enterprise plans.
+
+Step 1: Get your API key
+  → Sign up or log in at app.fodda.ai
+  → Go to Account → MCP Integration
+  → Copy your API key
+
+Step 2: Add Fodda as a connector in Claude
+  → In Claude, go to Settings → Connectors → Add custom connector
+  → Paste this URL:
+
+     https://mcp.fodda.ai/mcp        [Copy button]
+
+  → Set auth to "Custom request headers"
+  → Add header: Authorization: Bearer YOUR_API_KEY
+
+Step 3: Start asking questions
+  → "What are the latest retail trends?"
+  → "Show me beauty innovation signals with evidence"
+  → "What brands are driving the wellness space?"
+
+Claude will query your Fodda knowledge graph directly and return 
+grounded answers with traceable sources.
+```
+
+Include a **Copy URL** button and a **Get Started** CTA linking to `app.fodda.ai`.
+
+Design this section with a dark card background (like the existing "Why It Matters" section) to make it visually distinct and immediately actionable.
+
+### Change 2: Add a "Claude Enterprise" Section
+
+Below the quick-connect section, add an enterprise-specific section:
+
+```
+## Claude Enterprise Integration
+
+For organizations using Claude Enterprise with admin-managed connectors:
+
+Your workspace admin can register the Fodda MCP server through the 
+Claude Admin Console using:
+
+- Endpoint: https://mcp.fodda.ai/mcp
+- Transport: Streamable HTTP (with SSE fallback at /sse)
+- Auth: Bearer token with your organization's Fodda API key
+- Auto-discovery: https://mcp.fodda.ai/.well-known/mcp.json
+
+Enterprise features:
+✓ HMAC request signing for integrity verification
+✓ OpenTelemetry distributed tracing headers
+✓ Per-key rate limiting (configurable RPM)
+✓ Tenant-scoped access and RBAC
+✓ Traceable request IDs on every call
+✓ Deterministic JSON error envelopes (no HTML/stack traces)
+
+Contact us for enterprise onboarding: [Contact link]
+```
+
+### Change 3: Rework the "How It Works" Section
+
+The current "How It Works (Developer View)" section talks about manifest hosting and CORS — which isn't how Claude web connectors work. Replace it with a two-track view:
+
+**Track A — Individual Users:**
+```
+1. Sign up at app.fodda.ai and get your API key
+2. Add Fodda as a custom connector in Claude (Settings → Connectors)
+3. Start querying — Claude calls Fodda's tools automatically
+```
+
+**Track B — Enterprise / Developer:**
+```
+1. Register the MCP endpoint via your Claude Enterprise admin console
+2. Configure auth (Bearer token or OIDC)
+3. Optionally self-host the MCP server for full control
+```
+
+### Change 4: Fix the FAQ
+
+Update the FAQ to be accurate:
+
+| Current | Updated |
+|---------|---------|
+| "Do I need Claude Enterprise to use this?" → "Yes — enterprise plugin support is required" | "Do I need Claude Enterprise?" → "No! Any Claude Pro, Max, or Team plan can add Fodda as a custom connector. Enterprise plans get additional admin-managed deployment options." |
+| "Can I try this without OIDC?" → "Yes — API-Key mode is fully hardened" | Keep this one, it's fine |
+| "Does this replace the core API?" → "No — this plugin is a bridge" | Keep this one, it's fine |
+
+Add new FAQ entries:
+- **"What URL do I paste into Claude?"** → `https://mcp.fodda.ai/mcp`
+- **"Where do I find my API key?"** → Sign up at app.fodda.ai, go to Account → MCP Integration
+- **"What can I ask Claude once connected?"** → Any question about trends, brands, innovation signals, etc. Claude uses Fodda's search, traversal, and evidence tools automatically.
+- **"Is there a Claude Code (CLI) option?"** → Yes: `claude mcp add --transport sse fodda https://mcp.fodda.ai/sse --header "Authorization: Bearer YOUR_API_KEY"`
+
+### Change 5: Update the "Getting Started" Checklist
+
+Replace the current enterprise checklist with a dual-path version:
+
+**For Individual Users:**
+1. Sign up at app.fodda.ai
+2. Copy your API key from Account → MCP Integration
+3. In Claude: Settings → Connectors → Add custom connector
+4. Paste URL: `https://mcp.fodda.ai/mcp`
+5. Set auth header: `Authorization: Bearer YOUR_KEY`
+6. Start chatting!
+
+**For Enterprise:**
+1. Contact Fodda for enterprise API credentials
+2. Register the MCP endpoint via Claude Admin Console
+3. Configure HMAC signing (optional, for request integrity)
+4. Set up OpenTelemetry tracing (optional, for observability)
+5. Deploy to your team
+
+### Change 6: Update the "Core Capabilities" Table
+
+The current table shows generic commands like "search", "neighbors". Update to show the actual MCP tool names and add the newer tools:
+
+| Tool | What It Does |
+|------|-------------|
+| `list_graphs` | Discover available knowledge graphs and their schemas |
+| `search_graph` | Semantic + keyword search across a knowledge graph |
+| `get_neighbors` | Explore related nodes with relationship and depth controls |
+| `get_evidence` | Fetch source evidence tied to a specific graph node |
+| `get_node` | Retrieve a node's full properties by ID |
+| `get_label_values` | Discover valid category values for structured filtering |
+| `psfk_overview` | LLM-synthesized macro overview of an industry/sector |
+| `discover_adjacent_trends` | Find semantically similar trends to expand a research brief |
+
+---
+
+## Pages to Consider
+
+### Primary: `IntegrationClaude.tsx`
+All changes described above.
+
+### Secondary: `FAQ.tsx`
+If there's a global FAQ page, consider adding a "How do I connect Fodda to Claude?" entry that mirrors the quick-connect steps.
+
+### Secondary: Graph Pages (`GraphRetail.tsx`, `GraphBeauty.tsx`, `GraphSports.tsx`, etc.)
+Consider adding a small "Connect this graph to Claude" CTA on each graph detail page, since users landing on a specific graph page are likely ready to connect.
+
+---
+
+## Design Notes
+
+- The "Connect in 60 Seconds" section should feel **urgent and actionable** — dark background, large type, prominent copy buttons
+- Keep the enterprise section visually distinct but secondary (below the fold or in a collapsible section)
+- The page should work for SEO: when someone searches "connect Fodda to Claude" or "Fodda MCP URL," this page should rank and immediately answer their question
+- Consider adding a small animated demo or screenshot showing the Claude Settings → Connectors flow
+- The URL `https://mcp.fodda.ai/mcp` should appear prominently and be copy-pasteable — this is the single most important piece of information on the page
+
+---
+
+## SEO & Meta Updates
+
+Update the page's SEO metadata:
+
+```
+Title: "Connect Fodda Knowledge Graphs to Claude — Setup in 60 Seconds"
+Description: "Add Fodda's expert-curated knowledge graphs to Claude in under a minute. 
+  Paste https://mcp.fodda.ai/mcp as a custom connector. Works with Claude Pro, Max, Team, and Enterprise."
+```
+
+This ensures the URL itself appears in search results — which is exactly what struggling users are searching for.

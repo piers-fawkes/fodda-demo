@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../../shared/types';
 
 interface UsersListProps {
@@ -7,145 +7,269 @@ interface UsersListProps {
     error: string | null;
     onDelete?: (userId: string, email: string) => void;
     onEdit?: (user: User) => void;
+    onRoleChange?: (userId: string, newRole: string) => void;
     currentUserId?: string;
+    currentUserRole?: string;
     signupCode?: string;
+    accountApiKey?: string;
+    accountMcpUrl?: string;
+    accountMonthlyQueryLimit?: number;
+    accountCurrentQueryCount?: number;
 }
 
-export const UsersList: React.FC<UsersListProps> = ({ users, loading, error, onDelete, onEdit, currentUserId, signupCode }) => {
+export const UsersList: React.FC<UsersListProps> = ({
+    users, loading, error, onDelete, onEdit, onRoleChange, currentUserId, currentUserRole, signupCode,
+    accountApiKey, accountMcpUrl, accountMonthlyQueryLimit, accountCurrentQueryCount
+}) => {
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+    const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
+    const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+
+    const handleCopy = (text: string, field: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+    };
+
+    const handleEmailCredentials = (targetUser: User) => {
+        setEmailSentTo(targetUser.email || null);
+        // Mock — show confirmation then reset after 3s
+        setTimeout(() => setEmailSentTo(null), 3000);
+    };
+
     if (loading) {
         return (
-            <div className="flex justify-center p-8">
-                <svg className="animate-spin h-6 w-6 text-fodda-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+            <div className="flex justify-center p-12">
+                <div className="w-8 h-8 border-2 border-line border-t-brand rounded-full animate-spin"></div>
             </div>
         );
     }
 
     if (error) {
-        return <div className="text-red-400 text-xs p-4 bg-red-500/10 rounded-lg">{error}</div>;
+        return <div className="text-red-700 text-xs font-bold p-4 bg-red-50 border border-red-100 rounded-xl">{error}</div>;
     }
 
-    // Even if no users, show the invite code if available
-    const hasUsers = users && users.length > 0;
+    // masked key helper
+    const maskedApiKey = accountApiKey
+        ? accountApiKey.slice(0, 10) + '••••••••'
+        : null;
+    const maskedMcpUrl = accountMcpUrl
+        ? accountMcpUrl.replace(/api_key=[^&]+/, 'api_key=••••••••…')
+        : null;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {signupCode && (
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
+                <div className="bg-cream/40 border border-line rounded-2xl p-6 flex items-center justify-between shadow-sm">
                     <div>
-                        <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Team Invite Code</h4>
-                        <div className="flex items-center space-x-2">
-                            <p className="text-sm font-mono font-bold text-white bg-black px-3 py-2 rounded-lg border border-zinc-800 tracking-wider select-all">
+                        <h4 className="eyebrow mb-3">Collaborator Invite Portal</h4>
+                        <div className="flex items-center space-x-3">
+                            <p className="text-sm font-mono font-bold text-ink bg-white px-4 py-2 rounded-xl border border-line tracking-widest shadow-sm select-all">
                                 {signupCode}
                             </p>
-                            <span className="text-[10px] text-zinc-600 italic">Share to invite members</span>
+                            <span className="text-[10px] text-ink-4 font-bold uppercase tracking-widest">Share code to onboard team</span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {!hasUsers ? (
-                <div className="text-zinc-500 text-xs italic p-4 text-center border border-zinc-800 rounded-xl border-dashed">No users found in this account.</div>
+            {/* ─── Identitiy & Endpoint Reference ─── */}
+            {(maskedApiKey || maskedMcpUrl) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {maskedApiKey && (
+                        <div className="bg-paper border border-line rounded-2xl p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="eyebrow">API Identifier</h4>
+                                <button
+                                    onClick={() => handleCopy(accountApiKey!, 'api-key')}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm border ${
+                                        copiedField === 'api-key'
+                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                            : 'bg-white text-ink-3 border-line hover:border-line-strong hover:text-ink'
+                                    }`}
+                                >
+                                    {copiedField === 'api-key' ? '✓ Copied' : 'Copy Key'}
+                                </button>
+                            </div>
+                            <code className="block text-xs font-mono text-ink-3 bg-cream/40 px-3 py-2 rounded-lg border border-line truncate shadow-inner">
+                                {maskedApiKey}
+                            </code>
+                        </div>
+                    )}
+                    {maskedMcpUrl && (
+                        <div className="bg-paper border border-line rounded-2xl p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="eyebrow">MCP Service Endpoint</h4>
+                                <button
+                                    onClick={() => handleCopy(accountMcpUrl!, 'mcp-url')}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm border ${
+                                        copiedField === 'mcp-url'
+                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                            : 'bg-white text-ink-3 border-line hover:border-line-strong hover:text-ink'
+                                    }`}
+                                >
+                                    {copiedField === 'mcp-url' ? '✓ Copied' : 'Copy URL'}
+                                </button>
+                            </div>
+                            <code className="block text-xs font-mono text-ink-3 bg-cream/40 px-3 py-2 rounded-lg border border-line truncate shadow-inner">
+                                {maskedMcpUrl}
+                            </code>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {!users || users.length === 0 ? (
+                <div className="text-ink-4 text-[10px] font-bold uppercase tracking-widest p-8 text-center border border-line rounded-2xl border-dashed bg-cream/20">No active research associates discovered.</div>
             ) : (
-                <div className="overflow-hidden border border-zinc-800 rounded-xl">
+                <div className="overflow-hidden border border-line rounded-2xl shadow-sm bg-white">
                     <table className="min-w-full text-left">
-                        <thead className="bg-zinc-900/50">
+                        <thead className="bg-cream">
                             <tr>
-                                <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">User</th>
-                                <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Role</th>
-                                <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-right">Usage</th>
-                                <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-right">Status</th>
-                                {onDelete && <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-right">Action</th>}
+                                <th className="px-6 py-4 eyebrow">Research Associate</th>
+                                <th className="px-6 py-4 eyebrow">Role</th>
+                                <th className="px-6 py-4 eyebrow text-right">Heartbeat</th>
+                                <th className="px-6 py-4 eyebrow text-right">Unit Consumption</th>
+                                <th className="px-6 py-4 eyebrow text-right">Auth Status</th>
+                                <th className="px-6 py-4 eyebrow text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/50">
+                        <tbody className="divide-y divide-line">
                             {users.map((user) => (
-                                <tr key={user.id || user.email} className="hover:bg-zinc-800/20 transition-colors group">
-                                    <td className="px-4 py-3">
+                                <tr key={user.id || user.email} className="hover:bg-cream/20 transition-colors group">
+                                    <td className="px-6 py-5">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-white">
-                                                {(user.firstName && user.lastName) ? `${user.firstName} ${user.lastName}` : (user.userName || user.name || 'Unknown')}
+                                            <span className="text-sm font-bold text-ink">
+                                                {(user.firstName && user.lastName) ? `${user.firstName} ${user.lastName}` : (user.userName || user.name || 'Anonymous User')}
                                             </span>
-                                            <span className="text-[10px] text-zinc-500 font-mono">{user.email}</span>
-                                            {user.jobTitle && <span className="text-[9px] text-zinc-600 mt-0.5">{user.jobTitle}</span>}
+                                            <span className="text-[10px] text-ink-4 font-mono mt-0.5">{user.email}</span>
+                                            {user.jobTitle && <span className="text-[9px] text-ink-3 mt-1 font-medium">{user.jobTitle}</span>}
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${user.role === 'Owner' || user.role === 'Admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                                            {user.role}
+                                    <td className="px-6 py-5">
+                                        {onRoleChange && (currentUserRole === 'Owner' || currentUserRole === 'Admin') && user.id !== currentUserId ? (
+                                            <select
+                                                value={user.role || 'Employee'}
+                                                onChange={async (e) => {
+                                                    setUpdatingRole(user.id);
+                                                    await onRoleChange(user.id, e.target.value);
+                                                    setUpdatingRole(null);
+                                                }}
+                                                disabled={updatingRole === user.id}
+                                                className={`bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-all focus:outline-none focus:border-brand shadow-sm ${
+                                                    updatingRole === user.id
+                                                        ? 'opacity-50 cursor-wait border-line text-ink-4'
+                                                        : user.role === 'Owner' || user.role === 'Admin'
+                                                            ? 'border-brand/40 text-brand'
+                                                            : 'border-line text-ink-3'
+                                                }`}
+                                            >
+                                                <option value="Owner">Owner</option>
+                                                <option value="Admin">Admin</option>
+                                                <option value="Employee">Employee</option>
+                                            </select>
+                                        ) : (
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${user.role === 'Owner' || user.role === 'Admin' ? 'bg-brand-soft text-brand border-brand/20' : 'bg-paper text-ink-3 border-line'}`}>
+                                                {user.role}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-5 text-right">
+                                        <span className="text-[10px] text-ink-3 font-mono font-bold uppercase">
+                                            {user.lastLogin
+                                                ? (() => {
+                                                    const d = new Date(user.lastLogin);
+                                                    const now = new Date();
+                                                    const diffMs = now.getTime() - d.getTime();
+                                                    const diffMins = Math.floor(diffMs / 60000);
+                                                    const diffHours = Math.floor(diffMs / 3600000);
+                                                    const diffDays = Math.floor(diffMs / 86400000);
+                                                    if (diffMins < 5) return 'Alive Now';
+                                                    if (diffMins < 60) return `${diffMins}M ago`;
+                                                    if (diffHours < 24) return `${diffHours}H ago`;
+                                                    if (diffDays < 7) return `${diffDays}D ago`;
+                                                    return d.toLocaleDateString();
+                                                })()
+                                                : 'Dormant'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-right">
-                                        {/* Progress Bar for Usage */}
-                                        <div className="flex flex-col items-end w-32 ml-auto">
+                                    <td className="px-6 py-5 text-right">
+                                        <div className="flex flex-col items-end w-36 ml-auto">
                                             {(() => {
                                                 const current = user.monthlyQueries || 0;
-                                                const max = user.maxplanQueries || 100;
+                                                const max = accountMonthlyQueryLimit || user.maxplanQueries || 100;
                                                 const isOver = current >= max;
                                                 const percent = Math.min(100, max > 0 ? (current / max) * 100 : 0);
 
                                                 return (
-                                                    <>
-                                                        <div className="flex justify-between w-full mb-1 items-end gap-2">
-                                                            <div className="flex flex-col items-start">
-                                                                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Usage</span>
-                                                                {isOver && (
-                                                                    <a
-                                                                        href={`mailto:piers.fawkes@psfk.com?subject=Upgrade Plan Request&body=I would like to upgrade the plan for account associated with ${user.email}.`}
-                                                                        className="text-[9px] font-bold text-fodda-accent hover:text-white transition-colors uppercase tracking-wide flex items-center mt-0.5"
-                                                                    >
-                                                                        Upgrade Plan &rarr;
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                            <span className={`text-[10px] font-mono font-bold ${isOver ? 'text-red-500' : 'text-zinc-300'}`}>
-                                                                {current} <span className={`${isOver ? 'text-red-500/50' : 'text-zinc-600'} text-[9px]`}>/ {max}</span>
+                                                    <div className="w-full">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className={`text-[10px] font-mono font-bold ${isOver ? 'text-red-600' : 'text-ink'}`}>
+                                                                {current} <span className="text-ink-4 font-medium">/ {max}</span>
                                                             </span>
+                                                            {isOver && (
+                                                                <a
+                                                                    href={`mailto:piers.fawkes@psfk.com?subject=Scale Plan Request&body=Requesting scale upgrade for associate ${user.email}.`}
+                                                                    className="text-[9px] font-black text-brand hover:text-brand-dark uppercase tracking-widest"
+                                                                >
+                                                                    Scale →
+                                                                </a>
+                                                            )}
                                                         </div>
-                                                        <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                                        <div className="w-full h-1.5 bg-cream rounded-full border border-line/50 overflow-hidden shadow-inner">
                                                             <div
-                                                                className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : (percent > 85 ? 'bg-yellow-500' : 'bg-fodda-accent')}`}
+                                                                className={`h-full rounded-full transition-all duration-700 ease-out ${isOver ? 'bg-red-500' : (percent > 85 ? 'bg-amber-500' : 'bg-brand')}`}
                                                                 style={{ width: `${percent}%` }}
                                                             ></div>
                                                         </div>
-                                                    </>
+                                                    </div>
                                                 );
                                             })()}
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-right">
-                                        {user.emailConfirmed ? (
-                                            <span className="text-[10px] text-green-500 font-bold uppercase tracking-wide">Active</span>
-                                        ) : (
-                                            <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wide">Pending</span>
-                                        )}
+                                    <td className="px-6 py-5 text-right">
+                                        <div className="inline-flex items-center gap-1.5">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${user.emailConfirmed ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${user.emailConfirmed ? 'text-green-700' : 'text-amber-700'}`}>
+                                                {user.emailConfirmed ? 'Verified' : 'Pending'}
+                                            </span>
+                                        </div>
                                     </td>
-                                    {onEdit && (
-                                        <td className="px-4 py-3 text-right">
+                                    <td className="px-6 py-5 text-right">
+                                        <div className="flex items-center justify-end gap-3">
+                                            {/* Email Credentials Button */}
                                             <button
-                                                onClick={() => onEdit(user)}
-                                                className="p-1.5 text-zinc-600 hover:text-fodda-accent hover:bg-zinc-900 rounded transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 mr-2"
-                                                title="Edit User"
+                                                onClick={() => handleEmailCredentials(user)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all border shadow-sm ${
+                                                    emailSentTo === user.email
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : 'bg-white text-ink-3 border-line hover:text-ink hover:border-line-strong opacity-0 group-hover:opacity-100'
+                                                }`}
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                                {emailSentTo === user.email ? 'Sent ✓' : 'Dispatch Access'}
                                             </button>
-                                        </td>
-                                    )}
-                                    {onDelete && (
-                                        <td className="px-4 py-3 text-right">
-                                            {user.id !== currentUserId && (
+                                            {/* Edit Button */}
+                                            {onEdit && (
                                                 <button
-                                                    onClick={() => onDelete(user.id, user.email || '')}
-                                                    className="p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                                    title="Remove User"
+                                                    onClick={() => onEdit(user)}
+                                                    className="p-2 text-ink-4 hover:text-brand hover:bg-brand-soft rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-brand/20"
+                                                    title="Modify Profile"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
                                                 </button>
                                             )}
-                                        </td>
-                                    )}
+                                            {/* Delete Button */}
+                                            {onDelete && user.id !== currentUserId && (
+                                                <button
+                                                    onClick={() => onDelete(user.id, user.email || '')}
+                                                    className="p-2 text-ink-4 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-200"
+                                                    title="Sever Associate"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

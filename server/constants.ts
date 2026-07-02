@@ -17,6 +17,7 @@ export const TOKEN_PURCHASES_TABLE = 'tblNJdPZnVQ0jmlQh'; // Token Purchase Log 
 export const PROMPT_AUDIT_TABLE = 'tblvkfrBxMGiKHAtN'; // Prompt validation results (pass/fail tracking)
 export const CONTENT_SUGGESTIONS_TABLE = 'tblLxGmyEZoWOQZnC'; // LinkedIn content suggestions (Sales Agent)
 export const CONTEXT_CONTRIBUTIONS_TABLE = 'tblVXniVij4v9Blfs'; // User-produced content (corrections, extensions, authored)
+export const NOTIFICATION_REQUESTS_TABLE = process.env.NOTIFICATION_REQUESTS_TABLE_ID || 'tblc1qEPqx27FTROZ'; // Unclaimed Expert notification queue
 export const USER_OBSERVATIONS_TABLE = 'tblMyBB02cZO5ZEB5'; // Append-only persona observations (nightly synthesis)
 
 export const SCHEMA_VERSION = "2024.11.20";

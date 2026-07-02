@@ -25,7 +25,7 @@ async function run() {
     while (attempts < 20) {
         try {
             // Check health
-            const res = await fetch(`${BASE_URL}/api/ping`); // assuming GET /api/ping exists from previous checks
+            const res = await fetch(`${BASE_URL}/health`);
             if (res.ok) {
                 console.log("Server is up.");
                 break;
@@ -43,8 +43,8 @@ async function run() {
     }
 
     try {
-        const url = `${BASE_URL}/api/user/context`; // POST endpoint
-        const body = { email: "test@example.com", context: "foo" };
+        const url = `${BASE_URL}/api/log`; // POST endpoint that doesn't require session auth
+        const body = { email: "test@example.com", query: "test query", context: { source: "test" } };
         const bodyStr = JSON.stringify(body);
 
         // 1. No Signature (Should pass auth middleware, fail logic if invalid data, or 200)

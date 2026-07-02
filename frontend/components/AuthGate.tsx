@@ -1,385 +1,804 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSignIn, useSignUp, useClerk, useAuth } from '@clerk/react';
+import { Eyebrow, Masthead, FieldRule, Margin, GateFrame, Btn, StepBar, WaxSeal, GateFooter } from './AuthGateAtoms';
+
+const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: string; portrait_url?: string }> = {
+  retail: { name: 'Future of Retail Graph', owner: 'PSFK', headline: 'Tracking the automation of physical commerce' },
+  sports: { name: 'Future of Sports Graph', owner: 'PSFK', headline: 'Decoding the next generation of fan engagement' },
+  beauty: { name: 'Future of Beauty Graph', owner: 'PSFK', headline: 'Exploring sensory tech and personalized aesthetics' },
+  sic: { name: 'SIC Graph', owner: 'Ben Dietz', headline: 'Strategic Independent Culture mapping' },
+  baseline: { name: 'Pew Public Beliefs Graph', owner: 'PSFK', headline: 'US public sentiment and demographic trends' },
+  'ce-design': { name: 'Consumer Electronics & Design Graph', owner: 'Piers Fawkes', headline: 'Expert graph tracking innovation in CE and product design' },
+  // Expert graphs — keyed by both graph_id and analyst slug
+  'postpals-expert-graph': { name: 'Jeremy Bergstein — Science of Education & Innovation', owner: 'Jeremy Bergstein', headline: 'Ask Jeremy\'s AI twin about experiential retail, science education, and innovation strategy.', portrait_url: 'https://storage.googleapis.com/fodda-public/portraits/jeremy-bergstein.jpg' },
+  'jeremy-bergstein-science-education-innovation': { name: 'Jeremy Bergstein — Science of Education & Innovation', owner: 'Jeremy Bergstein', headline: 'Ask Jeremy\'s AI twin about experiential retail, science education, and innovation strategy.', portrait_url: 'https://storage.googleapis.com/fodda-public/portraits/jeremy-bergstein.jpg' },
+  'piers-fawkes': { name: 'Piers Fawkes — Future of Retail & Commerce', owner: 'Piers Fawkes', headline: 'Ask Piers\'s AI twin about the future of retail, commerce, and consumer experience.', portrait_url: 'https://storage.googleapis.com/fodda-public/portraits/piers-fawkes.jpg' },
+  'ben-dietz': { name: 'Ben Dietz — Strategic Independent Culture', owner: 'Ben Dietz', headline: 'Ask Ben\'s AI twin about independent culture, brand strategy, and emerging movements.', portrait_url: 'https://storage.googleapis.com/fodda-public/portraits/ben-dietz.jpg' },
+};
+
+/** Derive the legacy signupIntent value from the user's apiUse selection */
+const deriveIntent = (apiUse: string): string => {
+  if (apiUse === 'Self-Demo') return 'demo';
+  if (apiUse === 'Graph Seller') return 'sell';
+  if (apiUse === 'Mainly API Access') return 'api';
+  return 'account';
+};
+
+const API_USE_OPTIONS: [string, string, string][] = [
+  ['Mainly Claude', 'Mainly Claude', 'Claude Desktop, Code, web'],
+  ['ChatGPT', 'Mainly ChatGPT', 'Desktop, web — via MCP'],
+  ['Mainly Perplexity', 'Mainly Perplexity', 'Perplexity Pro, web'],
+  ['Mainly Notion AI', 'Mainly Notion', 'Notion connector'],
+  ['Mainly Copilot', 'Mainly MSFT Co-pilot', 'MSFT Copilot for M365'],
+  ['Mainly Gemini', 'Mainly Gemini', 'Workspace + AI Studio'],
+  ['MCP endpoint', 'Mainly MCP Use', 'Any MCP-compatible client'],
+  ['REST API / CLI', 'Mainly API Access', 'Build something'],
+  ['Self-demo', 'Self-Demo', 'Try the built-in chat'],
+  ['Sell my graph', 'Graph Seller', 'Upload research & earn'],
+  ['A mix of the above', 'A Mix of Engagements', "We'll set them all up"],
+  ['Not sure yet', "I Don't Know", 'Decide later'],
+];
+
+const dateEyebrow = () => {
+  const d = new Date();
+  return `${d.toLocaleDateString('en', { weekday: 'long' })} · ${d.toLocaleDateString('en', { month: 'long' })} ${d.getDate()} · Sign in`.toUpperCase();
+};
 
 interface AuthGateProps {
-  onUnlock: (email: string) => Promise<any>; // Changed to Promise to check response
-  onRegister: (email: string, firstName: string, lastName: string, company: string, jobTitle: string, companyContextRaw?: string, userContextRaw?: string, apiUse?: string) => void;
-  onJoin: (email: string, firstName: string, lastName: string, signupCode: string, jobTitle: string, userContextRaw?: string) => Promise<boolean>;
-  onVerify?: (token: string) => Promise<boolean>; // New Prop
+  onUnlock?: (email: string) => Promise<any>;
+  onRegister?: (email: string, firstName: string, lastName: string, company: string, jobTitle: string, companyContextRaw?: string, userContextRaw?: string, apiUse?: string, intent?: string, referralGraph?: string, isProfessionalServices?: boolean, promoTag?: string) => void;
+  onJoin?: (email: string, firstName: string, lastName: string, signupCode: string, jobTitle: string, userContextRaw?: string) => Promise<boolean>;
+  onVerify?: (token: string) => Promise<boolean>;
+  onAdminOpen?: () => void;
+  initialReferralGraph?: string | null;
+  initialExpertSlug?: string | null;
 }
 
-export const AuthGate: React.FC<AuthGateProps> = ({ onUnlock, onRegister, onJoin, onVerify }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [isJoinTeam, setIsJoinTeam] = useState(false); // New state: Join Existing Team vs Create New Account
-  const [step, setStep] = useState(1); // 1 = Basic Info, 2 = Context
-
-  // Step 1 Fields
+export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferralGraph, initialExpertSlug }) => {
+  const _hasReferral = !!(initialReferralGraph && initialReferralGraph.length > 0);
+  const _hasExpert = !!(initialExpertSlug && initialExpertSlug.length > 0);
+  const [isSignUp, setIsSignUp] = useState(_hasReferral || _hasExpert);
+  const [isJoinTeam, setIsJoinTeam] = useState(false);
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [company, setCompany] = useState('');
   const [jobTitle, setJobTitle] = useState('');
-  const [signupCode, setSignupCode] = useState(''); // New field for Joining
-
-  // Step 2 Fields
+  const [signupCode, setSignupCode] = useState('');
   const [companyContextRaw, setCompanyContextRaw] = useState('');
   const [userContextRaw, setUserContextRaw] = useState('');
-  const [apiUse, setApiUse] = useState('webapp');
+  const [apiUse, setApiUse] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const onboard = params.get('platform') || params.get('onboarding');
+      if (onboard) {
+        const lower = onboard.toLowerCase();
+        if (lower.includes('mcp')) return 'Mainly MCP Use';
+        if (lower.includes('chatgpt') || lower.includes('openai')) return 'Mainly ChatGPT';
+        if (lower.includes('claude')) return 'Mainly Claude';
+        if (lower.includes('perplexity')) return 'Mainly Perplexity';
+        if (lower.includes('notion')) return 'Mainly Notion';
+        if (lower.includes('copilot') || lower.includes('co-pilot')) return 'Mainly MSFT Co-pilot';
+        if (lower.includes('gemini')) return 'Mainly Gemini';
+        if (lower.includes('vertex') || lower.includes('api')) return 'Mainly API Access';
+      }
+    }
+    return 'Mainly Claude';
+  });
+  const [referralGraph, setReferralGraph] = useState<string | null>(initialReferralGraph && initialReferralGraph.length > 0 ? initialReferralGraph : (initialExpertSlug || null));
+  const [isProfessionalServices, setIsProfessionalServices] = useState(false);
+  const [promoTag] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('promo') || '' : '');
 
+  // Pricing page "Buy Now" params — passed through Clerk unsafeMetadata for post-signup checkout
+  const [selectedPlanCode] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('plan') || '' : '');
+  const [selectedTier] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tier') || '' : '');
+  const [selectedPrice] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('price') || '' : '');
   const [isLoading, setIsLoading] = useState(false);
   const [errorHeader, setErrorHeader] = useState('');
-  const [isWaitingForConfirmation, setIsWaitingForConfirmation] = useState(false); // Used for both Signup & Login Magic Link
+  const [isWaitingForConfirmation, setIsWaitingForConfirmation] = useState(false);
+  const [isUnconfirmed, setIsUnconfirmed] = useState(false);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyProgress, setVerifyProgress] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [returningFromConfirm, setReturningFromConfirm] = useState(false);
+
+  // Clerk head-less state hooks (v6 / Core 3 API)
+  const clerk = useClerk();
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const { signOut } = useAuth();
+  const clerkReady = !!signIn && !!signUp;
+
+  /** Trigger an OAuth redirect via Clerk. Stores a flag so SsoCallbackPage
+   *  knows to show the "tell us more" modal for brand-new signups.
+   *  Uses signIn.sso() — the Clerk Core 3 API on SignInFutureResource. */
+  const handleOAuth = (provider: 'oauth_google' | 'oauth_linkedin_oidc') => {
+    sessionStorage.setItem('fodda.oauthPending', provider);
+    if (isSignUp) {
+      if (!signUp) return;
+      signUp.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: `${window.location.origin}/`,
+      });
+    } else {
+      if (!signIn) return;
+      signIn.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: `${window.location.origin}/`,
+      });
+    }
+  };
 
   useEffect(() => {
-    // Check for email confirmation redirect or Magic Link Token
+    console.log('[AuthGate] Clerk SDK state:', { 
+      clerkReady, signIn: !!signIn, signUp: !!signUp,
+    });
+  }, [clerkReady, signIn, signUp]);
+
+  useEffect(() => {
+    if (!clerkReady || !signIn) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const ticket = params.get('__clerk_ticket');
+    if (ticket) {
+      console.log('[AuthGate] Found __clerk_ticket in URL. Attempting auto sign-in...');
+      setIsLoading(true);
+      setErrorHeader('');
+      
+      signIn.ticket({ ticket })
+      .then(async ({ error }) => {
+        if (error) {
+          console.error('[AuthGate] Ticket sign-in failed:', error);
+          setErrorHeader(error.longMessage || error.message || 'Failed to authenticate via login link.');
+          return;
+        }
+        console.log('[AuthGate] Ticket sign-in attempt status:', signIn.status);
+        if (signIn.status === 'complete') {
+          await signIn.finalize();
+          console.log('[AuthGate] Ticket sign-in complete. Session activated.');
+          // Clean the URL
+          window.history.replaceState({}, document.title, '/');
+        } else {
+          setErrorHeader(`Ticket sign-in status is incomplete: ${signIn.status}`);
+        }
+      })
+      .catch((err: any) => {
+        console.error('[AuthGate] Ticket sign-in failed:', err);
+        setErrorHeader(err.message || 'Failed to authenticate via login link.');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+    }
+  }, [clerkReady, signIn, clerk]);
+
+  // Handle incoming Clerk email link verification redirects
+  // When a user clicks the magic link in their email, Clerk redirects here with tokens in the URL.
+  // handleEmailLinkVerification() reads those tokens and completes the sign-in/sign-up.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasClerkVerification = params.has('__clerk_db_jwt') || params.has('__clerk_status') || params.has('__clerk_created_session');
+
+    if (hasClerkVerification) {
+      console.log('[AuthGate] Detected Clerk email link verification tokens. Processing...');
+      setIsVerifying(true);
+      setVerifyProgress(50);
+
+      // Complete the verification on Clerk's backend, then hard-reload.
+      // A hard reload lets ClerkProvider reinitialize and find the active session.
+      clerk.handleEmailLinkVerification({})
+        .then(() => {
+          console.log('[AuthGate] Email link verification complete. Reloading...');
+          setVerifyProgress(100);
+          // Hard reload — ClerkProvider will pick up the session on fresh init
+          setTimeout(() => { window.location.href = '/'; }, 500);
+        })
+        .catch((err: any) => {
+          console.error('[AuthGate] Email link verification error:', err);
+          // Even on error, the session may have been created. Try reloading.
+          setTimeout(() => { window.location.href = '/'; }, 500);
+        });
+    }
+  }, [clerk]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const emailParam = params.get('email');
-      const tokenParam = params.get('token');
+      
+      const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const isRegisterPath = pathname === '/register';
+      const signupParam = params.get('signup') === 'true' || params.get('register') === 'true';
+      const intentParam = params.get('intent');
+      const hasPlanParam = !!params.get('plan');
 
-      // Magic Link Verification
-      if (tokenParam && onVerify) {
-        setIsVerifying(true);
-        onVerify(tokenParam).then(success => {
-          if (!success) {
-            setErrorHeader('Invalid or Expired Link');
-            setIsVerifying(false);
-          }
-          // If success, parent (App) sets Unlocked, so this component unmounts.
-        });
+      // Persist ?view= param for post-login routing (e.g. ?view=api → API settings)
+      const viewParam = params.get('view');
+      if (viewParam) {
+        localStorage.setItem('fodda.pendingView', viewParam);
       }
 
-      if (emailParam) {
-        setEmail(emailParam);
-        setIsSignUp(false);
-        setIsJoinTeam(false);
-        window.history.replaceState({}, document.title, window.location.pathname);
+      // Persist expert context for post-auth routing
+      const expertPath = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const expertPathMatch = expertPath.match(/^\/expert\/(.+)$/);
+      const expertSlug = expertPathMatch ? expertPathMatch[1] : params.get('expert');
+      if (expertSlug) {
+        localStorage.setItem('fodda.pendingExpert', expertSlug);
+        const qParam = params.get('q');
+        if (qParam) localStorage.setItem('fodda.pendingQ', qParam);
+      }
+
+      // Map legacy ?intent= param to the corresponding apiUse value
+      if (intentParam) {
+        const intentMap: Record<string, string> = { demo: 'Self-Demo', sell: 'Graph Seller', api: 'Mainly API Access', account: 'Mainly Claude' };
+        if (intentMap[intentParam]) setApiUse(intentMap[intentParam]);
+      }
+
+      if (emailParam || isRegisterPath || signupParam || hasPlanParam) {
+        if (emailParam) {
+          setEmail(emailParam);
+        }
+        // Persist plan selection to localStorage so it survives the email verification reload
+        if (hasPlanParam) {
+          const planCode = params.get('plan') || '';
+          const tier = params.get('tier') || '';
+          const price = params.get('price') || '';
+          if (planCode) localStorage.setItem('fodda.pendingPlanCode', planCode);
+          if (tier) localStorage.setItem('fodda.pendingTier', tier);
+          if (price) localStorage.setItem('fodda.pendingPrice', price);
+        }
+        if (isRegisterPath || signupParam || hasPlanParam) {
+          setIsSignUp(true);
+          setStep(1);
+          setIsJoinTeam(false);
+          setReturningFromConfirm(false);
+        } else {
+          setIsSignUp(false);
+          setIsJoinTeam(false);
+          setReturningFromConfirm(true);
+        }
+        window.history.replaceState({}, document.title, '/');
       }
     }
-  }, [onVerify]);
+  }, []);
 
   const resetState = () => {
-    setStep(1);
-    setIsSignUp(false);
-    setIsJoinTeam(false);
-    setErrorHeader('');
-    setCompanyContextRaw('');
-    setUserContextRaw('');
-    setSignupCode('');
-    setIsWaitingForConfirmation(false);
+    signOut().catch(err => console.error("[AuthGate] Signout failed:", err));
+    setStep(1); setIsSignUp(false); setIsJoinTeam(false);
+    setErrorHeader(''); setCompanyContextRaw(''); setIsProfessionalServices(false); setUserContextRaw('');
+    setSignupCode(''); setIsWaitingForConfirmation(false); setIsUnconfirmed(false); setResendStatus('idle');
+    setFieldErrors({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[AuthGate] Submitting form...", { isSignUp, isJoinTeam, step, email });
-
-    if (!email.includes('@')) {
-      setErrorHeader('Invalid Email Format');
-      setTimeout(() => setErrorHeader(''), 2000);
-      return;
-    }
-
+    if (!email.includes('@')) { setErrorHeader('Invalid Email Format'); setTimeout(() => setErrorHeader(''), 5000); return; }
     if (isSignUp) {
       if (step === 1) {
-        // Validate Step 1
-        if (!firstName.trim() || !lastName.trim() || !jobTitle.trim()) {
-          setErrorHeader('All Fields Required');
-          setTimeout(() => setErrorHeader(''), 2000);
-          return;
-        }
+        if (!firstName.trim() || !lastName.trim() || !jobTitle.trim()) { setErrorHeader('All Fields Required'); setTimeout(() => setErrorHeader(''), 5000); return; }
         if (isJoinTeam) {
-          if (!signupCode.trim()) {
-            setErrorHeader('Signup Code Required');
-            setTimeout(() => setErrorHeader(''), 2000);
-            return;
-          }
+          if (!signupCode.trim()) { setErrorHeader('Signup Code Required'); setTimeout(() => setErrorHeader(''), 5000); return; }
         } else {
-          if (!company.trim()) {
-            setErrorHeader('Company Name Required');
-            setTimeout(() => setErrorHeader(''), 2000);
-            return;
-          }
+          if (!company.trim()) { setErrorHeader('Company Name Required'); setTimeout(() => setErrorHeader(''), 5000); return; }
+          setStep(2); return;
         }
-        setStep(2);
-        return;
       }
     }
-
+    
     setIsLoading(true);
+    setErrorHeader('');
     try {
       if (isSignUp) {
-        let success = false;
-        if (isJoinTeam) {
-          console.log("[AuthGate] Joining Team...");
-          success = await onJoin(email, firstName, lastName, signupCode, jobTitle, userContextRaw);
-        } else {
-          console.log("[AuthGate] Registering New Account...");
-          // Pass 'any' cast if strict checks fail, but signature matches
-          success = await (onRegister as any)(email, firstName, lastName, company, jobTitle, companyContextRaw, userContextRaw, apiUse);
+        if (!signUp) {
+          setErrorHeader('Connecting to auth service — please wait a moment and try again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Start Clerk Sign Up (Core 3 API — methods return { error } rather than throwing)
+        console.log('[AuthGate] Starting signUp.create for:', email);
+        const { error: createError } = await signUp.create({
+          emailAddress: email,
+          firstName,
+          lastName,
+          unsafeMetadata: {
+            company: isJoinTeam ? "" : company,
+            jobTitle,
+            apiUse,
+            signupIntent: isJoinTeam ? "account" : deriveIntent(apiUse),
+            referralGraph: referralGraph || 'all',
+            isProfessionalServices,
+            promoTag,
+            signupCode: isJoinTeam ? signupCode : "",
+            // Pricing page "Buy Now" context — triggers post-signup Stripe checkout
+            ...(selectedPlanCode ? { selectedPlanCode, selectedTier, selectedPrice } : {})
+          }
+        });
+        if (createError) {
+          setErrorHeader(createError.longMessage || createError.message || 'Sign-up failed. Please verify your details.');
+          return;
         }
 
-        if (success) {
-          setIsWaitingForConfirmation(true);
+        // Core 3: Send email link for verification (sign-up uses verifications.*, not emailLink.*)
+        setIsWaitingForConfirmation(true);
+        const { error: sendError } = await signUp.verifications.sendEmailLink({
+          verificationUrl: `${window.location.origin}/`,
+        });
+        if (sendError) {
+          setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-up link. Please try again.');
+          setIsWaitingForConfirmation(false);
+          return;
+        }
+        console.log('[AuthGate] Sign-up email link sent');
+
+        // Wait for user to click the link
+        const { error: waitError } = await signUp.verifications.waitForEmailLinkVerification();
+        if (!waitError && signUp.verifications.emailLinkVerification?.status === 'verified') {
+          console.log('[AuthGate] Sign-up verified! Activating session...');
+          await signUp.finalize();
         }
       } else {
-        console.log("[AuthGate] Calling onUnlock for:", email);
-        const res = await onUnlock(email); // Expecting response object
-        if (res && res.message && res.message.includes("email")) {
-          setIsWaitingForConfirmation(true);
-        } else if (res && !res.ok) {
-          setErrorHeader(res.error || 'Login Failed');
+        if (!signIn) {
+          setErrorHeader('Connecting to auth service — please wait a moment and try again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Start Clerk Sign In (Core 3 API — methods return { error } rather than throwing)
+        console.log('[AuthGate] Starting signIn.create for:', email);
+        const { error: createError } = await signIn.create({
+          identifier: email,
+        });
+        if (createError) {
+          // User not found in Clerk — prompt them to register
+          if (createError.code === 'form_identifier_not_found') {
+            setIsSignUp(true);
+            setStep(1);
+            setErrorHeader('');
+            setIsWaitingForConfirmation(false);
+            return;
+          }
+          setErrorHeader(createError.longMessage || createError.message || 'Verification Failed. Please verify credentials.');
+          return;
+        }
+
+        // Core 3: Send email link
+        setIsWaitingForConfirmation(true);
+        const { error: sendError } = await signIn.emailLink.sendLink({
+          emailAddress: email,
+          verificationUrl: `${window.location.origin}/`,
+        });
+        if (sendError) {
+          setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-in link. Please try again.');
+          setIsWaitingForConfirmation(false);
+          return;
+        }
+        console.log('[AuthGate] Sign-in email link sent');
+
+        // Wait for user to click the link
+        const { error: waitError } = await signIn.emailLink.waitForVerification();
+        if (!waitError && signIn.emailLink.verification?.status === 'verified') {
+          console.log('[AuthGate] Sign-in verified! Activating session...');
+          await signIn.finalize();
         }
       }
     } catch (err: any) {
-      console.error("[AuthGate] Auth Action Failed:", err);
-      // Use the error message from the exception if available, fallback to Connection Failed
-      setErrorHeader(err.message || 'Connection Failed');
+      console.error("[Clerk Auth] Verification Failed:", err);
+      setErrorHeader(err.message || 'Verification Failed. Please verify credentials.');
+      setIsWaitingForConfirmation(false);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const footer = <GateFooter onAdminOpen={onAdminOpen} />;
+  const loginMarginalia = (
+    <>
+      <Margin n="i." label="What is Fodda?" body={"A structured context layer\nthat lets your AI cite real,\ntrusted source graphs."} />
+      <Margin n="ii." label="No password, ever." body={"We mail a single-use link.\nIt expires in 15 minutes."} />
+      <Margin n="iii." label="Trouble?" body="hello@fodda.ai" />
+      <Margin n="iv." label="Setup Guide" body="Quickstart for Claude, Notion, Copilot, API & more" href="/Fodda_Quickstart.md" />
+      <Margin n="v." label="Integration Auditor Skill" body="Audit your codebase for Fodda opportunities" href="/Fodda_Integration_Auditor.md" />
+    </>
+  );
+
+  // ═══ SCREEN 00: Verification In Progress ═══
   if (isVerifying) {
     return (
-      <div className="fixed inset-0 z-[1000] bg-black flex items-center justify-center">
-        <div className="text-white text-center">
-          <svg className="animate-spin h-8 w-8 text-fodda-accent mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-sm font-bold tracking-widest uppercase">Verifying Secure Token...</p>
-          {errorHeader && <p className="text-red-500 mt-2">{errorHeader}</p>}
+      <GateFrame footer={footer}>
+        <Eyebrow style={{ marginBottom: 18 }}>Verifying</Eyebrow>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
+          <div>
+            <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 18px', lineHeight: 1.02, letterSpacing: '-0.015em' }}>Confirming your identity…</h2>
+            <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
+              Processing your sign-in link. This should only take a moment.
+            </p>
+            <div style={{ marginTop: 30, height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'var(--brand)', borderRadius: 2, width: `${verifyProgress}%`, transition: 'width 0.6s ease' }} />
+            </div>
+          </div>
+          <WaxSeal />
         </div>
-      </div>
+      </GateFrame>
     );
   }
 
+  // ═══ SCREEN 05: Link Sent / Confirmation ═══
   if (isWaitingForConfirmation) {
+    let intentLine = "Click the link in your email to log in securely.";
+    try {
+      intentLine = isSignUp ? "You're almost ready to start using Fodda." : "Click the link in your email to log in securely.";
+    } catch {}
+    const handleResend = async () => {
+      setResendStatus('sending');
+      try {
+        if (isSignUp) {
+          if (!signUp) {
+            throw new Error("Sign up helper is not loaded yet.");
+          }
+          const { error } = await signUp.verifications.sendEmailLink({
+            verificationUrl: `${window.location.origin}/`,
+          });
+          if (error) throw error;
+        } else {
+          if (!signIn) {
+            throw new Error("Sign in helper is not loaded yet.");
+          }
+          const { error } = await signIn.emailLink.sendLink({
+            emailAddress: email,
+            verificationUrl: `${window.location.origin}/`,
+          });
+          if (error) throw error;
+        }
+        setResendStatus('sent');
+        setTimeout(() => setResendStatus('idle'), 5000);
+      } catch (err) {
+        console.error("[Clerk Auth] Resend failed:", err);
+        setResendStatus('idle');
+      }
+    };
     return (
-      <div className="fixed inset-0 z-[1000] bg-black flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-zinc-900 p-12 rounded-[2.5rem] shadow-2xl border border-zinc-800 text-center animate-fade-in-up">
-          <div className="mb-8">
-            <h1 className="font-serif text-3xl font-bold text-white tracking-tight mb-2">Check Your Email</h1>
-            <div className="w-16 h-1 bg-fodda-accent mx-auto rounded-full mb-6"></div>
+      <GateFrame footer={footer}>
+        <Eyebrow style={{ marginBottom: 18 }}>Confirmation</Eyebrow>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
+          <div>
+            <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 18px', lineHeight: 1.02, letterSpacing: '-0.015em' }}>A link is in the mail.</h2>
+            <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
+              We've sent a one-time sign-in link to&nbsp;
+              <span style={{ color: 'var(--ink)', borderBottom: '1px solid var(--ink)', fontStyle: 'normal' }}>{email}</span>. Open it in any browser to enter the desk.
+            </p>
+            <div style={{ marginTop: 30, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4 }}>
+              <Eyebrow brand style={{ marginBottom: 6 }}>System Note</Eyebrow>
+              <div className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink)', lineHeight: 1.45 }}>{intentLine}</div>
+            </div>
+            <div className="flex items-center gap-3" style={{ marginTop: 28 }}>
+              <Btn ghost onClick={handleResend} disabled={resendStatus !== 'idle'}>{resendStatus === 'sending' ? 'Sending…' : resendStatus === 'sent' ? '✓ Resent' : 'Resend link'}</Btn>
+              <Btn ghost onClick={resetState}>Use a different email</Btn>
+              <span style={{ flex: 1 }} />
+              <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>check spam · promotions folder</span>
+            </div>
           </div>
-
-          <p className="text-zinc-300 text-sm mb-6 leading-relaxed">
-            We&apos;ve sent a secure link to <span className="text-white font-bold">{email}</span>.
-          </p>
-
-          <p className="text-zinc-500 text-xs mb-8 leading-relaxed">
-            Please check your inbox (and spam folder) to {isSignUp ? "verify your account" : "log in securely"}.
-          </p>
-
-          <button
-            onClick={resetState}
-            className="w-full py-4 bg-zinc-800 text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-zinc-700 transition-all border border-zinc-700"
-          >
-            Back to Login
-          </button>
+          <WaxSeal />
         </div>
-      </div>
+      </GateFrame>
     );
   }
+  // (Screen 02 — Intent Picker — removed: consolidated into Step 2)
 
-  return (
-    <div className="fixed inset-0 z-[1000] bg-black flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-zinc-900 p-12 rounded-[2.5rem] shadow-2xl border border-zinc-800 text-center animate-fade-in-up">
-        <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-white tracking-tight mb-2">Fodda</h1>
-          <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-bold">Contextual Intelligence for AI</p>
+  // ═══ SCREEN 08: Referral Landing ═══
+  if (referralGraph && isSignUp && step === 1 && !isJoinTeam) {
+    const g = GRAPH_LOOKUP[referralGraph];
+    const graphName = g?.name || referralGraph.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const graphOwner = g?.owner || 'Fodda';
+    const graphHeadline = g?.headline || 'Expert-curated knowledge graph — sign up for free access.';
+    return (
+      <GateFrame footer={footer} margin={
+        <>
+          <Margin n="re:" label={graphName} body={`${graphOwner} · updated weekly`} />
+          <Margin n="incl." label="What you get" body={"Free Base account access.\n100 queries/month, no card needed."} />
+          <Margin n="→" label="Already registered?" body={<a onClick={() => { setIsSignUp(false); setReferralGraph(null); }} className="cursor-pointer" style={{ color: 'var(--brand)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4, fontSize: 12 }}>Sign in instead →</a>} />
+        </>
+      }>
+        <div className="inline-flex items-center gap-2.5" style={{ padding: '6px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 999, marginBottom: 18 }}>
+          {g?.portrait_url && <img src={g.portrait_url} alt={graphOwner} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />}
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)' }} />
+          <span className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Free Access · via {graphOwner}</span>
         </div>
-
-        <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
-          {isSignUp
-            ? (step === 1 ? (isJoinTeam ? "Join your team using your Signup Code." : "Create your account to access the Fodda App.") : "Help our AI understand your goals.")
-            : "Welcome to the Fodda App. Please enter your registered email or sign up"}
-        </p>
-
-        {/* Toggle between Create / Join when in SignUp mode Step 1 */}
-        {isSignUp && step === 1 && (
-          <div className="flex mb-6 bg-zinc-800 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setIsJoinTeam(false)}
-              className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${!isJoinTeam ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              Create Account
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsJoinTeam(true)}
-              className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${isJoinTeam ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              Join Team
-            </button>
+        <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 14px', lineHeight: 1.02, letterSpacing: '-0.015em', maxWidth: 600 }}>
+          {g ? `You've been sent the ${graphName}.` : `Try the ${graphName} graph.`}
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 500, lineHeight: 1.65, margin: '0 0 30px' }}>{graphHeadline}</p>
+        {promoTag && <div className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', marginBottom: 16 }}>✨ PROMO: {promoTag.toUpperCase()}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-4" style={{ maxWidth: 480 }}>
+            <div className="grid gap-5 gate-name-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <FieldRule label="First name" value={firstName} onChange={setFirstName} required />
+              <FieldRule label="Last name" value={lastName} onChange={setLastName} required />
+            </div>
+            <FieldRule label="Company" value={company} onChange={setCompany} required />
+            <FieldRule label="Job title" value={jobTitle} onChange={setJobTitle} required />
+            <FieldRule label="Email" hint="we will send a link" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-          {isSignUp && step === 1 && (
-            <>
-              <div className="flex space-x-4">
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="First Name"
-                  className="w-1/2 px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all"
-                  required
-                />
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Last Name"
-                  className="w-1/2 px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all"
-                  required
-                />
-              </div>
-
-              {!isJoinTeam ? (
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Company Name"
-                  className="w-full px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all"
-                  required
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={signupCode}
-                  onChange={(e) => setSignupCode(e.target.value)}
-                  placeholder="Team Signup Code (e.g. A1B2C3D4)"
-                  className="w-full px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all font-mono tracking-widest uppercase"
-                  required
-                />
-              )}
-
-              <input
-                type="text"
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
-                placeholder="Job Title"
-                className="w-full px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all"
-                required
-              />
-            </>
-          )}
-
-          {isSignUp && step === 2 && (
-            <div className="space-y-4 text-left">
-              {!isJoinTeam && (
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-2 block ml-1">How will you query Fodda?</label>
-                  <div className="relative">
-                    <select
-                      value={apiUse}
-                      onChange={(e) => setApiUse(e.target.value)}
-                      className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-sm text-white appearance-none transition-all cursor-pointer"
-                    >
-                      <option value="Mainly API Access">Mainly API Access</option>
-                      <option value="Mainly Chat Access">Mainly Chat Access</option>
-                      <option value="Mix of API and Chat Access">Mix of API and Chat Access</option>
-                      <option value="I Don't Know">I Don't Know</option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {!isJoinTeam && (
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-2 block ml-1">Company Mission</label>
-                  <textarea
-                    value={companyContextRaw}
-                    onChange={(e) => setCompanyContextRaw(e.target.value)}
-                    placeholder="e.g. We are an advertising agency trying to make avant garde advertising..."
-                    className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-sm text-white placeholder:text-zinc-600 transition-all h-24 resize-none"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-2 block ml-1">Your Role & Goals</label>
-                <textarea
-                  value={userContextRaw}
-                  onChange={(e) => setUserContextRaw(e.target.value)}
-                  placeholder="e.g. I am a strategist who always looks for the brand new..."
-                  className="w-full px-4 py-3 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-sm text-white placeholder:text-zinc-600 transition-all h-24 resize-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Email input only on step 1 or Login */}
-          {(!isSignUp || step === 1) && (
-            <div className="relative">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                autoComplete="email"
-                disabled={isLoading}
-                className="w-full px-6 py-4 bg-black border border-zinc-800 rounded-2xl focus:outline-none focus:border-fodda-accent focus:ring-1 focus:ring-fodda-accent text-center text-white placeholder:text-zinc-600 transition-all disabled:opacity-50"
-                required
-              />
-              {errorHeader && (
-                <p className="absolute -bottom-6 left-0 right-0 text-[10px] font-bold text-red-500 uppercase tracking-widest animate-pulse">
-                  {errorHeader}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex space-x-2">
-            {isSignUp && step === 2 && (
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="w-1/3 py-4 bg-zinc-800 text-zinc-400 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-zinc-700 transition-all"
-              >
-                Back
-              </button>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`flex-1 py-4 bg-fodda-accent text-white rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-fodda-accent/90 transition-all shadow-lg shadow-fodda-accent/20 active:scale-[0.98] mt-2 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center`}
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {isSignUp ? 'Creating Account...' : 'Verifying...'}
-                </span>
-              ) : (isSignUp ? (step === 1 ? 'Next Step' : (isJoinTeam ? 'Join Team' : 'Create Account')) : 'Enter App')}
-            </button>
+          {/* Mount point for Clerk's bot-protection widget (required for headless signUp.create) */}
+          <div id="clerk-captcha" />
+          {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
+          <div className="flex items-center gap-3.5" style={{ marginTop: 32, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>no card needed · 30-day reader pass</span>
+            <span style={{ flex: 1 }} />
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Creating Account…' : 'Add this graph to my desk →'}</Btn>
           </div>
         </form>
+      </GateFrame>
+    );
+  }
 
-        <div className="mt-4">
-          <button
-            onClick={() => { resetState(); setIsSignUp(!isSignUp); }}
-            className="text-xs text-zinc-500 hover:text-white underline decoration-zinc-700 hover:decoration-white transition-all"
-          >
-            {isSignUp ? "Already have an account? Log in" : "Need an account? Sign up"}
-          </button>
+  // ═══ SCREEN 09: Join Team ═══
+  if (isSignUp && isJoinTeam) {
+    return (
+      <GateFrame footer={footer}>
+        <Eyebrow style={{ marginBottom: 12 }}>Joining</Eyebrow>
+        <h2 className="font-serif italic" style={{ fontSize: 52, fontWeight: 400, margin: '0 0 12px', lineHeight: 1.04, letterSpacing: '-0.015em' }}>Join your team's desk.</h2>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', maxWidth: 540, lineHeight: 1.6, margin: '0 0 30px' }}>
+          Paste the eight-character signup code your admin shared — we'll attach you to the same workspace so you see the same graphs, billing, and history.
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 22 }}>
+            <FieldRule label="Team signup code" hint="8 chars · case-insensitive" value={signupCode} onChange={setSignupCode} mono placeholder="A1B2C3D4" required />
+          </div>
+          <div className="flex flex-col gap-4" style={{ maxWidth: 540 }}>
+            <div className="grid gap-5 gate-name-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <FieldRule label="First name" value={firstName} onChange={setFirstName} required />
+              <FieldRule label="Last name" value={lastName} onChange={setLastName} required />
+            </div>
+            <FieldRule label="Job title" value={jobTitle} onChange={setJobTitle} required />
+            <FieldRule label="Work email" hint="must match team domain" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
+          </div>
+          <div id="clerk-captcha" />
+          {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
+          <div className="flex items-center gap-3.5" style={{ marginTop: 32, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
+            <a onClick={() => { resetState(); }} className="cursor-pointer" style={{ fontSize: 12, color: 'var(--ink-2)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}>← back to entrance</a>
+            <span style={{ flex: 1 }} />
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Joining Team…' : 'Join team'}</Btn>
+          </div>
+        </form>
+      </GateFrame>
+    );
+  }
+  // ═══ SCREEN 03: Step 1 — Basic Details ═══
+  if (isSignUp && step === 1) {
+    return (
+      <GateFrame footer={footer} margin={
+        <>
+          <Margin n="01" label="Why we ask" body={"Your name appears as the\nbyline on briefings you generate."} />
+          <Margin n="02" label="Why your title?" body={"Helps Fodda phrase results\nat the right altitude — operator\nvs. analyst vs. exec."} />
+          <Margin n="03" label="Privacy" body={"Never sold. Never used to\ntrain models. PSFK Privacy v3."} />
+          <Margin n="→" label="Already registered?" body={<a onClick={() => { setIsSignUp(false); }} className="cursor-pointer" style={{ color: 'var(--brand)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4, fontSize: 12 }}>Sign in instead →</a>} />
+        </>
+      }>
+        <StepBar currentStep={1} />
+        {selectedPlanCode && selectedTier && (
+          <div style={{ marginBottom: 18, padding: '12px 16px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
+            <div>
+              <div className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--brand)', fontWeight: 700 }}>Selected Plan</div>
+              <div className="font-serif italic" style={{ fontSize: 18, color: 'var(--ink)' }}>{selectedTier}{selectedPrice ? ` · $${selectedPrice}/mo` : ''}</div>
+            </div>
+          </div>
+        )}
+        <h2 className="font-serif italic" style={{ fontSize: 44, fontWeight: 400, margin: '0 0 8px', lineHeight: 1.06, letterSpacing: '-0.01em' }}>Let's sign you up.</h2>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '0 0 20px', maxWidth: 480 }}>Two short pages, then a confirmation link.</p>
+        {promoTag && <div className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', marginBottom: 16 }}>✨ PROMO: {promoTag.toUpperCase()}</div>}
+
+        {/* ── OAuth quick sign-up — name + company collected on /sso-callback ── */}
+        <div style={{ marginBottom: 24 }}>
+          <div className="flex items-center gap-3" style={{ marginBottom: 14 }}>
+            <OAuthBtn provider="oauth_google" label="Sign up with Google" onClick={() => handleOAuth('oauth_google')} />
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Sign up with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+          </div>
+          <div className="flex items-center gap-3">
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          </div>
         </div>
 
-        <div className="mt-6 pt-8 border-t border-zinc-800">
-          <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest leading-loose">
-            Powered by PSFK<br />
-            Secure Environment
-          </p>
+        <form onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-5">
+            <div className="grid gap-6 gate-name-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <FieldRule label="First name" value={firstName} onChange={setFirstName} required />
+              <FieldRule label="Last name" value={lastName} onChange={setLastName} required />
+            </div>
+            <FieldRule label="Company" value={company} onChange={setCompany} required />
+            <FieldRule label="Job title" value={jobTitle} onChange={setJobTitle} required />
+            <FieldRule label="Email" hint="we will send a link" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
+          </div>
+          {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
+          <div className="flex items-center gap-3.5" style={{ marginTop: 36, paddingTop: 20, borderTop: '1px solid var(--ink)' }}>
+            <Btn ghost onClick={() => { setIsSignUp(false); }}>← Back</Btn>
+            <span style={{ flex: 1 }} />
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>Step 1 / 2</span>
+            <Btn brand type="submit">Continue →</Btn>
+          </div>
+        </form>
+      </GateFrame>
+    );
+  }
+
+  // ═══ SCREEN 04: Step 2 — How Will You Query ═══
+  if (isSignUp && step === 2) {
+    return (
+      <GateFrame footer={footer}>
+        <StepBar currentStep={2} />
+        <h2 className="font-serif italic" style={{ fontSize: 44, fontWeight: 400, margin: '0 0 8px', lineHeight: 1.06, letterSpacing: '-0.01em' }}>How will you use Fodda?</h2>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '0 0 26px', maxWidth: 540 }}>Pick one — we'll set up the right account and show you the matching guide right after sign-up. You can change any time from your desk.</p>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', borderTop: '1px solid var(--ink)', paddingTop: 18 }}>
+            {API_USE_OPTIONS.map(([label, value, desc]) => {
+              const selected = apiUse === value;
+              return (
+                <div
+                  key={value}
+                  onClick={() => setApiUse(value)}
+                  className="flex items-start gap-3.5 cursor-pointer p-3 rounded-lg border transition-all hover:bg-brand-softer"
+                  style={{
+                    background: selected ? 'var(--brand-softer)' : 'var(--cream)',
+                    borderColor: selected ? 'var(--brand)' : 'var(--line)',
+                    borderWidth: selected ? 1.5 : 1,
+                  }}
+                >
+                  <span
+                    className="flex items-center justify-center self-center"
+                    style={{
+                      width: 14,
+                      height: 14,
+                      border: '1.5px solid var(--ink)',
+                      borderRadius: '50%',
+                      background: selected ? 'var(--brand)' : 'transparent',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <label className="flex items-start gap-3 cursor-pointer" style={{ marginTop: 22, padding: '14px 16px', background: 'var(--cream)', border: '1px solid var(--line)', borderRadius: 8 }}>
+            <span className="flex items-center justify-center" style={{
+              width: 14, height: 14, marginTop: 3, border: '1.5px solid var(--ink)', borderRadius: 2,
+              background: isProfessionalServices ? 'var(--ink)' : 'transparent', color: 'var(--paper)',
+              fontSize: 10, lineHeight: 1, fontWeight: 700,
+            }}>{isProfessionalServices ? '✓' : ''}</span>
+            <input type="checkbox" checked={isProfessionalServices} onChange={e => setIsProfessionalServices(e.target.checked)} className="sr-only" />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>I research on behalf of clients</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Agency, consultancy, advisory or other professional-services firm.</div>
+            </div>
+          </label>
+          <div id="clerk-captcha" />
+          {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
+          <div className="flex items-center gap-3.5" style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
+            <Btn ghost onClick={() => setStep(1)}>← Back</Btn>
+            <span style={{ flex: 1 }} />
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>Step 2 / 2</span>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Creating Account…' : 'Create account'}</Btn>
+          </div>
+        </form>
+      </GateFrame>
+    );
+  }
+
+  // ═══ SCREEN 01: Login (default) ═══
+  return (
+    <GateFrame footer={footer} margin={loginMarginalia}>
+      <Eyebrow style={{ marginBottom: 12 }}>{dateEyebrow()}</Eyebrow>
+      <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 14px', lineHeight: 1.02, letterSpacing: '-0.015em', maxWidth: 540 }}>
+        Welcome back to better insight.
+      </h2>
+      <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 520, lineHeight: 1.6, margin: '0 0 28px' }}>
+        Enter the email you registered with. We'll send a one-time link to that address — no password to remember, no token to copy.
+      </p>
+
+      {/* ── OAuth quick sign-in ── */}
+      <div style={{ maxWidth: 520, marginBottom: 28 }}>
+        <div className="flex items-center gap-3" style={{ marginBottom: 14 }}>
+          <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} />
+          <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+        </div>
+        <div className="flex items-center gap-3" style={{ color: 'var(--ink-4)' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR VIA EMAIL</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
         </div>
       </div>
-    </div >
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <FieldRule label="Your email" hint="single-use · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
+          <div className="flex items-center gap-3.5" style={{ marginTop: 8 }}>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Sending…' : 'Send sign-in link'}</Btn>
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
+          </div>
+        </div>
+      </form>
+      {returningFromConfirm ? (
+        /* Returning from email confirmation — show a helpful note instead of registration CTA */
+        <div style={{ marginTop: 36, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, maxWidth: 520 }}>
+          <Eyebrow brand style={{ marginBottom: 6 }}>Email confirmed</Eyebrow>
+          <div className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink)', lineHeight: 1.45 }}>Your email is verified. Click "Send sign-in link" above to receive a secure login link.</div>
+        </div>
+      ) : (
+        /* New here? CTA */
+        <div style={{ marginTop: 48, padding: '20px 22px', border: '1px solid var(--ink)', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 18, maxWidth: 520, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: -9, left: 16, background: 'var(--paper)', padding: '0 10px' }}>
+            <Eyebrow brand>New here?</Eyebrow>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="font-serif italic" style={{ fontSize: 22, color: 'var(--ink)', lineHeight: 1.2 }}>Begin a registration.</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>Tell us why you're visiting — we'll point you at the right entrance.</div>
+          </div>
+          <Btn brand onClick={() => setIsSignUp(true)}>Get started →</Btn>
+        </div>
+      )}
+    </GateFrame>
+  );
+};
+
+// ─── OAuthBtn ─────────────────────────────────────────────────────────────────
+// Pill-style OAuth button matching the AuthGate design system.
+// Uses inline SVG so there's no external icon dependency.
+const OAuthBtn: React.FC<{
+  provider: 'oauth_google' | 'oauth_linkedin_oidc';
+  label: string;
+  onClick: () => void;
+}> = ({ provider, label, onClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+
+  const googleIcon = (
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+      <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+  );
+
+  const linkedinIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="4" fill="#0A66C2"/>
+      <path d="M7.5 10h-3v9h3v-9zm-1.5-.9C5.1 9.1 4.5 8.5 4.5 7.7S5.1 6.3 6 6.3s1.5.6 1.5 1.4S6.9 9.1 6 9.1zm14 9.9h-3v-4.5c0-1.1-.4-1.8-1.4-1.8-.8 0-1.2.5-1.4 1v5.3h-3V10h3v1.3c.4-.6 1.2-1.5 2.8-1.5 2 0 3 1.3 3 4v5.2z" fill="white"/>
+    </svg>
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="inline-flex items-center gap-2 font-semibold transition-all"
+      style={{
+        flex: 1,
+        padding: '9px 14px',
+        borderRadius: 8,
+        fontSize: 12,
+        letterSpacing: '0.02em',
+        border: `1px solid ${hovered ? 'var(--ink-3)' : 'var(--line)'}`,
+        background: hovered ? 'var(--cream)' : 'var(--paper)',
+        color: 'var(--ink)',
+        cursor: 'pointer',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {provider === 'oauth_google' ? googleIcon : linkedinIcon}
+      {label}
+    </button>
   );
 };

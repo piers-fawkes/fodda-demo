@@ -1,0 +1,165 @@
+# Brief: Add Claude Connection Flow to the Fodda App MCP Tab
+
+## Context
+
+Users who want to connect their Fodda knowledge graphs to Claude currently have no clear path to do so from within the Fodda app. The MCP Integration tab in the Account Admin modal (`AccountPortal.tsx`) is focused entirely on Vertex AI / Gemini. A user asking Claude to "connect to my PSFK graph" is given generic instructions by Claude but has no idea what URL to use or where to find it.
+
+This brief covers changes needed to **the Account Admin modal's MCP Integration tab** to support Claude users alongside the existing Vertex/Gemini flow.
+
+---
+
+## Bug Fix (Critical)
+
+In `AccountPortal.tsx`, the `MCP_ENDPOINT` constant is wrong:
+
+```diff
+- const MCP_ENDPOINT = 'https://mcp.fodda.ai/messages';
++ const MCP_ENDPOINT = 'https://mcp.fodda.ai/mcp';
+```
+
+The `/messages` path is the SSE message-posting sub-path (used internally by SSE transport). The correct endpoints are:
+- **Streamable HTTP**: `https://mcp.fodda.ai/mcp` — for Claude web, OpenAI, modern clients
+- **SSE**: `https://mcp.fodda.ai/sse` — for Claude Code CLI, Gemini CLI, legacy clients
+
+Also add the SSE endpoint as a visible field:
+```typescript
+const MCP_SSE_URL = 'https://mcp.fodda.ai/sse';
+```
+
+---
+
+## Critical Context: Claude.ai Web Auth Limitation
+
+**Claude's "Add custom connector" form does NOT have a custom headers option.** It only shows:
+- A name field
+- A URL field
+- **Advanced settings** with OAuth Client ID (optional) and OAuth Client Secret (optional)
+
+Since Fodda uses API key auth (not OAuth), users must include their API key as a **URL query parameter**:
+```
+https://mcp.fodda.ai/mcp?api_key=fk_live_...
+```
+The OAuth fields should be left **blank**.
+
+This is already supported by the MCP server (implemented in `index.ts`) — the server extracts the API key from the `?api_key=` query parameter and stores it for the session.
+
+---
+
+## Change 1: Update the MCP Tab Header
+
+The current subtitle reads:
+> "Connect Fodda to your Vertex AI / Gemini stack via MCP"
+
+Change to something platform-neutral:
+> "Connect Fodda knowledge graphs to Claude, Gemini, OpenAI, and other AI platforms via MCP"
+
+---
+
+## Change 2: Add a "Quick Connect" Section at the Top of the MCP Tab
+
+Before the existing "Endpoints & Auth" section, add a new **Quick Connect** card section that provides platform-specific step-by-step instructions. This should use a tabbed or accordion UI to separate the platforms.
+
+### Claude (Web) — For Individual Users (Pro / Max / Team)
+
+This is the most important section — it's what a regular Claude user needs:
+
+```
+How to connect Fodda to Claude:
+
+1. Copy your API key from the field below (starts with fk_live_...)
+2. In Claude, go to Settings → Connectors → Add custom connector
+3. Paste this URL (with your key included):
+
+   https://mcp.fodda.ai/mcp?api_key=YOUR_KEY   [Copy button — pre-fill with their real key]
+
+4. Under "Advanced settings" — leave OAuth Client ID and Secret BLANK
+   (Fodda uses API key auth, not OAuth)
+5. Click "Add" — you're connected!
+
+Try asking Claude: "What are the latest retail trends from my Fodda graph?"
+```
+
+Include:
+- A **"Copy Claude URL"** button that copies `https://mcp.fodda.ai/mcp?api_key=<actual_api_key>` using `account.apiKey`
+- An info callout explaining: "Your key is embedded in the URL because Claude's connector form uses OAuth — it doesn't have a custom headers field. The connection is encrypted via HTTPS."
+- A note: "Requires Claude Pro, Max, Team, or Enterprise plan"
+
+### Claude Enterprise — For Admin-Managed Connectors
+
+A separate sub-section for enterprise:
+
+```
+For Claude Enterprise with admin-managed connectors:
+
+Your workspace admin registers the Fodda MCP connector via the Admin Console.
+
+- URL: https://mcp.fodda.ai/mcp?api_key=YOUR_ORG_API_KEY
+- OAuth fields: Leave blank (Fodda uses API key auth)
+- Fallback SSE: https://mcp.fodda.ai/sse?api_key=YOUR_ORG_API_KEY
+- See our Enterprise MCP Setup Guide for full details: [link]
+```
+
+### Claude Code (CLI)
+
+```bash
+claude mcp add --transport sse fodda https://mcp.fodda.ai/sse \
+  --header "Authorization: Bearer YOUR_API_KEY"
+```
+With a Copy button that pre-fills their actual API key.
+
+### Gemini / Vertex AI (Keep Existing)
+
+Move the existing "Generate Vertex Config" section here as another tab/option.
+
+---
+
+## Change 3: Add a "Generate Claude Config" Button
+
+Similar to the existing "Generate Vertex Config" button, add a **"Generate Claude URL"** option. When clicked, it should display the pre-built connector URL with the user's API key embedded:
+
+```
+https://mcp.fodda.ai/mcp?api_key=fk_live_actual_key_here
+```
+
+With a large **Copy** button and a note:
+> "Paste this URL into Claude → Settings → Connectors → Add custom connector. Leave the OAuth fields blank."
+
+---
+
+## Change 4: Show Both Transport Endpoints
+
+In the "Endpoints & Auth" section, show both endpoints clearly labeled:
+
+| Field | Value |
+|-------|-------|
+| **Streamable HTTP** (recommended for Claude, OpenAI) | `https://mcp.fodda.ai/mcp` |
+| **SSE** (for Claude Code, Gemini CLI) | `https://mcp.fodda.ai/sse` |
+| **Tools Endpoint** | `https://mcp.fodda.ai/mcp/tools` |
+
+Each with a Copy button.
+
+---
+
+## Change 5: Update the Help Link
+
+The current bottom help link says:
+> "Need help? Visit the Vertex AI Quickstart Guide."
+
+Change to:
+> "Need help? See our setup guides for [Claude](https://www.fodda.ai/#/platform-integration-anthropic-claude) · [Gemini](https://www.fodda.ai/#/platform-integration-google-gemini) · [OpenAI](https://www.fodda.ai/#/platform-integration-openai)"
+
+---
+
+## Design Notes
+
+- The Quick Connect section should be **the first thing a user sees** when they open the MCP tab — above the technical endpoints section
+- Use the existing design system (zinc-900 cards, purple accents, uppercase tracking labels)
+- The "Claude" tab/option should be **the default** since it's the most common use case based on user feedback
+- Pre-filling the user's actual API key into copy-paste snippets is critical for a smooth experience
+- Consider a small Anthropic/Claude logo icon next to the Claude section header for quick visual recognition
+
+---
+
+## Files to Modify
+
+- `frontend/components/AccountPortal.tsx` — All changes described above

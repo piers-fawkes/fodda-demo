@@ -24,6 +24,12 @@ import { enrichUserBuyerType } from "../services/userEnrichmentService.js";
 import { selectPrompts } from "../services/promptSelector.js";
 import { validateAndSelectPrompts } from "../services/promptValidator.js";
 import { detectAccountType } from "../services/accountTypeService.js";
+import {
+  ensureStripeCustomer,
+  createSetupIntent,
+  createOverageSubscription,
+  generateSetupUrl,
+} from "../services/stripeOverageService.js";
 
 const router = Router();
 
@@ -573,6 +579,54 @@ router.post("/stripe/webhook", async (req: any, res) => {
       console.log(`[Stripe] Subscription updated for account ${accountRecord.id}: status=${subscription.status}`);
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // SETUP_INTENT.SUCCEEDED — Card saved via SetupIntent (overage flow)
+    // ═══════════════════════════════════════════════════════════════════
+    else if (event.type === 'setup_intent.succeeded') {
+      const setupIntent = event.data?.object;
+      const customerId = setupIntent.customer;
+
+      if (customerId) {
+        const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `{stripeCustomerId} = '${customerId}'`);
+        const accountRecord = accountQuery.records?.[0];
+        if (accountRecord) {
+          await updateAirtableRecord(ACCOUNTS_TABLE, accountRecord.id, {
+            hasPaymentMethod: true,
+          });
+          console.log(`[Stripe] SetupIntent succeeded — payment method saved for account ${accountRecord.id}`);
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INVOICE.PAYMENT_FAILED — Overage charge failed
+    // ═══════════════════════════════════════════════════════════════════
+    else if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data?.object;
+      const customerId = invoice.customer;
+
+      const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `{stripeCustomerId} = '${customerId}'`);
+      const accountRecord = accountQuery.records?.[0];
+      if (accountRecord) {
+        // Find the account owner's email to notify them
+        const ownerIdLink = accountRecord.fields['Account Owner'];
+        if (ownerIdLink && ownerIdLink.length > 0) {
+          const ownerQuery = await queryAirtable(USERS_TABLE, `RECORD_ID() = '${ownerIdLink[0]}'`);
+          const ownerRecord = ownerQuery.records?.[0];
+          if (ownerRecord) {
+            const ownerEmail = ownerRecord.fields.email || ownerRecord.fields.Email;
+            if (ownerEmail) {
+              sendSystemEmail('OVERAGE_PAYMENT_FAILED', ownerEmail, {
+                name: ownerRecord.fields['First Name'] || 'there',
+                amount: `$${((invoice.amount_due || 0) / 100).toFixed(2)}`,
+              }).catch(e => console.error('[Stripe] Overage payment failed email error:', e));
+            }
+          }
+        }
+        console.log(`[Stripe] Invoice payment failed for account ${accountRecord.id} — amount: $${((invoice.amount_due || 0) / 100).toFixed(2)}`);
+      }
+    }
+
     res.json({ ok: true, received: true });
   } catch (err: any) {
     console.error('[Stripe Webhook] Error:', err.message);
@@ -585,6 +639,36 @@ router.post("/stripe/webhook", async (req: any, res) => {
 // CUSTOM CHECKOUT SESSION (FOR SALES/ADMIN OFFERS)
 // ═══════════════════════════════════════════════════════════════════
 router.post("/checkout/custom", async (req, res) => {
+  // Authed check for Admin/Owner
+  let isAuthorized = false;
+
+  // 1. Check sessionToken via authenticateSession
+  try {
+    const sessionUser = await authenticateSession(req);
+    if (sessionUser && (sessionUser.role === 'Owner' || sessionUser.role === 'Admin')) {
+      isAuthorized = true;
+    }
+  } catch (err) {}
+
+  // 2. Check Clerk session
+  if (!isAuthorized && (req as any).auth?.userId) {
+    try {
+      const clerkUserId = (req as any).auth.userId;
+      const userQuery = await queryAirtable(USERS_TABLE, `{clerkUserId} = '${escapeAirtableString(clerkUserId)}'`);
+      const userRecord = userQuery.records?.[0];
+      if (userRecord) {
+        const role = userRecord.fields?.Role || userRecord.fields?.role || 'User';
+        if (role === 'Owner' || role === 'Admin') {
+          isAuthorized = true;
+        }
+      }
+    } catch (err) {}
+  }
+
+  if (!isAuthorized) {
+    return res.status(401).json({ error: "Unauthorized - Admin/Owner privileges required" });
+  }
+
   const { planCode, email, trialDays, successUrl, cancelUrl } = req.body;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(500).json({ error: "Stripe not configured" });
@@ -722,7 +806,7 @@ router.post("/billing/portal", async (req, res) => {
 
 router.post("/trial-convert", async (req, res) => {
   try {
-    const { email, trialKey, firstName } = req.body;
+    const { email, trialKey, firstName, intent } = req.body;
     if (!email || !trialKey) {
       return res.status(400).json({ ok: false, error: "Email and trialKey are required." });
     }
@@ -825,7 +909,7 @@ router.post("/trial-convert", async (req, res) => {
     sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
       name: displayName,
       confirmationLink,
-      intent: 'account',
+      intent: intent || 'account',
       apiKey: apiKeyString
     }).catch(e => console.error("[Trial-Convert] Email failed:", e));
 
@@ -1281,7 +1365,7 @@ router.post("/partner-invite", async (req, res) => {
 
     // Simple auth — accept admin password or env var secrets
     const envSecret = process.env.CRON_SECRET || process.env.FODDA_MCP_SECRET;
-    const validSecrets = [envSecret, 'psfk'].filter(Boolean);
+    const validSecrets = [envSecret].filter(Boolean);
     if (!adminSecret || !validSecrets.includes(adminSecret)) {
       return res.status(403).json({ ok: false, error: "Unauthorized" });
     }
@@ -1415,7 +1499,7 @@ router.post("/admin/lookup", async (req, res) => {
     const { email, adminSecret } = req.body;
 
     const envSecret = process.env.CRON_SECRET || process.env.FODDA_MCP_SECRET;
-    const validSecrets = [envSecret, 'psfk'].filter(Boolean);
+    const validSecrets = [envSecret].filter(Boolean);
     if (!adminSecret || !validSecrets.includes(adminSecret)) {
       return res.status(403).json({ ok: false, error: "Unauthorized" });
     }
@@ -1532,7 +1616,7 @@ router.post("/admin/change-plan", async (req, res) => {
     const { email, planCode, adminSecret } = req.body;
 
     const envSecret = process.env.CRON_SECRET || process.env.FODDA_MCP_SECRET;
-    const validSecrets = [envSecret, 'psfk'].filter(Boolean);
+    const validSecrets = [envSecret].filter(Boolean);
     if (!adminSecret || !validSecrets.includes(adminSecret)) {
       return res.status(403).json({ ok: false, error: "Unauthorized" });
     }
@@ -1675,6 +1759,117 @@ router.post("/checkout/agent-session", async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// OVERAGE BILLING — Setup Payment Method
+// ═══════════════════════════════════════════════════════════════════
+// Creates a Stripe Customer (if needed) and a SetupIntent for card collection.
+// Returns client_secret for the frontend Stripe Elements form.
+
+router.post("/setup-payment", async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const accountId = user.accountId;
+    if (!accountId) {
+      return res.status(400).json({ ok: false, error: 'No account linked to this user' });
+    }
+
+    // Create or retrieve Stripe Customer
+    const customerId = await ensureStripeCustomer(accountId, user.email);
+
+    // Create SetupIntent
+    const { clientSecret } = await createSetupIntent(customerId);
+
+    res.json({
+      ok: true,
+      clientSecret,
+      stripeCustomerId: customerId,
+    });
+  } catch (err: any) {
+    console.error('[Setup Payment] Error:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// OVERAGE BILLING — Activate Overage
+// ═══════════════════════════════════════════════════════════════════
+// Called after successful card setup. Creates a $0 subscription with
+// a metered overage price component.
+
+router.post("/activate-overage", async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const accountId = user.accountId;
+    if (!accountId) {
+      return res.status(400).json({ ok: false, error: 'No account linked to this user' });
+    }
+
+    // Fetch account to get stripeCustomerId
+    const accQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${accountId}'`);
+    const accRec = accQuery.records?.[0];
+    if (!accRec) {
+      return res.status(404).json({ ok: false, error: 'Account not found' });
+    }
+
+    const customerId = accRec.fields.stripeCustomerId;
+    if (!customerId) {
+      return res.status(400).json({ ok: false, error: 'No Stripe Customer found. Call setup-payment first.' });
+    }
+
+    // Create subscription with metered price if not already subscribed
+    if (!accRec.fields.overageEnabled) {
+      const subscriptionId = await createOverageSubscription(accountId, customerId);
+      console.log(`[Activate Overage] Subscription ${subscriptionId} created for account ${accountId}`);
+    }
+
+    res.json({ ok: true, overageEnabled: true });
+  } catch (err: any) {
+    console.error('[Activate Overage] Error:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// OVERAGE BILLING — Generate Setup URL
+// ═══════════════════════════════════════════════════════════════════
+// Generates a one-click Stripe Checkout URL (setup mode) for API/MCP
+// 403 responses. Public endpoint — used when user has no card.
+
+router.post("/setup-url", async (req, res) => {
+  try {
+    const { email, accountId } = req.body || {};
+    if (!accountId && !email) {
+      return res.status(400).json({ ok: false, error: 'accountId or email required' });
+    }
+
+    let resolvedAccountId = accountId;
+    if (!resolvedAccountId && email) {
+      // Look up account by email
+      const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(email.toLowerCase().trim())}'`);
+      const userRec = userQuery.records?.[0];
+      resolvedAccountId = userRec?.fields?.Account?.[0];
+    }
+
+    if (!resolvedAccountId) {
+      return res.status(404).json({ ok: false, error: 'Account not found' });
+    }
+
+    const setupUrl = await generateSetupUrl(resolvedAccountId, email);
+    res.json({ ok: true, setupUrl });
+  } catch (err: any) {
+    console.error('[Setup URL] Error:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 /**
  * POST /api/account/confirm-persona
  * 
@@ -1781,7 +1976,7 @@ function isTrialRateLimited(ip: string): boolean {
  */
 router.post('/trial-provision', async (req, res) => {
   const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
-  const { email, firstName, lastName, company, jobTitle, vertical, adminSecret, suppressEmail } = req.body;
+  const { email, firstName, lastName, company, jobTitle, vertical, adminSecret, suppressEmail, intent } = req.body;
 
   if (!email) {
     return res.status(400).json({ ok: false, error: 'Email is required' });
@@ -1807,6 +2002,24 @@ router.post('/trial-provision', async (req, res) => {
         // Fetch active key for this account
         const keysQuery = await getActiveKeysForAccount(accountId);
         let apiKey = keysQuery.records?.[0]?.fields?.['API Key'];
+
+        if (!apiKey && intent) {
+          // Website re-signup: check for Pending keys before minting a new one
+          const { API_KEYS_TABLE } = await import('../constants.js');
+          const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+          const existingAccountName = accountQuery.records?.[0]?.fields?.['Account Name'] || '';
+          if (existingAccountName) {
+            const pendingKeys = await queryAirtable(API_KEYS_TABLE,
+              `AND({Account} = '${escapeAirtableString(existingAccountName)}', {API Key Status} = 'Pending')`);
+            if (pendingKeys.records?.[0]) {
+              apiKey = pendingKeys.records[0].fields['API Key'];
+              const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
+              const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
+              return res.json({ ok: true, apiKey, mcpUrl, claudeUrl, alreadyExists: true, pendingConfirmation: true, intent });
+            }
+          }
+        }
+
         if (!apiKey) {
           // Generate a new API key for the existing account
           const { API_KEYS_TABLE } = await import('../constants.js');
@@ -1825,16 +2038,20 @@ router.post('/trial-provision', async (req, res) => {
       }
     }
 
-    // 3. Find Trial plan (planCode 13) in Airtable
-    const planQuery = await queryAirtable(PLANS_TABLE, `{planCode} = 13`);
-    const trialPlan = planQuery.records?.[0];
-    if (!trialPlan) {
-      return res.status(500).json({ ok: false, error: 'Trial plan config (planCode 13) not found.' });
+    // 3. Find plan based on channel: website (intent) → Base, sales (no intent) → Trial
+    const isWebsiteSignup = !!intent;
+    const targetPlanCode = isWebsiteSignup ? 2 : 13;
+
+    const planQuery = await queryAirtable(PLANS_TABLE, `{planCode} = ${targetPlanCode}`);
+    const plan = planQuery.records?.[0];
+    if (!plan) {
+      return res.status(500).json({ ok: false, error: `Plan config (planCode ${targetPlanCode}) not found.` });
     }
 
     // 4. Create Account
     const displayName = firstName || normalizedEmail.split('@')[0];
-    const accountName = company ? `${company} (Trial)` : `${displayName}'s Trial Account`;
+    const planLabel = isWebsiteSignup ? 'Base' : 'Trial';
+    const accountName = company ? `${company} (${planLabel})` : `${displayName}'s ${planLabel} Account`;
     const todayISO = new Date().toISOString().split('T')[0];
     const signupVertical = vertical || 'retail';
 
@@ -1846,7 +2063,7 @@ router.post('/trial-provision', async (req, res) => {
       "lastPaidDate": todayISO,
       "lastAmountPaid": 0,
       "sourceGraphId": signupVertical,
-      "Plan": [trialPlan.id],
+      "Plan": [plan.id],
       "accountStatus": "active"
     };
 
@@ -1864,7 +2081,7 @@ router.post('/trial-provision', async (req, res) => {
     const apiKeyString = `sk_live_${randomBytes(24).toString('hex')}`;
     await createAirtableRecord(API_KEYS_TABLE, {
       "API Key": apiKeyString,
-      "API Key Status": "Active",
+      "API Key Status": isWebsiteSignup ? "Pending" : "Active",
       "Account": [accountId]
     });
 
@@ -1892,7 +2109,7 @@ router.post('/trial-provision', async (req, res) => {
       "Company": company || "",
       "Job Title": jobTitle || "",
       "apiUse": "Mainly Claude",
-      "onboardingIntent": "trial"
+      "onboardingIntent": intent || "trial"
     };
 
     const userRecord = await createAirtableRecord(USERS_TABLE, userFields);
@@ -1908,7 +2125,7 @@ router.post('/trial-provision', async (req, res) => {
       sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
         name: displayName,
         confirmationLink,
-        intent: 'trial',
+        intent: intent || 'trial',
         apiKey: apiKeyString
       }).catch(e => console.error('[Trial-Provision] Welcome email failed:', e));
     }
@@ -1919,7 +2136,13 @@ router.post('/trial-provision', async (req, res) => {
     // Return unique urls & key
     const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKeyString}`;
     const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
-    res.json({ ok: true, apiKey: apiKeyString, mcpUrl, claudeUrl });
+    res.json({
+      ok: true,
+      apiKey: apiKeyString,
+      mcpUrl,
+      claudeUrl,
+      ...(isWebsiteSignup ? { pendingConfirmation: true, intent } : {})
+    });
 
   } catch (err: any) {
     console.error('[Trial-Provision] Error:', err);

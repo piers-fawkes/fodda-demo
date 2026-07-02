@@ -6,3 +6,9 @@ dist
 *.log
 .env
 .env.*
+test_*.ts
+run_*.ts
+verify_*.ts
+debug_*
+scratch/
+scratch_*.ts

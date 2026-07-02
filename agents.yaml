@@ -1,0 +1,80 @@
+# agents.yaml — Agent Mapping Manifest
+# Fodda Sandbox (Main API + App)
+#
+# This repo does not define traditional agents (no AGENTS.md / agent.yaml).
+# Instead, it runs three "prompt-as-agent" systems that use Gemini via
+# @google/genai to orchestrate queries, validate prompts, and drive an
+# MCP agentic loop. These are mapped here per the Managed Agents
+# Engineering Policy.
+#
+# See: briefs/brief_api_role_alignment.md for cross-repo coordination.
+
+agents:
+
+  # ── Prompt Orchestration Pipeline ──────────────────────────────
+  # Selects, validates, and sweeps prompts for onboarding emails.
+  # Not a chat agent — a backend pipeline triggered during user registration
+  # and via Cloud Scheduler cron.
+  prompt-orchestrator:
+    type: prompt-as-agent
+    description: >
+      Three-stage prompt pipeline: selectPrompts() picks candidates from
+      prompt-bank.json by graph + buyer type, testPrompt() validates each
+      against the live API, and runPromptSweep() runs nightly regression
+      across all static + catalog prompts.
+    config: server/data/prompt-bank.json
+    persona: server/services/promptSelector.ts    # Routing logic = "persona"
+    tools:
+      - server/services/promptValidator.ts        # Per-prompt live API test
+      - server/services/promptSweep.ts            # Nightly regression sweep
+    brief: briefs/brief_api_role_alignment.md
+    workflows: .agents/workflows/
+    # §4 Externally Hosted Prompts:
+    # prompt-bank.json is in VCS (compliant). However, promptSweep.ts also
+    # fetches catalog prompts from Airtable (Graph Registry → example_queries).
+    # These are externally hosted and editable outside version control.
+    # Audit trail: all prompt validation results are persisted to PROMPT_AUDIT_TABLE.
+    external_prompts:
+      - source: airtable
+        table: Graph Registry (tblezSucv8qmbSSy9)
+        field: example_queries
+        audit_trail: PROMPT_AUDIT_TABLE (sweep results with PASS/FAIL status)
+
+  # ── MCP Agentic Chat Loop ─────────────────────────────────────
+  # Server-side agent that connects to the Fodda MCP server, discovers
+  # tools dynamically, and runs a multi-turn Gemini tool-calling loop.
+  mcp-chat-agent:
+    type: prompt-as-agent
+    description: >
+      Agentic chat loop: connects to mcp.fodda.ai via StreamableHTTP,
+      converts MCP tool schemas to Gemini function declarations, runs up
+      to 8 tool-calling iterations, then executes output-phase skills for
+      supplementary analysis.
+    config: server/services/mcpChatService.ts      # MAX_TOOL_ITERATIONS, TOTAL_TIMEOUT_MS
+    persona: server/services/mcpChatService.ts     # System prompt defined inline (L124-135)
+    tools:
+      - "@modelcontextprotocol/sdk"                # MCP client SDK
+      - server/services/skillExecutorService.ts    # Post-loop skill execution
+    brief: briefs/mcp-ux-improvements.md
+    workflows: .agents/workflows/
+
+# ── Global Settings ─────────────────────────────────────────────
+defaults:
+  model: gemini-2.0-flash
+  runtime: node              # All agents in this repo use @google/genai (Node.js)
+  deployment: .agents/workflows/deploy.md
+  briefs_dir: briefs/
+  changelog: CHANGELOG.md
+
+# ── Safety / Policies ───────────────────────────────────────────
+# TODO: Define formal deny-all + selective-allow safety policies
+# TODO: Add post_tool_call and on_tool_error audit hooks
+# TODO: Define per-agent token budgets
+# See BACKBURNER.md for tracking.
+
+# ── Externally Hosted Prompts (Policy §4) ───────────────────────
+# prompt-orchestrator has catalog prompts in Airtable (not in VCS).
+# Current audit trail: promptSweep.ts persists all PASS/FAIL results
+# to PROMPT_AUDIT_TABLE with timestamps + graph IDs.
+# TODO: Evaluate migrating Airtable example_queries into prompt-bank.json
+#       OR formalizing the Airtable audit trail to match CHANGELOG discipline.

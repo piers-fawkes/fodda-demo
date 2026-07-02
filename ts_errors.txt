@@ -1,0 +1,34 @@
+frontend/components/AccountPortal.tsx(25,77): error TS2694: Namespace '"/Users/piersfawkes/Documents/Fodda/shared/types"' has no exported member 'UsageStats'.
+frontend/components/AccountPortal.tsx(688,73): error TS7006: Parameter 'graph' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(718,93): error TS7006: Parameter 'user' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(739,76): error TS7006: Parameter 'day' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(739,81): error TS7006: Parameter 'i' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(740,107): error TS7006: Parameter 'd' implicitly has an 'any' type.
+frontend/components/AccountPortal.tsx(2236,59): error TS2339: Property 'graphIds' does not exist on type 'Account'.
+frontend/components/AccountPortal.tsx(2236,79): error TS7006: Parameter 'gid' implicitly has an 'any' type.
+frontend/components/AdminPortal.tsx(4,26): error TS2305: Module '"../../shared/types"' has no exported member 'SupplementalSource'.
+frontend/components/AdminPortal.tsx(496,50): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+frontend/components/CompareModal.tsx(3,37): error TS2305: Module '"../../shared/types"' has no exported member 'ReasoningMode'.
+frontend/components/EvidenceDrawer.tsx(3,50): error TS2305: Module '"../../shared/types"' has no exported member 'AdjacentTrend'.
+frontend/components/EvidenceDrawer.tsx(117,39): error TS2339: Property 'getAdjacentTrends' does not exist on type 'DataService'.
+frontend/components/GraphVisualization.tsx(3,10): error TS2305: Module '"../../shared/types"' has no exported member 'GraphNode'.
+frontend/components/GraphVisualization.tsx(3,21): error TS2305: Module '"../../shared/types"' has no exported member 'GraphEdge'.
+frontend/components/GraphVisualization.tsx(3,32): error TS2305: Module '"../../shared/types"' has no exported member 'GraphNodeType'.
+frontend/components/ReasoningModeSelector.tsx(2,10): error TS2305: Module '"../../shared/types"' has no exported member 'ReasoningMode'.
+frontend/components/UpgradeModal.tsx(27,67): error TS2339: Property 'planCode' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(30,54): error TS2339: Property 'planCode' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(32,86): error TS2339: Property 'planCode' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(78,69): error TS2339: Property 'planCode' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(115,54): error TS2339: Property 'planCode' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(117,64): error TS2339: Property 'isRecommended' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(152,125): error TS2339: Property 'description' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(158,99): error TS2339: Property 'graphsIncluded' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(159,88): error TS2339: Property 'graphsIncluded' does not exist on type 'Plan'.
+frontend/components/UpgradeModal.tsx(175,130): error TS2339: Property 'monthlyQueryLimit' does not exist on type 'Plan'.
+frontend/components/UsersList.tsx(83,51): error TS2339: Property 'lastLogin' does not exist on type 'User'.
+frontend/components/UsersList.tsx(83,77): error TS2339: Property 'lastLogin' does not exist on type 'User'.
+frontend/services/geminiService.ts(417,7): error TS2367: This comparison appears to be unintentional because the types 'Vertical.Beauty | Vertical.Retail | Vertical.Sports | Vertical.Waldo | Vertical.Edelman_TippingPoints | Vertical.PwC_SXSW2026' and '"generative-realities"' have no overlap.
+frontend/services/geminiService.ts(551,13): error TS2339: Property 'metadata' does not exist on type 'RetrievedRow'.
+frontend/services/geminiService.ts(552,21): error TS2339: Property 'metadata' does not exist on type 'RetrievedRow'.
+server/debug_airtable_custom.ts(7,30): error TS7006: Parameter 'tableId' implicitly has an 'any' type.
+server/debug_airtable_custom.ts(7,39): error TS7006: Parameter 'filterByFormula' implicitly has an 'any' type.

@@ -2,7 +2,7 @@
 import { Vertical, Trend, Article } from './types';
 
 // Initial Suggested Questions per vertical
-export const SUGGESTED_QUESTIONS: Record<Vertical, string[]> = {
+export const SUGGESTED_QUESTIONS: Partial<Record<Vertical, string[]>> = {
   [Vertical.Retail]: [
     "What retail trends are shaping how brands use physical stores today?",
     "What’s changing in how retailers use technology to engage customers in-store?",
@@ -20,7 +20,13 @@ export const SUGGESTED_QUESTIONS: Record<Vertical, string[]> = {
     "How are beauty brands using biotech or new ingredients?",
     "What’s driving the overlap between beauty and wellness?",
     "How are beauty brands responding to sustainability expectations?"
-  ]
+  ],
+  [Vertical.MLBSponsorship]: [
+    "How is T-Mobile leveraging its 5G network deal with MLB beyond traditional advertising?",
+    "Which MLB teams have deployed facial authentication and what impact has it had on fan experience?",
+    "What prediction market platforms has MLB partnered with, and how does it compare to other leagues?",
+    "Show me the statistics on the Automated Ball-Strike Challenge system's adoption and fan reception."
+  ],
 };
 
 // Merged Data from Uploaded Files
@@ -82,6 +88,13 @@ export const MOCK_TRENDS: Trend[] = [
   { id: "5593", vertical: Vertical.Beauty, name: "K‑Beauty Globalization", summary: "K‑beauty R&D and manufacturing expertise exported via co‑development and localized formulation to enable region‑specific rollouts." },
   { id: "5594", vertical: Vertical.Beauty, name: "Beauty Devices & Clinic→Home Tech", summary: "Miniaturized energy tech, clearer regulatory pathways and consumer demand for clinic‑level results at home reduce adoption friction." },
   { id: "5595", vertical: Vertical.Beauty, name: "Hybrid Makeup‑Skincare / Skip‑Care Bases", summary: "Makeup bases that consolidate skincare actives and coverage into single clinically positioned SKUs." },
+
+  // --- MLB SPONSORSHIP ---
+  { id: "mlb-sponsorship-t1", vertical: Vertical.MLBSponsorship, name: "AI-Powered Player Avatars", summary: "Interactive AI avatars using Genies platform create personalized fan engagement with players." },
+  { id: "mlb-sponsorship-t2", vertical: Vertical.MLBSponsorship, name: "Prediction Markets in Sports", summary: "MLB embraces prediction market platforms like Polymarket for fan engagement and wagering." },
+  { id: "mlb-sponsorship-t3", vertical: Vertical.MLBSponsorship, name: "AI-Powered Marketing Platforms", summary: "AI powers personalized marketing campaigns across MLB's digital platforms." },
+  { id: "mlb-sponsorship-t4", vertical: Vertical.MLBSponsorship, name: "Facial Authentication for Stadium Access", summary: "Go-Ahead facial recognition technology enables frictionless payments and access at stadiums." },
+  { id: "mlb-sponsorship-t5", vertical: Vertical.MLBSponsorship, name: "MiLB-Wide Fan Engagement Platforms", summary: "Unified fan engagement across minor leagues through technology partnerships." },
 ];
 
 export const MOCK_ARTICLES: Article[] = [
@@ -144,4 +157,11 @@ export const MOCK_ARTICLES: Article[] = [
   { id: "9502", vertical: Vertical.Beauty, trendIds: ["5392"], title: "Neuroscience-Backed Perfume Research", sourceUrl: "https://www.beautytech.com", snippet: "Major fragrance house uses brainwave tracking to identify which scent notes correlate most highly with stress reduction and focus." },
   { id: "9503", vertical: Vertical.Beauty, trendIds: ["5558"], title: "The Rise of One-Step Serums", sourceUrl: "https://www.skincareexpert.com", snippet: "Brands are consolidating routines into single 'hero' serums to maximize convenience and conversion." },
   { id: "9600", vertical: Vertical.Beauty, trendIds: ["5563"], title: "Cafe-Integrated Beauty Concept Stores", sourceUrl: "https://www.beautytech.com/cafe-retail-beauty-overlap", snippet: "Beauty retailers are launching 'wellness cafes' inside clinics serving mood-boosting beverages." },
+
+  // --- MLB SPONSORSHIP ---
+  { id: "rec0JiEV1KojqdFTn", vertical: Vertical.MLBSponsorship, trendIds: ["recE1XgpL50Wg1BW5"], title: "Adobe's AI Partnership with MLB", sourceUrl: "https://www.sportsbusinessjournal.com", snippet: "Adobe's expanded AI partnership is fundamentally reshaping how teams engage fans and activate sponsorships." },
+  { id: "rec0L0lazuTSrILIN", vertical: Vertical.MLBSponsorship, trendIds: [], title: "8 - New Partners", sourceUrl: "https://www.sportsbusinessjournal.com", snippet: "8 - New Partners" },
+  { id: "rec1gTOsExV7MdSn7", vertical: Vertical.MLBSponsorship, trendIds: [], title: "Ford Motor Company Partnership", sourceUrl: "https://news.designrush.com", snippet: "Ford Motor Company is replacing Chevrolet after a 21-year tenure as MLB's official automotive partner since 2005." },
+  { id: "rec3HLUUAbhAHfLfZ", vertical: Vertical.MLBSponsorship, trendIds: [], title: "Chevrolet's Departure", sourceUrl: "https://www.sportsbusinessjournal.com", snippet: "Most significantly, Chevrolet's departure after two decades marks a generational shift in MLB's automotive partnership strategy." },
+  { id: "rec3Kn2NVoPB364fM", vertical: Vertical.MLBSponsorship, trendIds: ["recy4odiPJnkgkg7A"], title: "T-Mobile's 5G Network Deployment", sourceUrl: "https://www.sportsbusinessjournal.com", snippet: "Technology integration has become the cornerstone of modern baseball marketing, with T-Mobile's deployment of private 5G networks across all 30 MLB ballparks." },
 ];

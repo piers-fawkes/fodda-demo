@@ -9,7 +9,8 @@ import {
   KnowledgeGraph,
   Vertical,
   AuthResponse,
-  AdjacentTrend
+  AdjacentTrend,
+  CreatorAnalytics
 } from "./types";
 
 export interface UserLog {
@@ -94,6 +95,31 @@ async function postJson<T>(url: string, body: unknown, headers: Record<string, s
   return json as T;
 }
 
+async function getJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { ...headers },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    try {
+      const json = JSON.parse(text);
+      if (json.error) throw new ApiError(json.error, json.code, res.status);
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+    }
+    throw new ApiError(`API Error ${res.status}: ${text || res.statusText}`, undefined, res.status);
+  }
+  const json = await res.json();
+  if (json && typeof json === 'object' && 'data' in json && 'meta' in json) {
+    if (json.requestId && typeof json.data === 'object' && json.data !== null) {
+      (json.data as any).requestId = json.requestId;
+    }
+    return json.data as T;
+  }
+  return json as T;
+}
+
 function normalizeBrandNames(val: any): string[] {
   if (Array.isArray(val)) {
     const cleaned = val.map((s) => String(s).trim()).filter(Boolean);
@@ -151,6 +177,9 @@ const FALLBACK_GRAPHS: KnowledgeGraph[] = [
   { id: Vertical.Beauty, name: "PSFK Beauty Trends", headline: "Biotech, personalization, wellness, fragrance innovation", description: "Biotech, personalization, wellness, fragrance innovation.", owner: "PSFK Editorial", isCustom: false, verticalName: "Beauty & Wellness", graph_type: 'domain', status: 'live', topics: ['beauty', 'health'] },
   { id: Vertical.Sports, name: "PSFK Sports Trends", headline: "Fandom, performance tech, media rights, fitness formats", description: "Fandom, performance tech, media rights, fitness formats.", owner: "PSFK Editorial", isCustom: false, verticalName: "Sports & Fitness", graph_type: 'domain', status: 'live', topics: ['sport', 'health', 'technology'] },
   { id: "fashion", name: "PSFK Fashion Trends", headline: "Fashion design, streetwear, luxury, sustainability", description: "Fashion design, streetwear, luxury, sustainability.", owner: "PSFK Editorial", isCustom: false, verticalName: "Fashion & Apparel", graph_type: 'domain', status: 'beta', topics: ['fashion', 'culture', 'sustainability'] },
+  { id: Vertical.Tech, name: "PSFK Technology", headline: "Emerging technology adoption, AI integration, and digital infrastructure innovation", description: "Emerging technology adoption, AI integration, and digital infrastructure innovation. From enterprise AI to consumer-facing tech shifts.", owner: "PSFK Editorial", isCustom: false, verticalName: "Technology", graph_type: 'domain', status: 'live', topics: ['technology', 'all'] },
+  { id: Vertical.Food, name: "PSFK Food & Beverage", headline: "Innovation in food systems, functional ingredients, alternative proteins, and beverage culture", description: "Innovation in food systems, functional ingredients, alternative proteins, and beverage culture. From farm-to-fork tech to new dining formats.", owner: "PSFK Editorial", isCustom: false, verticalName: "Food & Beverage", graph_type: 'domain', status: 'live', topics: ['food', 'all'] },
+  { id: Vertical.Travel, name: "PSFK Travel & Hospitality", headline: "Travel experience innovation, sustainable tourism, and hospitality tech", description: "Travel experience innovation, sustainable tourism, and hospitality tech. From regenerative travel to AI concierge and destination reimagination.", owner: "PSFK Editorial", isCustom: false, verticalName: "Travel & Hospitality", graph_type: 'domain', status: 'live', topics: ['travel', 'all'] },
 
   // ─── Expert Graphs ───
   { id: Vertical.SIC, name: "Ben Dietz SIC Graph", headline: "Culture, media, marketing, and platform trends", description: "Culture, media, marketing, and platform trends from Streets Is Calling.", owner: "Ben Dietz", isCustom: false, verticalName: "Culture & Media", graph_type: 'expert', status: 'live', topics: ['culture', 'advertising', 'technology'] },
@@ -276,7 +305,7 @@ class DataService {
           curator: g.curator || '',
           curator_url: g.curator_url || '',
           domain: g.domain || '',
-          graph_type: g.graph_type || 'expert',
+          graph_type: g.graph_type || 'domain',
           graph_sub_type: g.graph_sub_type || '',
           topics: Array.isArray(g.topics) ? g.topics : [],
           status: g.status || 'live',
@@ -292,24 +321,40 @@ class DataService {
           evidence_count: g.evidence_count || 0,
           last_synced: g.last_synced || '',
           approved_date: g.approved_date || '',
+          expert_slug: g.expert_slug || g.expertSlug || '',
+          image_url: g.image_url || g.imageUrl || '',
           accessible: true, // All graphs from our catalog are accessible
         }));
 
         // Fetch analysts/experts
         let analystsGraphs: KnowledgeGraph[] = [];
+        const analystBackingGraphIds = new Set<string>();
         try {
-          console.log('[DataService] Fetching expert roster from https://api.fodda.ai/v1/analysts...');
-          const analystsRes = await fetch('https://api.fodda.ai/v1/analysts');
+          console.log('[DataService] Fetching expert roster from /api/analysts...');
+          const analystsRes = await fetch('/api/analysts');
           if (analystsRes.ok) {
             const analystsData = await analystsRes.json();
             if (analystsData.ok && Array.isArray(analystsData.analysts)) {
+              // Collect backing graph IDs for dedup (exclude wildcard)
+              for (const a of analystsData.analysts) {
+                const backing: string[] = Array.isArray(a.backingGraphs) ? a.backingGraphs : [];
+                for (const bgId of backing) {
+                  if (bgId !== '*') analystBackingGraphIds.add(bgId);
+                }
+              }
+
               analystsGraphs = analystsData.analysts.map((a: any) => {
-                const isBen = a.id === 'ben-dietz-sic' || a.id === 'ben_dietz_expert';
-                const isPiers = a.id === 'piers-fawkes-psfk';
-                const isReal = isBen || isPiers;
+                // Use graphSubType from API; rename 'Digital Twin' to 'Human Agent'
+                const apiSubType = (a.graphSubType || '').trim();
                 const isExec = a.id.startsWith('brand-');
-                const subType = isReal ? 'Digital Twin' : isExec ? 'Synthetic Executive' : 'Synthetic Expert';
+                const subType = apiSubType === 'Digital Twin' ? 'Human Agent'
+                  : isExec ? 'Synthetic Executive'
+                  : apiSubType || 'Synthetic Expert';
                 const name = a.name || '';
+                // Use stable imageUrl (ucarecdn); avoid expiring Airtable attachment URLs
+                const stableImage = a.imageUrl || a.image_url || '';
+                const curatorUrl = a.newsletterUrl || '';
+                const curatorName = a.newsletterName || 'Fodda';
                 
                 return {
                   id: a.id,
@@ -317,13 +362,13 @@ class DataService {
                   name: name,
                   description: a.description || '',
                   headline: a.description || '',
-                  owner: isBen ? 'SIC Weekly' : isPiers ? 'PSFK' : 'Fodda',
+                  owner: curatorName,
                   isCustom: false,
                   verticalName: name,
                   updateFrequency: '',
-                  sourceURL: isBen ? 'https://bendeitz.substack.com' : isPiers ? 'https://www.psfk.com' : '',
-                  curator: isBen ? 'SIC Weekly' : isPiers ? 'PSFK' : 'Fodda',
-                  curator_url: isBen ? 'https://bendeitz.substack.com' : isPiers ? 'https://www.psfk.com' : '',
+                  sourceURL: curatorUrl,
+                  curator: curatorName,
+                  curator_url: curatorUrl,
                   domain: a.topic ? (Array.isArray(a.topic) ? a.topic.join(', ') : a.topic) : '',
                   graph_type: 'expert',
                   graph_sub_type: subType,
@@ -336,7 +381,7 @@ class DataService {
                     : typeof a.example_queries === 'string'
                       ? (() => { try { return JSON.parse(a.example_queries); } catch { return []; } })()
                       : [],
-                  portrait_url: isBen ? 'https://ucarecdn.com/a4704f3d-1321-4da9-bca6-0edd693a1b47/BENDIETZGRAPHFODDASIC.png' : isPiers ? 'https://ucarecdn.com/b461fb21-46cf-4118-905c-10146fea60e1/' : '',
+                  portrait_url: stableImage,
                   quality_checker_name: '',
                   geography: '',
                   available_as: 'MCP, API, Chat',
@@ -345,6 +390,8 @@ class DataService {
                   evidence_count: 0,
                   last_synced: '',
                   approved_date: '',
+                  expert_slug: a.expertSlug || a.expert_slug || '',
+                  image_url: stableImage,
                   accessible: true,
                 };
               });
@@ -353,6 +400,15 @@ class DataService {
           }
         } catch (err) {
           console.warn('[DataService] Failed to fetch analysts from external API:', err);
+        }
+
+        // Deduplicate: demote catalog graphs that are backing graphs of an analyst
+        // so they appear in sandbox but not the expert dropdown (the analyst entry is canonical)
+        for (const g of graphs) {
+          if (analystBackingGraphIds.has(g.id) && g.graph_type === 'expert') {
+            g.graph_type = 'domain';
+            console.log(`[DataService] Demoted catalog graph "${g.id}" from expert (analyst entry is canonical)`);
+          }
         }
 
         const combined = [...graphs, ...analystsGraphs];
@@ -404,7 +460,7 @@ class DataService {
         curator: g.curator || '',
         curator_url: g.curator_url || '',
         domain: g.domain || '',
-        graph_type: g.graph_type || 'expert',
+        graph_type: g.graph_type || 'domain',
         graph_sub_type: g.graph_sub_type || '',
         topics: Array.isArray(g.topics) ? g.topics : [],
         status: g.status || 'live',
@@ -419,6 +475,8 @@ class DataService {
         trend_count: g.trend_count || 0,
         evidence_count: g.evidence_count || 0,
         last_synced: g.last_synced || '',
+        expert_slug: g.expert_slug || g.expertSlug || '',
+        image_url: g.image_url || g.imageUrl || '',
         accessible: accessibleIds.has(g.graph_id || g.id || ''),
       }));
 
@@ -477,7 +535,7 @@ class DataService {
    * Send a query through the MCP agentic pipeline.
    * Returns the synthesized answer, suggested questions, and tool call log.
    */
-  async mcpChat(query: string, vertical: string, email: string, firstName?: string, personaContext?: string, userContext?: string, accountContext?: string): Promise<{
+  async mcpChat(query: string, vertical: string, email: string, apiKey: string, firstName?: string, personaContext?: string, userContext?: string, accountContext?: string): Promise<{
     ok: boolean;
     answer?: string;
     suggestedQuestions?: string[];
@@ -486,7 +544,7 @@ class DataService {
     error?: string;
   }> {
     try {
-      const res = await postJson<any>('/api/mcp/chat', { query, vertical, email, firstName, personaContext, userContext, accountContext });
+      const res = await postJson<any>('/api/mcp/chat', { query, vertical, userId: email, firstName, personaContext, userContext, accountContext }, { 'X-API-Key': apiKey });
       return res;
     } catch (e: any) {
       console.error('[DataService] MCP chat failed:', e);
@@ -524,6 +582,16 @@ class DataService {
       return res;
     } catch (e: any) {
       console.error("[DataService] Session validation failed", e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async getCurrentProfile(): Promise<AuthResponse> {
+    try {
+      const res = await getJson<AuthResponse>("/api/auth/profile");
+      return res;
+    } catch (e: any) {
+      console.error("[DataService] Failed to load current profile:", e);
       return { ok: false, error: e.message };
     }
   }
@@ -678,16 +746,6 @@ class DataService {
     }
   }
 
-  async getUserStats(email: string) {
-    try {
-      const res = await fetch(`/api/user/stats?email=${encodeURIComponent(email)}`);
-      if (!res.ok) throw new Error("Failed to fetch stats");
-      return await res.json();
-    } catch (e: any) {
-      console.error("Failed to get user stats", e);
-      return { ok: false, error: e.message };
-    }
-  }
 
   async getPlans() {
     try {
@@ -1121,7 +1179,9 @@ class DataService {
    */
   async fetchGraphTrials(adminSecret: string): Promise<Record<string, any>> {
     try {
-      const res = await fetch(`/api/graph-trials?secret=${encodeURIComponent(adminSecret)}`);
+      const res = await fetch(`/api/graph-trials`, {
+        headers: { 'X-Admin-Secret': adminSecret },
+      });
       if (!res.ok) return {};
       const data = await res.json();
       return data.trials || {};
@@ -1177,6 +1237,57 @@ class DataService {
       return await res.json();
     } catch (e: any) {
       console.error('[DataService] Billing portal failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async fetchCreatorAnalytics(graphId: string): Promise<{ ok: boolean; stats?: CreatorAnalytics; error?: string }> {
+    try {
+      const res = await fetch(`/api/creator/analytics?graphId=${encodeURIComponent(graphId)}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        try {
+          const json = JSON.parse(text);
+          if (json.error) throw new Error(json.error);
+        } catch {}
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] fetchCreatorAnalytics failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Fetch per-query pricing from the API's single source of truth.
+   * Returns an array of { queryType, apiCalls, label } entries.
+   */
+  async fetchQueryPricing(): Promise<{ ok: boolean; pricing?: Array<{ queryType: string; apiCalls: number; label?: string }>; error?: string }> {
+    try {
+      const res = await fetch('/v1/research/pricing');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] fetchQueryPricing failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout Session for a top-up (agent-session) purchase.
+   * This is the same flow the MCP uses for CREDITS_EXHAUSTED.
+   */
+  async createAgentCheckout(email: string): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/account/checkout/agent-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'app_billing_page' }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] Agent checkout failed:', e);
       return { ok: false, error: e.message };
     }
   }

@@ -1,21 +1,5 @@
 import React, { useState } from 'react';
 
-
-// SVG Icons
-const LockIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-    </svg>
-);
-
-const UnlockIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
-    </svg>
-);
-
 interface ContextChipsProps {
     userContext: string;
     accountContext: string;
@@ -31,8 +15,6 @@ export const ContextChips: React.FC<ContextChipsProps> = ({
 }) => {
     const [editing, setEditing] = useState<'user' | 'account' | null>(null);
     const [tempValue, setTempValue] = useState('');
-
-    // Default to UNLOCKED (Session Only)
     const [isAccountLocked, setIsAccountLocked] = useState<boolean>(false);
     const [isUserLocked, setIsUserLocked] = useState<boolean>(false);
 
@@ -55,116 +37,125 @@ export const ContextChips: React.FC<ContextChipsProps> = ({
         if (e.key === 'Escape') setEditing(null);
     };
 
-    // Helper to toggle lock and save immediately if locking
     const toggleAccountLock = (e: React.MouseEvent) => {
         e.stopPropagation();
         const newState = !isAccountLocked;
         setIsAccountLocked(newState);
-        // If we just LOCKED it, we should verify/save the current value to DB
-        if (newState) {
-            onUpdateAccountContext(accountContext, true);
-        }
+        if (newState) onUpdateAccountContext(accountContext, true);
     };
 
     const toggleUserLock = (e: React.MouseEvent) => {
         e.stopPropagation();
         const newState = !isUserLocked;
         setIsUserLocked(newState);
-        if (newState) {
-            onUpdateUserContext(userContext, true);
-        }
+        if (newState) onUpdateUserContext(userContext, true);
     };
 
+    // Compact lock icon
+    const LockIcon = ({ locked }: { locked: boolean }) => (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            {locked
+                ? <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                : <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            }
+        </svg>
+    );
+
     return (
-        <div className="w-full mb-1 animate-fade-in-up">
-            <div className="flex flex-col sm:flex-row gap-2">
-                {/* Account Context Chip */}
-                <div
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border cursor-text
-                    ${editing === 'account' ? 'bg-zinc-900 border-purple-500/50 ring-1 ring-purple-500/20' :
-                            accountContext ? 'bg-zinc-900/80 border-purple-500/30 text-purple-300' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'}
-                    `}
-                    onClick={() => startEditing('account', accountContext)}
-                    title={accountContext ? `Context: ${accountContext}` : "Click to add account context"}
+        <div className="flex items-center gap-2 flex-wrap">
+            {/* Account Context Chip */}
+            <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all border cursor-text text-[10px] font-mono
+                    ${editing === 'account'
+                        ? 'bg-brand-soft border-brand/30 ring-1 ring-brand/15'
+                        : accountContext
+                            ? 'bg-brand-soft border-brand/15 text-brand'
+                            : 'bg-paper border-line text-ink-3 hover:text-ink-2 hover:bg-cream'
+                    }`}
+                onClick={() => startEditing('account', accountContext)}
+                title={accountContext ? `Context: ${accountContext}` : 'Click to add account context'}
+            >
+                <button
+                    onClick={toggleAccountLock}
+                    className={`p-0.5 rounded hover:bg-brand-soft transition-colors ${isAccountLocked ? 'text-brand' : 'text-ink-4'}`}
+                    title={isAccountLocked ? 'Stored in Profile' : 'Session Only'}
                 >
+                    <LockIcon locked={isAccountLocked} />
+                </button>
+
+                <span className="font-bold uppercase tracking-wider text-brand/70 shrink-0 select-none text-[9px]">Acct</span>
+
+                {editing === 'account' ? (
+                    <input
+                        autoFocus
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        onBlur={saveContext}
+                        onKeyDown={handleKeyDown}
+                        className="bg-transparent outline-none w-full text-[11px] text-ink placeholder:text-ink-4 min-w-[80px]"
+                        placeholder="Add context..."
+                    />
+                ) : (
+                    <span className={`text-[11px] truncate max-w-[120px] ${!accountContext && 'text-ink-4 italic'}`}>
+                        {accountContext || 'Add...'}
+                    </span>
+                )}
+                {accountContext && editing !== 'account' && (
                     <button
-                        onClick={toggleAccountLock}
-                        className={`p-1 rounded-full hover:bg-white/10 transition-colors ${isAccountLocked ? 'text-purple-400' : 'text-zinc-500'}`}
-                        title={isAccountLocked ? "Locked: Stored in Profile" : "Unlocked: Session-Only Context"}
+                        onClick={(e) => { e.stopPropagation(); onUpdateAccountContext('', isAccountLocked); }}
+                        className="text-ink-4 hover:text-ink text-xs leading-none ml-0.5"
                     >
-                        {isAccountLocked ? <LockIcon /> : <UnlockIcon />}
+                        ×
                     </button>
+                )}
+            </div>
 
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400 shrink-0 select-none">Account Context</span>
-
-                    {editing === 'account' ? (
-                        <input
-                            autoFocus
-                            value={tempValue}
-                            onChange={(e) => setTempValue(e.target.value)}
-                            onBlur={saveContext}
-                            onKeyDown={handleKeyDown}
-                            className="bg-transparent outline-none w-full text-xs font-medium text-white placeholder:text-zinc-600"
-                            placeholder="Add context..."
-                        />
-                    ) : (
-                        <span className={`text-xs truncate max-w-[150px] ${!accountContext && 'text-zinc-600 italic'}`}>
-                            {accountContext || "Add context..."}
-                        </span>
-                    )}
-                    {accountContext && editing !== 'account' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onUpdateAccountContext('', isAccountLocked); }}
-                            className="text-zinc-500 hover:text-white px-1"
-                        >
-                            ×
-                        </button>
-                    )}
-                </div>
-
-                {/* User Context Chip */}
-                <div
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border cursor-text
-                    ${editing === 'user' ? 'bg-zinc-900 border-blue-500/50 ring-1 ring-blue-500/20' :
-                            userContext ? 'bg-zinc-900/80 border-blue-500/30 text-blue-300' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'}
-                    `}
-                    onClick={() => startEditing('user', userContext)}
-                    title={userContext ? `Context: ${userContext}` : "Click to add user context"}
+            {/* User Context Chip */}
+            <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all border cursor-text text-[10px] font-mono
+                    ${editing === 'user'
+                        ? 'bg-blue-50 border-blue-300/30 ring-1 ring-blue-300/15'
+                        : userContext
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-paper border-line text-ink-3 hover:text-ink-2 hover:bg-cream'
+                    }`}
+                onClick={() => startEditing('user', userContext)}
+                title={userContext ? `Context: ${userContext}` : 'Click to add user context'}
+            >
+                <button
+                    onClick={toggleUserLock}
+                    className={`p-0.5 rounded hover:bg-blue-50 transition-colors ${isUserLocked ? 'text-blue-600' : 'text-ink-4'}`}
+                    title={isUserLocked ? 'Stored in Profile' : 'Session Only'}
                 >
+                    <LockIcon locked={isUserLocked} />
+                </button>
+
+                <span className="font-bold uppercase tracking-wider text-blue-600/70 shrink-0 select-none text-[9px]">User</span>
+
+                {editing === 'user' ? (
+                    <input
+                        autoFocus
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        onBlur={saveContext}
+                        onKeyDown={handleKeyDown}
+                        className="bg-transparent outline-none w-full text-[11px] text-ink placeholder:text-ink-4 min-w-[80px]"
+                        placeholder="Add context..."
+                    />
+                ) : (
+                    <span className={`text-[11px] truncate max-w-[120px] ${!userContext && 'text-ink-4 italic'}`}>
+                        {userContext || 'Add...'}
+                    </span>
+                )}
+                {userContext && editing !== 'user' && (
                     <button
-                        onClick={toggleUserLock}
-                        className={`p-1 rounded-full hover:bg-white/10 transition-colors ${isUserLocked ? 'text-blue-400' : 'text-zinc-500'}`}
-                        title={isUserLocked ? "Locked: Stored in Profile" : "Unlocked: Session-Only Context"}
+                        onClick={(e) => { e.stopPropagation(); onUpdateUserContext('', isUserLocked); }}
+                        className="text-ink-4 hover:text-ink text-xs leading-none ml-0.5"
                     >
-                        {isUserLocked ? <LockIcon /> : <UnlockIcon />}
+                        ×
                     </button>
-
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400 shrink-0 select-none">User Context</span>
-
-                    {editing === 'user' ? (
-                        <input
-                            autoFocus
-                            value={tempValue}
-                            onChange={(e) => setTempValue(e.target.value)}
-                            onBlur={saveContext}
-                            onKeyDown={handleKeyDown}
-                            className="bg-transparent outline-none w-full text-xs font-medium text-white placeholder:text-zinc-600"
-                            placeholder="Add context..."
-                        />
-                    ) : (
-                        <span className={`text-xs truncate max-w-[150px] ${!userContext && 'text-zinc-600 italic'}`}>
-                            {userContext || "Add context..."}
-                        </span>
-                    )}
-                    {userContext && editing !== 'user' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onUpdateUserContext('', isUserLocked); }}
-                            className="text-zinc-500 hover:text-white px-1"
-                        >
-                            ×
-                        </button>
-                    )}
-                </div>
+                )}
             </div>
         </div>
     );

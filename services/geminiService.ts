@@ -76,7 +76,8 @@ If the DATASET CONTEXT is empty for the user's specific query:
 
 CRITICAL ENFORCEMENT:
 1. STRICT: NO “INSIGHT SUMMARY” heading or bullets allowed if zero Trend IDs were found in context.
-2. Tone: Plain, factual, professional. Max 130 words.
+2. MANDATORY: Every response MUST be organized around TRENDS. Use \`### [Trend Name](#trend-TREND_ID)\` as the primary structural unit. DO NOT present trends as flat paragraphs without headers.
+3. Tone: Plain, factual, professional.
 `;
 };
 

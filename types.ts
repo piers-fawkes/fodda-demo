@@ -2,6 +2,7 @@ export enum Vertical {
   Beauty = 'Beauty',
   Retail = 'Retail',
   Sports = 'Sports',
+  MLBSponsorship = 'mlb-sponsorship',
 }
 
 export interface Trend {

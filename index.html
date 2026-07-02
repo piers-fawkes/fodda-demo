@@ -2,58 +2,106 @@
 <html lang="en">
 
 <head>
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-MMSRZCKR');</script>
+  <!-- End Google Tag Manager -->
+  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
+  <!-- Google Analytics 4 (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LE4WLW1868"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-LE4WLW1868');
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Fodda - Demo</title>
+  <title>Fodda | Expert AI Context You Can Trust</title>
   <meta name="description"
-    content="Fodda structures curated insights into AI-ready knowledge graphs that can be queried with traceable sources." />
+    content="Your AI produces generic output because it has generic context. Fodda gives it expert-curated knowledge and real institutional evidence — so its answers are specific, sourced, and defensible." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Fodda | Expert AI Context You Can Trust" />
+  <meta property="og:description" content="Your AI produces generic output because it has generic context. Fodda gives it expert-curated knowledge and real institutional evidence — so its answers are specific, sourced, and defensible." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://app.fodda.ai/" />
+  <meta property="og:image" content="https://ucarecdn.com/619c8fa5-6f5b-4cab-818d-2454a34c5846/fodda_og_image.png" />
+  <meta property="og:image:secure_url" content="https://ucarecdn.com/619c8fa5-6f5b-4cab-818d-2454a34c5846/fodda_og_image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="Fodda" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Fodda | Expert AI Context You Can Trust" />
+  <meta name="twitter:description" content="Your AI produces generic output because it has generic context. Fodda gives it expert-curated knowledge and real institutional evidence." />
+  <meta name="twitter:image" content="https://ucarecdn.com/619c8fa5-6f5b-4cab-818d-2454a34c5846/fodda_og_image.png" />
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="https://ucarecdn.com/ce15371a-a0cd-4ef7-936a-2ef020126d4b/foddafavicon.png" />
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap"
     rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
+            /* ── Dossier palette ─────────────────────────── */
+            'cream':        '#fafafa',
+            'paper':        '#ffffff',
+            'ink':          '#17161a',
+            'ink-2':        '#3f3e43',
+            'ink-3':        '#7a7880',
+            'ink-4':        '#b8b6bd',
+            'ink-5':        '#e4e2e7',
+            'line':         '#ececec',
+            'line-soft':    '#f4f4f4',
+            'line-strong':  '#d8d8d8',
+            'fodda-accent': '#663399',
+            'brand':        '#663399',
+            'brand-dark':   '#4a2470',
+            'brand-soft':   '#f1eafa',
+            'brand-softer': '#f8f4fd',
+            /* Legacy aliases — keeps AuthGate working until redesign */
+            'void':    '#fafafa',
+            'chat-bg': '#fafafa',
+            'stark':   '#17161a',
+            'cloudy':  '#7a7880',
+            /* zinc kept for AuthGate only */
+            'zinc': {
+              50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7', 300: '#d4d4d8',
+              400: '#a1a1aa', 500: '#71717a', 600: '#52525b', 700: '#3f3f46',
+              800: '#27272a', 900: '#18181b', 950: '#09090b',
+            },
             stone: {
               50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
               400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
               800: '#292524', 900: '#1c1917',
             },
-            'fodda-accent': '#663399',
-            'void': '#000000',
-            'stark': '#FFFFFF',
-            'zinc': {
-              50: '#fafafa',
-              100: '#f4f4f5',
-              200: '#e4e4e7',
-              300: '#d4d4d8',
-              400: '#a1a1aa',
-              500: '#71717a',
-              600: '#52525b',
-              700: '#3f3f46',
-              800: '#27272a',
-              900: '#18181b',
-              950: '#09090b',
-            }
           },
           fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+            sans:  ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
             serif: ['Playfair Display', 'ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
-            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+            mono:  ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
           },
           animation: {
             'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
           },
           keyframes: {
             fadeInUp: {
-              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '0%':   { opacity: '0', transform: 'translateY(10px)' },
               '100%': { opacity: '1', transform: 'translateY(0)' },
             }
           },
@@ -62,6 +110,24 @@
     }
   </script>
   <style>
+    /* ── Dossier tokens (CSS custom properties) ──────────── */
+    :root {
+      --cream:        #fafafa;
+      --paper:        #ffffff;
+      --ink:          #17161a;
+      --ink-2:        #3f3e43;
+      --ink-3:        #7a7880;
+      --ink-4:        #b8b6bd;
+      --ink-5:        #e4e2e7;
+      --line:         #ececec;
+      --line-soft:    #f4f4f4;
+      --line-strong:  #d8d8d8;
+      --brand:        #663399;
+      --brand-dark:   #4a2470;
+      --brand-soft:   #f1eafa;
+      --brand-softer: #f8f4fd;
+    }
+
     html,
     body {
       height: 100%;
@@ -69,7 +135,10 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background-color: #000000;
+      background-color: var(--cream);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     #root {
@@ -80,22 +149,24 @@
       overflow: hidden;
     }
 
+    /* ── Scrollbar (light) ─────────────────────────────────── */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
     }
 
     ::-webkit-scrollbar-track {
-      background: #000000;
+      background: transparent;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 3px;
+      background: var(--ink-4);
+      border-radius: 4px;
+      transition: background 0.2s;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #555;
+      background: var(--ink-3);
     }
 
     .no-bounce {
@@ -104,6 +175,114 @@
 
     .pb-safe {
       padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ── Dossier eyebrow utility ───────────────────────────── */
+    .eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .eyebrow-brand { color: var(--brand); }
+
+    /* ── Fodda Gradient (kept for avatar accents only) ─────── */
+    .fodda-gradient {
+      background: linear-gradient(135deg, #7c3aed 0%, #663399 35%, #a855f7 65%, #ec4899 100%);
+    }
+
+    .fodda-gradient-text {
+      background: linear-gradient(135deg, #7c3aed 0%, #663399 35%, #a855f7 65%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Shimmer (light-mode) ──────────────────────────────── */
+    @keyframes fodda-shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .fodda-shimmer {
+      background: linear-gradient(90deg,
+          var(--brand-softer) 0%,
+          var(--brand-soft) 25%,
+          rgba(102, 51, 153, 0.12) 50%,
+          var(--brand-soft) 75%,
+          var(--brand-softer) 100%);
+      background-size: 200% 100%;
+      animation: fodda-shimmer 2s ease-in-out infinite;
+    }
+
+    /* ── Glass (light — frosted white) ─────────────────────── */
+    .glass {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px) saturate(1.4);
+      -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    }
+
+    .glass-subtle {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px) saturate(1.2);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    }
+
+    /* ── Slide-in for drawers ──────────────────────────────── */
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0.8; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    .animate-slide-in-right {
+      animation: slideInRight 0.25s ease-out forwards;
+    }
+
+    /* ── Prompt bar glow (light) ───────────────────────────── */
+    .prompt-bar {
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .prompt-bar:focus-within {
+      border-color: var(--brand) !important;
+      box-shadow:
+        0 0 0 1px rgba(102, 51, 153, 0.15),
+        0 0 12px rgba(102, 51, 153, 0.06);
+    }
+
+    /* ── Accent pulse (live indicators) ────────────────────── */
+    @keyframes accent-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(102, 51, 153, 0.3); }
+      50%      { box-shadow: 0 0 0 4px rgba(102, 51, 153, 0); }
+    }
+
+    .accent-pulse {
+      animation: accent-pulse 2s ease-in-out infinite;
+    }
+
+    /* ── Card hover lift (light) ───────────────────────────── */
+    .card-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    /* ── Checkout banner slide-in ────────────────────────── */
+    @keyframes checkoutSlideIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Smooth global transitions ─────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     }
   </style>
   <script type="importmap">
@@ -123,7 +302,11 @@
 </script>
 </head>
 
-<body class="bg-void text-stark antialiased no-bounce">
+<body class="bg-cream text-ink antialiased no-bounce">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MMSRZCKR" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
