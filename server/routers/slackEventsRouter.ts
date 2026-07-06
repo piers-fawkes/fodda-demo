@@ -20,8 +20,11 @@ const router = Router();
 const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || '';
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
 
-// Channel where we listen for content gap requests
-const RESEARCH_CHANNEL_ID = 'C0AU0403M3M'; // #fodda-research
+// Channel where we listen for content gap requests.
+// Default is #fodda-research (same channel the CE watchdog posts to).
+// Override via env if the channel is ever recreated — a stale hardcoded ID
+// silently drops every incoming event.
+const RESEARCH_CHANNEL_ID = process.env.SLACK_RESEARCH_CHANNEL_ID || 'C06QWNN67DB'; // #fodda-research
 
 // Keywords / phrases that indicate a content gap request
 const GAP_TRIGGERS = [
@@ -89,22 +92,33 @@ function isContentGapRequest(text: string): boolean {
  * Post a reply to a Slack channel (optionally in a thread).
  */
 async function postReply(channel: string, text: string, threadTs?: string): Promise<void> {
-  if (!SLACK_BOT_TOKEN) return;
+  if (!SLACK_BOT_TOKEN) {
+    console.warn('[SlackEvents] SLACK_BOT_TOKEN not set — cannot post reply');
+    return;
+  }
 
-  await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      channel,
-      text,
-      thread_ts: threadTs,
-      unfurl_links: false,
-      unfurl_media: false,
-    }),
-  });
+  try {
+    const res = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel,
+        text,
+        thread_ts: threadTs,
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    });
+    const data = await res.json() as any;
+    if (!data.ok) {
+      console.error(`[SlackEvents] chat.postMessage failed (${channel}):`, data.error);
+    }
+  } catch (err: any) {
+    console.error(`[SlackEvents] chat.postMessage error (${channel}):`, err.message);
+  }
 }
 
 // Track processed event IDs to avoid duplicate handling (Slack retries)
@@ -160,11 +174,19 @@ router.post('/', async (req, res) => {
   const text = event.text || '';
   const channel = event.channel || '';
 
-  // Only process messages in #fodda-research
-  if (channel !== RESEARCH_CHANNEL_ID) return;
-
   // Check for content gap request
   if (!isContentGapRequest(text)) return;
+
+  // Only process messages in #fodda-research. A trigger phrase from another
+  // channel is logged so a stale/misconfigured channel ID is visible in logs
+  // instead of silently dropping every event.
+  if (channel !== RESEARCH_CHANNEL_ID) {
+    console.warn(
+      `[SlackEvents] Gap trigger received from channel ${channel} but listener is bound to ${RESEARCH_CHANNEL_ID} — ignoring. ` +
+      `If this is #fodda-research, set SLACK_RESEARCH_CHANNEL_ID=${channel}.`
+    );
+    return;
+  }
 
   console.log(`[SlackEvents] Content gap request detected from ${event.user}: "${text}"`);
 
