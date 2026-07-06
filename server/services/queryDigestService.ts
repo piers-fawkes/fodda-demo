@@ -11,6 +11,7 @@
 import { queryAirtable, createAirtableRecord, LOGS_TABLE_QUESTIONS } from '../db.js';
 import { CONTENT_SUGGESTIONS_TABLE } from '../constants.js';
 import { sendDirectEmail } from './emailService.js';
+import { SLACK_CHANNELS, SLACK_BOT_USERS } from '../slackChannels.js';
 
 interface DigestMetrics {
   totalQueries: number;
@@ -409,6 +410,9 @@ export async function generateAndSendDigest(days: number = 7): Promise<{ ok: boo
     const records = await fetchRecentQueries(days);
     if (records.length === 0) {
       console.log('[QueryDigest] No queries found — skipping digest');
+      await postHeartbeat(
+        `🫀 Weekly digest (last ${days} days): no queries logged — digest skipped. If users have been active, check query logging.`
+      );
       return { ok: true, metrics: undefined };
     }
 
@@ -439,19 +443,26 @@ export async function generateAndSendDigest(days: number = 7): Promise<{ ok: boo
 
     console.log(`[QueryDigest] Digest ${sent ? 'sent' : 'failed to send'} (${metrics.totalQueries} queries, ${metrics.topMissQueries.length} misses, ${contentSuggestions.length} content suggestions)`);
 
-    // 9. Post content gap report to Slack #fodda-research (piggybacks on digest scheduler)
-    const hasGaps = metrics.topMissQueries.length > 0 || metrics.topWeakQueries.length > 0 || metrics.graphBounces.length > 0;
+    // 9. Post content gap report to Slack #fodda-research (piggybacks on digest scheduler).
+    //    Heartbeat always posts, even when clean, so silence = broken pipeline.
+    const gapCount = metrics.topMissQueries.length + metrics.topWeakQueries.length;
+    const bounceCount = metrics.graphBounces.length;
+    const hasGaps = gapCount > 0 || bounceCount > 0;
+    await postHeartbeat(
+      hasGaps
+        ? `🫀 Weekly digest (${metrics.periodStart} → ${metrics.periodEnd}): ${metrics.totalQueries} queries — ${gapCount} gap${gapCount !== 1 ? 's' : ''}, ${bounceCount} graph bounce${bounceCount !== 1 ? 's' : ''}. Digest ${sent ? 'emailed to piers@psfk.com' : 'email FAILED — check email service'}. Alerts follow.`
+        : `✅ Weekly digest (${metrics.periodStart} → ${metrics.periodEnd}): ${metrics.totalQueries} queries — no gaps, no bounces. Digest ${sent ? 'emailed to piers@psfk.com' : 'email FAILED — check email service'}.`
+    );
     let slackPosted = false;
     if (hasGaps) {
       slackPosted = await postContentGapToSlack(metrics);
       console.log(`[QueryDigest] Content gap Slack report ${slackPosted ? 'posted' : 'skipped/failed'}`);
-    } else {
-      console.log('[QueryDigest] No content gaps detected — skipping Slack report');
     }
 
     return { ok: true, metrics };
   } catch (err: any) {
     console.error('[QueryDigest] Fatal error:', err);
+    await postHeartbeat(`❌ Weekly digest failed: ${err.message}`).catch(() => {});
     return { ok: false, error: err.message };
   }
 }
@@ -584,8 +595,8 @@ async function persistContentSuggestions(suggestions: ContentSuggestion[], weekO
 // ---------------------------------------------------------------------------
 
 // Bot user IDs for @mentions
-const RESEARCH_BOT_USER_ID = 'U0AU9TBTNBY'; // Fodda Research bot
-const SALES_BOT_USER_ID = 'U0AU49JG7AS';    // Fodda Sales bot
+const RESEARCH_BOT_USER_ID = SLACK_BOT_USERS.research;
+const SALES_BOT_USER_ID = SLACK_BOT_USERS.sales;
 
 /**
  * Post a single message to a Slack channel.
@@ -610,6 +621,22 @@ async function postSlackMessage(token: string, channel: string, text: string): P
     console.error(`[ContentGap] Slack post failed (${channel}):`, err.message);
     return false;
   }
+}
+
+/**
+ * Post a heartbeat/status line to #fodda-research.
+ *
+ * Dead-man's switch: scheduled runs ALWAYS post this, even when the scan is
+ * clean or fails, so silence in the channel unambiguously means the pipeline
+ * is broken (dead cron, bad token, stale config) — not "no gaps this week".
+ */
+async function postHeartbeat(text: string): Promise<boolean> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) {
+    console.warn('[ContentGap] SLACK_BOT_TOKEN not set — skipping heartbeat');
+    return false;
+  }
+  return postSlackMessage(token, SLACK_CHANNELS.research.name, text);
 }
 
 /**
@@ -647,7 +674,7 @@ async function postContentGapToSlack(metrics: DigestMetrics): Promise<boolean> {
       `→ This topic needs coverage.`,
     ].filter(Boolean).join('\n');
 
-    const ok = await postSlackMessage(token, 'fodda-research', text);
+    const ok = await postSlackMessage(token, SLACK_CHANNELS.research.name, text);
     ok ? posted++ : failed++;
   }
 
@@ -661,7 +688,7 @@ async function postContentGapToSlack(metrics: DigestMetrics): Promise<boolean> {
       `→ This topic has thin coverage and needs strengthening.`,
     ].join('\n');
 
-    const ok = await postSlackMessage(token, 'fodda-research', text);
+    const ok = await postSlackMessage(token, SLACK_CHANNELS.research.name, text);
     ok ? posted++ : failed++;
   }
 
@@ -676,7 +703,7 @@ async function postContentGapToSlack(metrics: DigestMetrics): Promise<boolean> {
       `→ This user is searching hard for something fragmented across graphs. Consider outreach.`,
     ].join('\n');
 
-    const ok = await postSlackMessage(token, 'fodda-sales', text);
+    const ok = await postSlackMessage(token, SLACK_CHANNELS.sales.name, text);
     ok ? posted++ : failed++;
   }
 
@@ -691,29 +718,49 @@ async function postContentGapToSlack(metrics: DigestMetrics): Promise<boolean> {
  * @param days — lookback window (default 7)
  */
 export async function runContentGapSlackReport(
-  days: number = 7
+  days: number = 7,
+  opts: { heartbeat?: boolean } = {}
 ): Promise<{ ok: boolean; gaps: number; bounces: number; slackPosted: boolean; error?: string }> {
+  const heartbeat = opts.heartbeat !== false;
   try {
     console.log(`[ContentGap] Starting content gap analysis for last ${days} days...`);
 
     const records = await fetchRecentQueries(days);
     if (records.length === 0) {
-      console.log('[ContentGap] No queries found — skipping report');
+      console.log('[ContentGap] No queries found — nothing to analyze');
+      if (heartbeat) {
+        await postHeartbeat(
+          `🫀 Content gap scan (last ${days} days): no queries logged — nothing to analyze. If users have been active, check query logging.`
+        );
+      }
       return { ok: true, gaps: 0, bounces: 0, slackPosted: false };
     }
 
     const metrics = computeMetrics(records);
+    const gapCount = metrics.topMissQueries.length + metrics.topWeakQueries.length;
+    const bounceCount = metrics.graphBounces.length;
+
+    if (heartbeat) {
+      await postHeartbeat(
+        gapCount === 0 && bounceCount === 0
+          ? `✅ Content gap scan (last ${days} days): ${metrics.totalQueries} queries analyzed — no gaps, no bounces. All clear.`
+          : `🫀 Content gap scan (last ${days} days): ${metrics.totalQueries} queries analyzed — ${gapCount} gap${gapCount !== 1 ? 's' : ''}, ${bounceCount} graph bounce${bounceCount !== 1 ? 's' : ''}. Alerts follow.`
+      );
+    }
+
     const slackPosted = await postContentGapToSlack(metrics);
 
-    const gapCount = metrics.topMissQueries.length + metrics.topWeakQueries.length;
     console.log(
       `[ContentGap] Report complete: ${gapCount} gap queries, ` +
-      `${metrics.graphBounces.length} graph bounces, Slack=${slackPosted}`
+      `${bounceCount} graph bounces, Slack=${slackPosted}`
     );
 
-    return { ok: true, gaps: gapCount, bounces: metrics.graphBounces.length, slackPosted };
+    return { ok: true, gaps: gapCount, bounces: bounceCount, slackPosted };
   } catch (err: any) {
     console.error('[ContentGap] Fatal error:', err);
+    if (heartbeat) {
+      await postHeartbeat(`❌ Content gap scan failed: ${err.message}`).catch(() => {});
+    }
     return { ok: false, gaps: 0, bounces: 0, slackPosted: false, error: err.message };
   }
 }

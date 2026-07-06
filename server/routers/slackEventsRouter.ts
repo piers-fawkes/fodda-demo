@@ -14,17 +14,17 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { runContentGapSlackReport } from '../services/queryDigestService.js';
+import { SLACK_CHANNELS } from '../slackChannels.js';
 
 const router = Router();
 
 const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || '';
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
 
-// Channel where we listen for content gap requests.
-// Default is #fodda-research (same channel the CE watchdog posts to).
-// Override via env if the channel is ever recreated — a stale hardcoded ID
-// silently drops every incoming event.
-const RESEARCH_CHANNEL_ID = process.env.SLACK_RESEARCH_CHANNEL_ID || 'C06QWNN67DB'; // #fodda-research
+// Channel where we listen for content gap requests (#fodda-research).
+// Incoming events are matched by ID; see slackChannels.ts for the registry
+// and env overrides.
+const RESEARCH_CHANNEL_ID = SLACK_CHANNELS.research.id;
 
 // Keywords / phrases that indicate a content gap request
 const GAP_TRIGGERS = [
@@ -201,9 +201,10 @@ router.post('/', async (req, res) => {
     event.ts
   );
 
-  // Trigger the analysis
+  // Trigger the analysis. Heartbeat off — this interactive path already
+  // reports its outcome in-thread; heartbeats are for the scheduled runs.
   try {
-    const result = await runContentGapSlackReport(days);
+    const result = await runContentGapSlackReport(days, { heartbeat: false });
 
     if (result.gaps === 0 && result.bounces === 0) {
       await postReply(
