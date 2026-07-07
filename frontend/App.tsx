@@ -832,28 +832,39 @@ const App: React.FC = () => {
     }
   }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId, inferBaselineQuestion]);
 
-  // ─── Auto-submit prefilled question when expert is loaded ───
+  // ─── Auto-submit prefilled question when chat is ready ───
   useEffect(() => {
-    if (!isUnlocked || !prefilledQuestion || activeView !== 'expert-chat') return;
-    if (!initialExpertSlug) return;
-    // Check if the current vertical matches the target expert (by slug or id)
+    if (!isUnlocked || !prefilledQuestion) return;
+    if (activeView !== 'expert-chat' && activeView !== 'sandbox') return;
+
     const currentId = (currentVertical || '').toLowerCase();
-    const targetSlug = initialExpertSlug.toLowerCase();
-    // The expert may be matched by expert_slug or graph id — accept either
-    const expertLoaded = graphCatalog.some(g =>
-      g.id.toLowerCase() === currentId &&
-      g.graph_type === 'expert' &&
-      (g.expert_slug?.toLowerCase() === targetSlug || g.id.toLowerCase() === targetSlug)
-    );
-    if (!expertLoaded) return;
-    console.log(`[App] Auto-submitting prefilled question for expert ${initialExpertSlug}: "${prefilledQuestion}"`);
-    // Delay slightly to ensure the chat interface is mounted
+
+    // For expert-chat, wait for the right expert to be loaded
+    if (activeView === 'expert-chat') {
+       if (!initialExpertSlug) return;
+       const targetSlug = initialExpertSlug.toLowerCase();
+       const expertLoaded = graphCatalog.some(g =>
+         g.id.toLowerCase() === currentId &&
+         g.graph_type === 'expert' &&
+         (g.expert_slug?.toLowerCase() === targetSlug || g.id.toLowerCase() === targetSlug)
+       );
+       if (!expertLoaded) return;
+    }
+
+    // For sandbox, wait for the specific referral graph if one was requested
+    if (activeView === 'sandbox' && initialReferralGraph) {
+       const targetGraph = initialReferralGraph.toLowerCase();
+       if (currentId !== targetGraph) return;
+    }
+
+    console.log(`[App] Auto-submitting prefilled question: "${prefilledQuestion}"`);
+    // Delay slightly to ensure the chat interface is mounted and state is stable
     const timer = setTimeout(() => {
       handleSendMessage(prefilledQuestion);
       setPrefilledQuestion(null);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isUnlocked, prefilledQuestion, activeView, initialExpertSlug, currentVertical, graphCatalog, handleSendMessage]);
+  }, [isUnlocked, prefilledQuestion, activeView, initialExpertSlug, initialReferralGraph, currentVertical, graphCatalog, handleSendMessage]);
 
   const handleVerticalChange = (newVertical: string) => {
     const v = newVertical as Vertical;
