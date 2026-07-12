@@ -1,9 +1,11 @@
 
+import 'dotenv/config';
 import neo4j from "neo4j-driver";
 
-const NEO4J_URI = "neo4j+s://337edc3e.databases.neo4j.io";
-const NEO4J_USER = "neo4j";
-const NEO4J_PASSWORD = "y2Fp1PU1QeuiYrwLPHjjOpebpAbvST6Z9hPwUG9CWHU";
+const NEO4J_URI = process.env.NEO4J_URI ?? "neo4j+s://337edc3e.databases.neo4j.io";
+const NEO4J_USER = process.env.NEO4J_USER ?? "neo4j";
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD;
+if (!NEO4J_PASSWORD) throw new Error("NEO4J_PASSWORD is not set — add it to .env");
 
 async function run() {
   // Test WITH vs WITHOUT disableLosslessIntegers

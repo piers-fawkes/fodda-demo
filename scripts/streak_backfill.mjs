@@ -6,7 +6,7 @@
  * Run: node scripts/streak_backfill.mjs
  */
 
-const AIRTABLE_PAT = 'pat_REDACTED';
+const AIRTABLE_PAT = (process.env.AIRTABLE_PAT || "");
 const BASE_ID = 'appXUeeWN1uD9NdCW';
 const USERS_TABLE = 'tblGWh6XpdEZxw8AE';
 const STREAK_API_KEY = 'dea2e581262d41b3a6c2803657540bc1';
