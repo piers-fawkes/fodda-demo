@@ -164,7 +164,10 @@ router.get("/graph-catalog", async (req, res) => {
 
 /**
  * GET /api/graph-trials
- * Admin endpoint: Returns trial API keys and MCP URLs for all graphs.
+ * Admin endpoint: Returns graph-owner trial records with each owner's canonical
+ * MCP connection URL (token scheme). Legacy sk_trial_ keys are retired and no
+ * longer authenticate, so mcp_url is built from the owner's provisioned account
+ * via buildMcpConnection, or null (mcp_status != 'active') if they have none.
  * Gated by X-Cron-Secret / X-Admin-Secret header or Authorization: Bearer token.
  */
 router.get("/graph-trials", async (req, res) => {
@@ -183,31 +186,76 @@ router.get("/graph-trials", async (req, res) => {
     }
 
     const { TRIALS_TABLE } = await import('../constants.js');
+    const { buildMcpConnection } = await import('../services/mcpConnectionService.js');
     const trialsResult = await queryAirtable(
       TRIALS_TABLE,
       `OR({status} = 'active', {status} = 'exhausted')`
     );
 
-    const trials: Record<string, any> = {};
-    for (const rec of (trialsResult.records || [])) {
+    const records = (trialsResult.records || []).filter((rec: any) => {
       const f = rec.fields;
       const graphId = f.graph_id || f.graphId || '';
       const trialKey = f.trial_key || f.trialKey || '';
-      if (!graphId || !trialKey) continue;
+      return graphId && trialKey;
+    });
+
+    // Legacy sk_trial_ keys are retired: they're blocked globally at the API gate
+    // (see index.ts → handleLegacyTrialKey), so the old
+    // `mcp.fodda.ai/mcp?api_key=sk_trial_...` URLs are dead on arrival. Advertise
+    // the owner's canonical /c/<token> connection instead, built from their
+    // provisioned account. Many trials share an owner, so dedupe the lookups.
+    const connectionCache = new Map<string, ReturnType<typeof buildMcpConnection>>();
+    const getConnection = (email: string) => {
+      const key = email.toLowerCase().trim();
+      if (!connectionCache.has(key)) connectionCache.set(key, buildMcpConnection(key));
+      return connectionCache.get(key)!;
+    };
+
+    const trials: Record<string, any> = {};
+    await Promise.all(records.map(async (rec: any) => {
+      const f = rec.fields;
+      const graphId = f.graph_id || f.graphId || '';
+      const trialKey = f.trial_key || f.trialKey || '';
+      const ownerEmail = (f.owner_id || f.ownerId || '').toString();
 
       const tokensTotal = Number(f.tokens_total || f.tokensTotal || 50);
       const tokensUsed = Number(f.tokens_used || f.tokensUsed || 0);
 
+      let mcpUrl: string | null = null;
+      let connectUrl: string | null = null;
+      let mcpStatus: string;
+      if (!ownerEmail.includes('@')) {
+        mcpStatus = 'no_owner_email';
+      } else {
+        try {
+          const connection = await getConnection(ownerEmail);
+          if (connection.hasActiveKey && connection.mcpUrl) {
+            mcpUrl = connection.mcpUrl;
+            connectUrl = connection.claudeConnectorUrl;
+            mcpStatus = 'active';
+          } else {
+            mcpStatus = 'no_account';
+          }
+        } catch (connErr: any) {
+          console.warn(`[Graph Trials] Connection build failed for ${ownerEmail}:`, connErr.message);
+          mcpStatus = 'error';
+        }
+      }
+
       trials[graphId] = {
-        trial_key: trialKey,
-        mcp_url: `https://mcp.fodda.ai/mcp?api_key=${encodeURIComponent(trialKey)}`,
-        api_header: `X-API-Key: ${trialKey}`,
+        // Retained for reference/migration only — sk_trial_ keys no longer authenticate.
+        legacy_trial_key: trialKey,
+        // Owner's canonical MCP connection (token scheme), or null if unprovisioned.
+        mcp_url: mcpUrl,
+        connect_url: connectUrl,
+        mcp_status: mcpStatus,
+        signup_url: 'https://app.fodda.ai',
         status: f.status || 'active',
         credits_remaining: Math.max(0, tokensTotal - tokensUsed),
         credits_total: tokensTotal,
-        owner_email: f.owner_id || f.ownerId || '',
+        owner_email: ownerEmail,
       };
-    }
+    }));
 
     res.json({ ok: true, trials });
   } catch (err: any) {
