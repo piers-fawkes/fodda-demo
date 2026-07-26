@@ -8,6 +8,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Changed
 - **In-App Plan Filtering** (`frontend/components/UpgradeModal.tsx`, `frontend/components/BillingPage.tsx`): Updated in-app plan list filtering from `p.planCode !== 7` to `p.billingMode === 'subscription'`. Prevents non-subscription plans (such as planCode 14, Agent Pay-Per-Query) from appearing in the in-app Upgrade Modal and Billing Page table while preserving public `/pricing` rendering.
 
+### Deployed
+- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00455-88b` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Health check returned HTTP 200 OK.
+
 ## [2026-07-24] — Canonical MCP Connection-URL Maker
 
 ### Added
