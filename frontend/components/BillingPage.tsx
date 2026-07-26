@@ -46,7 +46,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
       .then(res => {
         if (res.ok) {
           const sorted = res.plans
-            .filter((p: Plan) => p.planCode !== 7)
+            .filter((p: Plan) => p.billingMode === 'subscription')
             .sort((a: Plan, b: Plan) => (a.planCode || 0) - (b.planCode || 0));
           setPlans(sorted);
         }

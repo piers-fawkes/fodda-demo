@@ -66,6 +66,16 @@ export function AdminPortal({ onBack, userId }: AdminPortalProps) {
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<{ ok: boolean; user?: any; account?: any; plan?: any; apiKey?: string | null; error?: string } | null>(null);
+  const [lookupMcpConn, setLookupMcpConn] = useState<any>(null);
+  const [trialMcpConn, setTrialMcpConn] = useState<any>(null);
+
+  useEffect(() => {
+    if (lookupResult?.user?.email) {
+      dataService.getMcpConnection(lookupResult.user.email, password).then(conn => setLookupMcpConn(conn)).catch(() => {});
+    } else {
+      setLookupMcpConn(null);
+    }
+  }, [lookupResult?.user?.email, password]);
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedMcpUrl, setCopiedMcpUrl] = useState(false);
   const [copiedApiKey, setCopiedApiKey] = useState(false);
@@ -623,12 +633,12 @@ Founder, Fodda`.trim();
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-[#fdfcf2] border border-[#e8e6d9] rounded-xl px-5 py-3.5 shadow-inner">
                             <p className="text-[11px] font-mono text-[#1a1a1a] break-all">
-                              https://mcp.fodda.ai/mcp?api_key={showApiKey ? lookupResult.apiKey : '••••••'}&user_id={encodeURIComponent(lookupResult.user.email)}
+                              {lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${showApiKey ? lookupResult.apiKey : '••••••'}&user_id=${encodeURIComponent(lookupResult.user.email)}`}
                             </p>
                           </div>
                           <button
                             onClick={async () => {
-                              const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`;
+                              const mcpUrl = lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`;
                               await navigator.clipboard.writeText(mcpUrl);
                               setCopiedMcpUrl(true);
                               setTimeout(() => setCopiedMcpUrl(false), 2000);
@@ -654,12 +664,12 @@ Founder, Fodda`.trim();
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-[#fdfcf2] border border-[#e8e6d9] rounded-xl px-5 py-3.5 shadow-inner">
                             <p className="text-[11px] font-mono text-[#1a1a1a] break-all">
-                              {`https://claude.ai/integrations/mcp?url=${encodeURIComponent(`https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`}
+                              {lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`}
                             </p>
                           </div>
                           <button
                             onClick={async () => {
-                              const claudeUrl = `https://claude.ai/integrations/mcp?url=${encodeURIComponent(`https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`;
+                              const claudeUrl = lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(`https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`;
                               await navigator.clipboard.writeText(claudeUrl);
                               setCopiedMcpUrl(true);
                               setTimeout(() => setCopiedMcpUrl(false), 2000);
@@ -839,11 +849,15 @@ Founder, Fodda`.trim();
                 </div>
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!trialEmail.trim() || !trialKey.trim()) return;
                     setTrialGenerated(true);
                     setCopiedTrialMcp(false);
                     setCopiedTrialClaude(false);
+                    try {
+                      const conn = await dataService.getMcpConnection(trialEmail.trim(), password);
+                      setTrialMcpConn(conn);
+                    } catch (e) {}
                   }}
                   disabled={!trialEmail.trim() || !trialKey.trim()}
                   className="w-full py-4 bg-[#1a1a1a] text-white rounded-2xl font-bold uppercase tracking-[0.15em] text-[9px] hover:bg-black transition-all shadow-xl shadow-black/10 disabled:opacity-40"
@@ -852,8 +866,8 @@ Founder, Fodda`.trim();
                 </button>
 
                 {trialGenerated && trialEmail.trim() && trialKey.trim() && (() => {
-                  const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${encodeURIComponent(trialKey.trim())}&user_id=${encodeURIComponent(trialEmail.trim())}`;
-                  const claudeUrl = `https://claude.ai/integrations/mcp?url=${encodeURIComponent(mcpUrl)}`;
+                  const mcpUrl = trialMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${encodeURIComponent(trialKey.trim())}&user_id=${encodeURIComponent(trialEmail.trim())}`;
+                  const claudeUrl = trialMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpUrl)}`;
                   return (
                     <div className="space-y-6 pt-4 border-t border-[#f3f1e8] animate-fade-in-up">
                       {/* MCP URL */}

@@ -159,9 +159,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, cur
                                 <div className="eyebrow text-right pr-12">Price</div>
                             </div>
 
-                            {/* Plan Rows — filter out top-up plan (planCode 7) since it has its own card */}
+                            {/* Plan Rows — filter for subscription plans only (excludes top-up and non-subscription plans) */}
                             <div className="space-y-4">
-                                {plans.filter(p => p.planCode !== 7).map(plan => {
+                                {plans.filter(p => p.billingMode === 'subscription').map(plan => {
                                     const isCurrent = plan.isCurrent;
                                     const isRecommended = plan.isRecommended;
                                     const isLavaPayg = plan.planCode === 8 || plan.name.toLowerCase().includes('lava') || plan.name.toLowerCase().includes('pay as you go') || plan.name.toLowerCase().includes('payg');

@@ -30,25 +30,58 @@ import {
   createOverageSubscription,
   generateSetupUrl,
 } from "../services/stripeOverageService.js";
+import { buildMcpConnection, getActiveKeysForAccount } from "../services/mcpConnectionService.js";
 
 const router = Router();
 
-/**
- * Helper to fetch active API keys for a given account ID.
- * Since the Account field in the API Keys table is a linked record,
- * comparing {Account} = 'rec...' in Airtable formulas evaluates by Account Name rather than record ID.
- * We resolve this by first retrieving the Account Name and then querying by that name.
- */
-async function getActiveKeysForAccount(accountId: string) {
-  const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
-  const accountName = accountQuery.records?.[0]?.fields?.['Account Name'];
-  if (!accountName) return { records: [] };
-
-  const { API_KEYS_TABLE } = await import('../constants.js');
-  return await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountName)}', {API Key Status} = 'Active')`);
-}
-
 // --- Account & Profile Endpoints ---
+
+/**
+ * Public/Internal endpoint for resolving the canonical MCP connection URL.
+ * Authz rules:
+ * - Internal key present (x-fodda-internal-key header or adminSecret body) -> allow arbitrary email in body.
+ * - Authed Admin/Owner session -> allow arbitrary email in body.
+ * - Authed Regular user session -> strictly override target email to session user's email.
+ * - Unauthenticated -> 401 Unauthorized.
+ */
+router.post('/mcp-connection', async (req, res) => {
+  try {
+    const { email: bodyEmail, adminSecret } = req.body || {};
+    const internalKey = process.env.FODDA_INTERNAL_API_KEY;
+    const headerKey = req.headers['x-fodda-internal-key'];
+
+    const isInternal = (adminSecret && adminSecret === internalKey) ||
+                       (headerKey && headerKey === internalKey);
+
+    let targetEmail = bodyEmail;
+
+    if (!isInternal) {
+      const user = await authenticateSession(req);
+      if (!user) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+
+      const isAdmin = user.role === 'Owner' || user.role === 'Admin';
+      if (!isAdmin) {
+        // Regular user: strictly enforce their own email
+        targetEmail = user.email;
+      } else {
+        // Admin/Owner: fallback to session email if no body email provided
+        targetEmail = targetEmail || user.email;
+      }
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({ ok: false, error: 'Email is required' });
+    }
+
+    const connection = await buildMcpConnection(targetEmail);
+    return res.json(connection);
+  } catch (err: any) {
+    console.error('[mcp-connection] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 router.post("/invite", async (req, res) => {
   try {
@@ -1448,12 +1481,15 @@ router.post("/partner-invite", async (req, res) => {
     // Set account owner
     await updateAirtableRecord(ACCOUNTS_TABLE, accountId, { "Account Owner": [userId] });
 
+    // Build canonical MCP connection
+    const connection = await buildMcpConnection(normalizedEmail);
+
     // Send the welcome email — use custom body if provided, otherwise use the template
     if (emailBody) {
       // Inject the real API key and MCP URL into the custom email body
       let finalBody = emailBody
         .replace(/\[will be generated and included below after account creation\]/g, apiKeyString)
-        .replace(/will be sent separately with your API key/g, `Standard (Claude Web): https://mcp.fodda.ai/mcp?api_key=${apiKeyString}\nSSE (Cursor/Desktop): https://mcp.fodda.ai/sse?api_key=${apiKeyString}`);
+        .replace(/will be sent separately with your API key/g, `Standard (Claude Web): ${connection.mcpUrl}\nSSE (Cursor/Desktop): ${connection.sseUrl}`);
 
       // Send via Resend (formal) — falls back to Gmail if Resend isn't configured
       sendDirectEmail(normalizedEmail, "Your Fodda Studio Beta access is ready", finalBody, 'formal')
@@ -1465,6 +1501,9 @@ router.post("/partner-invite", async (req, res) => {
         name: displayName,
         email: normalizedEmail,
         apiKey: apiKeyString,
+        mcpUrl: connection.mcpUrl,
+        sseUrl: connection.sseUrl,
+        claudeConnectorUrl: connection.claudeConnectorUrl,
         stripeLink: 'https://buy.stripe.com/cNi28qbhT2l7gmY9c76g80b',
         companyName: accountName,
       }).catch(e => console.error("[Partner-Invite] Template email failed:", e));
@@ -2013,9 +2052,19 @@ router.post('/trial-provision', async (req, res) => {
               `AND({Account} = '${escapeAirtableString(existingAccountName)}', {API Key Status} = 'Pending')`);
             if (pendingKeys.records?.[0]) {
               apiKey = pendingKeys.records[0].fields['API Key'];
-              const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
-              const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
-              return res.json({ ok: true, apiKey, mcpUrl, claudeUrl, alreadyExists: true, pendingConfirmation: true, intent });
+              const connection = await buildMcpConnection(normalizedEmail);
+              return res.json({
+                ok: true,
+                apiKey,
+                mcpUrl: connection.mcpUrl,
+                sseUrl: connection.sseUrl,
+                claudeConnectorUrl: connection.claudeConnectorUrl,
+                claudeUrl: connection.claudeConnectorUrl,
+                token: connection.token,
+                alreadyExists: true,
+                pendingConfirmation: true,
+                intent
+              });
             }
           }
         }
@@ -2032,9 +2081,17 @@ router.post('/trial-provision', async (req, res) => {
           apiKey = apiKeyString;
           console.log(`[Trial-Provision] Generated new API key for existing account ${accountId}: ${apiKey}`);
         }
-        const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
-        const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
-        return res.json({ ok: true, apiKey, mcpUrl, claudeUrl, alreadyExists: true });
+        const connection = await buildMcpConnection(normalizedEmail);
+        return res.json({
+          ok: true,
+          apiKey,
+          mcpUrl: connection.mcpUrl,
+          sseUrl: connection.sseUrl,
+          claudeConnectorUrl: connection.claudeConnectorUrl,
+          claudeUrl: connection.claudeConnectorUrl,
+          token: connection.token,
+          alreadyExists: true
+        });
       }
     }
 
@@ -2118,6 +2175,9 @@ router.post('/trial-provision', async (req, res) => {
     // Link Owner to Account
     await updateAirtableRecord(ACCOUNTS_TABLE, accountId, { "Account Owner": [userId] });
 
+    // Build canonical MCP connection
+    const connection = await buildMcpConnection(normalizedEmail);
+
     // 7. Send Welcome email (SIGNUP_CONFIRMATION with intent: 'trial')
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
@@ -2126,7 +2186,10 @@ router.post('/trial-provision', async (req, res) => {
         name: displayName,
         confirmationLink,
         intent: intent || 'trial',
-        apiKey: apiKeyString
+        apiKey: apiKeyString,
+        mcpUrl: connection.mcpUrl,
+        sseUrl: connection.sseUrl,
+        claudeConnectorUrl: connection.claudeConnectorUrl
       }).catch(e => console.error('[Trial-Provision] Welcome email failed:', e));
     }
 
@@ -2134,13 +2197,14 @@ router.post('/trial-provision', async (req, res) => {
     enrichUserBuyerType(normalizedEmail, displayName, lastName || '', company || '', updateAirtableRecord, USERS_TABLE, userId).catch(() => {});
 
     // Return unique urls & key
-    const mcpUrl = `https://mcp.fodda.ai/mcp?api_key=${apiKeyString}`;
-    const claudeUrl = `https://claude.ai/settings/connectors?modal=add-custom-connector`;
     res.json({
       ok: true,
       apiKey: apiKeyString,
-      mcpUrl,
-      claudeUrl,
+      mcpUrl: connection.mcpUrl,
+      sseUrl: connection.sseUrl,
+      claudeConnectorUrl: connection.claudeConnectorUrl,
+      claudeUrl: connection.claudeConnectorUrl,
+      token: connection.token,
       ...(isWebsiteSignup ? { pendingConfirmation: true, intent } : {})
     });
 

@@ -27,6 +27,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [mcpCopied, setMcpCopied] = useState(false);
+  const [sseCopied, setSseCopied] = useState(false);
+  const [mcpConn, setMcpConn] = useState<any>(null);
+
+  useEffect(() => {
+    if (user?.email) {
+      dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+    }
+  }, [user?.email]);
 
   // Account team members (for Owner/Admin display)
   const [accountUsers, setAccountUsers] = useState<any[]>([]);
@@ -141,15 +149,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
   const usagePercent = maxQueries > 0 ? Math.min(100, (currentQueries / maxQueries) * 100) : 0;
 
   // MCP URL
-  const mcpFullUrl = `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+  const mcpFullUrl = mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+  const sseFullUrl = mcpConn?.sseUrl || `https://mcp.fodda.ai/sse?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
   // Show only the base with ellipsis for the masked version
-  const mcpMaskedUrl = `https://mcp.fodda.ai/mcp?api_key=${'•'.repeat(8)}…`;
+  const mcpMaskedUrl = mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token.slice(0, 6)}…` : `https://mcp.fodda.ai/mcp?api_key=${'•'.repeat(8)}…`;
 
   const copyMcpUrl = () => {
     navigator.clipboard.writeText(mcpFullUrl);
     setMcpCopied(true);
     setToast({ msg: 'MCP Server URL copied to clipboard', type: 'success' });
     setTimeout(() => { setMcpCopied(false); setToast(null); }, 2500);
+  };
+
+  const copySseUrl = () => {
+    navigator.clipboard.writeText(sseFullUrl);
+    setSseCopied(true);
+    setToast({ msg: 'SSE MCP URL copied to clipboard', type: 'success' });
+    setTimeout(() => { setSseCopied(false); setToast(null); }, 2500);
   };
 
   // Initials for avatar — prefer full name over handle
@@ -320,6 +336,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                     Copy URL
                   </>
                 )}
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-[10px] text-ink-3">
+              <span>SSE URL (Cursor/Desktop): <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">{sseFullUrl.slice(0, 45)}…</code></span>
+              <button onClick={copySseUrl} className="text-brand hover:underline font-bold ml-2">
+                {sseCopied ? '✓ Copied' : 'Copy SSE'}
               </button>
             </div>
           </div>

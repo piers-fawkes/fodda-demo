@@ -21,6 +21,18 @@ export interface UserLog {
   timestamp: string;
 }
 
+export interface McpConnection {
+  ok: boolean;
+  hasActiveKey: boolean;
+  alreadyExists: boolean;
+  mcpUrl: string | null;
+  sseUrl: string | null;
+  claudeConnectorUrl: string | null;
+  token: string | null;
+  message?: string;
+  error?: string;
+}
+
 export interface TrackingInfo {
   userId?: string;
   apiKey?: string;
@@ -779,6 +791,25 @@ class DataService {
     } catch (e: any) {
       console.error("[DataService] Convert to base failed:", e);
       return { ok: false, error: e.message };
+    }
+  }
+
+  async getMcpConnection(email?: string, adminSecret?: string): Promise<McpConnection> {
+    try {
+      const res = await postJson<McpConnection>("/api/account/mcp-connection", { email, adminSecret });
+      return res;
+    } catch (e: any) {
+      console.error("[DataService] getMcpConnection failed:", e);
+      return {
+        ok: false,
+        hasActiveKey: false,
+        alreadyExists: false,
+        mcpUrl: null,
+        sseUrl: null,
+        claudeConnectorUrl: null,
+        token: null,
+        error: e.message
+      };
     }
   }
 

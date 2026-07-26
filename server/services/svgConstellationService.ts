@@ -48,6 +48,7 @@ async function callMcpVisualTool(input: ConstellationInput): Promise<string | nu
   let mcpClient: Client | null = null;
 
   try {
+    // Internal service-to-service call for SVG generation; intentionally legacy URL format
     const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(MCP_INTERNAL_KEY)}&user_id=system-svg-gen`;
 
     mcpClient = new Client({

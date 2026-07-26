@@ -3,6 +3,27 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-26] — In-App Plan List Filtering Fix
+
+### Changed
+- **In-App Plan Filtering** (`frontend/components/UpgradeModal.tsx`, `frontend/components/BillingPage.tsx`): Updated in-app plan list filtering from `p.planCode !== 7` to `p.billingMode === 'subscription'`. Prevents non-subscription plans (such as planCode 14, Agent Pay-Per-Query) from appearing in the in-app Upgrade Modal and Billing Page table while preserving public `/pricing` rendering.
+
+## [2026-07-24] — Canonical MCP Connection-URL Maker
+
+### Added
+- **Canonical MCP Connection Maker Service** (`server/services/mcpConnectionService.ts`): Single source of truth function `buildMcpConnection(email)` that looks up user records, checks active API keys, enforces a **mint-once** policy for `/c/<token>` URLs in Airtable (`USERS_TABLE`), and returns `mcpUrl` (tokenized streamable-HTTP), `sseUrl` (legacy `/sse?api_key=&user_id=`), and `claudeConnectorUrl`.
+- **Public API Endpoint** (`server/routers/accountRouter.ts`): Exposed `POST /api/account/mcp-connection` with security authorization matrix (internal API key header/secret bypass, admin session lookup capability, and session-only restriction for regular users).
+- **Shared DataService Client Helper** (`shared/dataService.ts`): Added `getMcpConnection(email?, adminSecret?)` to fetch canonical connection info across client surfaces.
+
+### Changed
+- **Trial Provisioning Router** (`server/routers/accountRouter.ts`): Refactored `trial-provision` endpoint to build and return canonical token URLs *after* creating/activating API key records.
+- **System Email Templates** (`server/services/emailTemplates.ts`): Updated `foddaMcpCard` and signup/onboarding templates to render the canonical `/c/<token>` URL for standard HTTP connections and legacy URL for SSE.
+- **Frontend Components** (`ProfilePage.tsx`, `Dashboard.tsx`, `AccountPortal.tsx`, `AdminPortal.tsx`): Updated UI surfaces to fetch and render tokenized MCP URLs for standard connectors, while preserving SSE and corporate/org documentation URLs as legacy.
+- **Internal Service Annotations** (`mcpChatService.ts`, `svgConstellationService.ts`): Added explicit comments documenting internal service-to-service calls that intentionally preserve legacy URL formats.
+
+### Deployed
+- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00454-z6h` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Health check returned HTTP 200 OK.
+
 ## [2026-07-01] — Stop Payment Nudge Emails
 
 ### Changed

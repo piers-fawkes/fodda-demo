@@ -217,6 +217,14 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
         }
     };
 
+    const [mcpConn, setMcpConn] = useState<any>(null);
+
+    useEffect(() => {
+        if (user?.email) {
+            dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+        }
+    }, [user?.email]);
+
     const handleInviteUser = async () => {
         if (!inviteEmail) return;
         setSendingInvite(true);
@@ -514,11 +522,12 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const generateVertexConfig = () => {
+        const url = mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
         return JSON.stringify({
             tools: [{
                 type: 'mcp',
                 name: 'fodda',
-                url: `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`
+                url
             }]
         }, null, 2);
     };
@@ -540,11 +549,11 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const getClaudeConnectorUrl = () => {
-        return `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+        return mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
     };
 
     const getSseConnectorUrl = () => {
-        return `${MCP_SSE_URL}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+        return mcpConn?.sseUrl || `${MCP_SSE_URL}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
     };
 
     const handleCopyClaudeUrl = () => {
@@ -1075,7 +1084,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 currentUserRole={user.role}
                                                 signupCode={account.signupCode}
                                                 accountApiKey={account.apiKey}
-                                                accountMcpUrl={`${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`}
+                                                accountMcpUrl={mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`}
                                                 accountMonthlyQueryLimit={account.monthlyQueryLimit}
                                                 accountCurrentQueryCount={account.currentQueryCount}
                                             />

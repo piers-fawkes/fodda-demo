@@ -100,7 +100,7 @@ export async function mcpChat(
   let mcpClient: Client | null = null;
 
   try {
-    // 1. Connect to MCP server
+    // 1. Connect to MCP server (Internal service-to-service call; intentionally legacy URL format)
     const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(apiKey)}&user_id=${encodeURIComponent(userEmail)}`;
 
     mcpClient = new Client({
@@ -471,6 +471,7 @@ Format your final answer as rich markdown with ## headers for trends.`;
 export async function listMcpTools(apiKey: string, userEmail: string): Promise<any[]> {
   let mcpClient: Client | null = null;
   try {
+    // Internal service-to-service metadata call; intentionally legacy URL format
     const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(apiKey)}&user_id=${encodeURIComponent(userEmail)}`;
     mcpClient = new Client({ name: 'fodda-metadata-fetcher', version: '1.0.0' });
     const transport = new StreamableHTTPClientTransport(new URL(mcpUrl));

@@ -29,6 +29,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }: DashboardProps) => {
     const [stats, setStats] = useState<UserStats | null>(null);
     const [loading, setLoading] = useState(false);
+    const [mcpConn, setMcpConn] = useState<any>(null);
+
+    useEffect(() => {
+        if (user?.email) {
+            dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+        }
+    }, [user?.email]);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -428,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Connector URL</label>
                                             <button
                                                 onClick={() => {
-                                                    const url = `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`;
+                                                    const url = mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`;
                                                     navigator.clipboard.writeText(url);
                                                     alert("MCP URL copied to clipboard");
                                                 }}
@@ -439,14 +446,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </div>
                                         <input
                                             type="text"
-                                            value={`https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`}
+                                            value={mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`}
                                             readOnly
                                             className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[10px] text-ink-3 focus:outline-none font-mono"
                                         />
                                     </div>
                                     <p className="text-[10px] text-ink-4 italic ml-1">No special settings required</p>
                                     <a
-                                        href="https://claude.ai/settings/connectors?modal=add-custom-connector"
+                                        href={mcpConn?.claudeConnectorUrl || "https://claude.ai/settings/connectors?modal=add-custom-connector"}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-[10px] font-bold text-brand hover:text-brand-dark uppercase tracking-widest transition-colors ml-1"

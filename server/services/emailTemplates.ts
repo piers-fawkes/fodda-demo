@@ -194,14 +194,16 @@ function foddaPromptItem(text: string): string {
 /**
  * MCP URL info card (green variant).
  */
-function foddaMcpCard(apiKey: string): string {
+function foddaMcpCard(apiKey: string, mcpUrl?: string, sseUrl?: string): string {
+    const standardUrl = mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${apiKey}`;
+    const desktopSseUrl = sseUrl || `https://mcp.fodda.ai/sse?api_key=${apiKey}`;
     return `<div style="background:${T.greenBg};border:1px solid ${T.greenBorder};border-radius:12px;padding:16px 20px;margin:16px 0;">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:${T.greenDark};margin-bottom:10px;font-family:${T.fontSans};">🔗 Your MCP URLs</div>
     <div style="font-size:13px;color:${T.textDark};font-family:${T.fontSans};line-height:1.8;">
         <strong>Standard (Claude Web/Gemini):</strong><br>
-        <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">https://mcp.fodda.ai/mcp?api_key=${apiKey}</code><br>
+        <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">${standardUrl}</code><br>
         <strong>SSE (Cursor/Windsurf/Desktop):</strong><br>
-        <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">https://mcp.fodda.ai/sse?api_key=${apiKey}</code>
+        <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">${desktopSseUrl}</code>
     </div>
 </div>`;
 }
@@ -226,11 +228,13 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
             if (data?.intent === 'api') return "Your Fodda API key — confirm your email to activate";
             return "Confirm your email to finish signing up for Fodda";
         },
-        body: (data: { confirmationLink: string; intent?: string; apiKey?: string }) => {
+        body: (data: { confirmationLink: string; intent?: string; apiKey?: string; mcpUrl?: string; sseUrl?: string; claudeConnectorUrl?: string }) => {
             if (data.intent === 'trial') {
-                const claudeInstallUrl = data.apiKey 
-                    ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent('https://mcp.fodda.ai/mcp?api_key=' + data.apiKey)}`
-                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector';
+                const stdUrl = data.mcpUrl || (data.apiKey ? `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}` : '');
+                const sseUrl = data.sseUrl || (data.apiKey ? `https://mcp.fodda.ai/sse?api_key=${data.apiKey}` : '');
+                const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl
+                    ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
+                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector');
 
                 return `
 Hi - I'm an automated agent that helps Piers and the Fodda team get people started quicker.
@@ -251,9 +255,9 @@ ${data.confirmationLink}
 ⚡ Add Fodda to Claude in one click:
 ${claudeInstallUrl}
 
-${data.apiKey ? `Your MCP URLs:
-• Standard (Claude Web/Gemini): https://mcp.fodda.ai/mcp?api_key=${data.apiKey}
-• SSE (Cursor/Windsurf/Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey}` : ''}
+${data.apiKey || stdUrl ? `Your MCP URLs:
+• Standard (Claude Web/Gemini): ${stdUrl}
+• SSE (Cursor/Windsurf/Desktop): ${sseUrl}` : ''}
 
 3. Need help getting started? Or the link didn't work? You can reply with your questions and I'll try to help you - or check out our quickstart guide:
 👉 https://app.fodda.ai/Fodda_Quickstart.md
@@ -277,7 +281,7 @@ Please confirm your email address using the link below so you can keep access to
 👉 Confirm my email
 ${data.confirmationLink}
 
-${data.apiKey ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): https://mcp.fodda.ai/mcp?api_key=${data.apiKey}\n• SSE (Cursor/Windsurf/Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
+${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
 Need help getting started? Just reply back to me with questions or check out our quickstart guide:
 👉 https://app.fodda.ai/Fodda_Quickstart.md
 
@@ -307,7 +311,7 @@ ${intentLine}
 👉 Confirm my email
 ${data.confirmationLink}
 
-${data.apiKey ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): https://mcp.fodda.ai/mcp?api_key=${data.apiKey}\n• SSE (Cursor/Windsurf/Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
+${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
 Need help getting started? Just reply back to me to get started or check out our quickstart guide:
 👉 https://app.fodda.ai/Fodda_Quickstart.md
 
@@ -318,11 +322,12 @@ Thanks — and see you on the inside.
 Team Fodda
             `.trim();
         },
-        html: (data: { confirmationLink: string; intent?: string; apiKey?: string }) => {
+        html: (data: { confirmationLink: string; intent?: string; apiKey?: string; mcpUrl?: string; sseUrl?: string; claudeConnectorUrl?: string }) => {
             if (data.intent === 'trial') {
-                const claudeInstallUrl = data.apiKey 
-                    ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent('https://mcp.fodda.ai/mcp?api_key=' + data.apiKey)}`
-                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector';
+                const stdUrl = data.mcpUrl || (data.apiKey ? `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}` : '');
+                const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl 
+                    ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
+                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector');
 
                 return foddaWrap({
                     statusChip: { text: 'Trial Active', dotColor: T.green },
@@ -566,8 +571,8 @@ Piers`.trim();
 Your account is active on the Free Base plan with 100 API tokens per month. You can start using Fodda's knowledge graphs immediately in your agentic IDE or via direct API.
 
 Here are your MCP connection URLs:
-• Standard (Claude Web/Gemini): https://mcp.fodda.ai/mcp?api_key=${data.apiKey || 'YOUR_API_KEY'}
-• SSE (Cursor/Windsurf/Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey || 'YOUR_API_KEY'}
+• Standard (Claude Web/Gemini): ${data.mcpUrl || (data.apiKey ? `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}` : 'YOUR_MCP_URL')}
+• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || (data.apiKey ? `https://mcp.fodda.ai/sse?api_key=${data.apiKey}` : 'YOUR_SSE_URL')}
 
 To add this to your editor:
 • Claude Web: Add in one click → https://claude.ai/settings/connectors?modal=add-custom-connector (paste the Standard URL)
@@ -1006,8 +1011,8 @@ Here's what's changed:
 • Your API call counter has been reset for the new billing period
 ${data.apiKey ? `
 🔗 CONNECT FODDA
-• Standard MCP URL (Claude Web/Gemini): https://mcp.fodda.ai/mcp?api_key=${data.apiKey}
-• SSE MCP URL (Cursor/Windsurf/Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey}
+• Standard MCP URL (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}
+• SSE MCP URL (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}
 
 ⚡ Add Fodda to Claude in one click:
 https://claude.ai/settings/connectors?modal=add-custom-connector
@@ -1240,8 +1245,8 @@ Thanks for joining the Fodda Studio Beta! You now have access to query across AL
 🔑 YOUR ACCESS
 • App Login: https://app.fodda.ai (use ${data.email})
 • API Key: ${data.apiKey}
-• Standard MCP URL (Web): https://mcp.fodda.ai/mcp?api_key=${data.apiKey}
-• SSE MCP URL (Desktop): https://mcp.fodda.ai/sse?api_key=${data.apiKey}
+• Standard MCP URL (Web): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}
+• SSE MCP URL (Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}
 
 💳 ACTIVATE YOUR STUDIO PLAN ($1/month)
 To lock in your Studio Beta access with 25,000 API calls/month, activate here:
@@ -1283,8 +1288,8 @@ Founder, Fodda
                         <div style="font-size:13px;color:${T.textDark};font-family:${T.fontSans};line-height:1.8;">
                             <strong>App Login:</strong> <a href="https://app.fodda.ai" style="color:${T.primary};">app.fodda.ai</a> (use ${data.email})<br>
                             <strong>API Key:</strong> <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:12px;font-family:${T.fontMono};">${data.apiKey}</code><br>
-                            <strong>Standard MCP URL:</strong> <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">https://mcp.fodda.ai/mcp?api_key=${data.apiKey}</code><br>
-                            <strong>SSE MCP URL:</strong> <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">https://mcp.fodda.ai/sse?api_key=${data.apiKey}</code>
+                            <strong>Standard MCP URL:</strong> <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}</code><br>
+                            <strong>SSE MCP URL:</strong> <code style="background:#e5e7eb;padding:2px 6px;border-radius:3px;font-size:11px;font-family:${T.fontMono};">${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}</code>
                         </div>
                     </div>
                 `),
