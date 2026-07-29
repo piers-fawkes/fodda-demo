@@ -6,10 +6,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ## [2026-07-29] — Phase 1: Coverage Map & Request Coverage Queue
 
 ### Security & Reliability Remediation
+- **Dedicated Coverage Request Queue Table** (`server/constants.ts`, `server/routers/coverageRouter.ts`): Pointed `COVERAGE_REQUESTS_TABLE_ID` to dedicated queue table `tblc1qEPqx27FTROZ` (`NOTIFICATION_REQUESTS_TABLE_ID`), isolating coverage requests from the query log table (`LOGS_TABLE_QUESTIONS`) to prevent usage meter data pollution in Phase 3. Cleaned up historical test records from `LOGS_TABLE_QUESTIONS`.
+- **Deployment Script Consolidation** (`deploy_gcp.sh`, `.agents/workflows/deploy.md`): Synchronized `deploy_gcp.sh` with `deploy.md`, setting default `SLACK_RESEARCH_CHANNEL_ID=C0AU0403M3M` and passing `COVERAGE_REQUESTS_TABLE_ID`.
 - **Honest Per-Leg Status Response** (`server/routers/coverageRouter.ts`): Refactored `POST /api/coverage/request` to return explicit per-leg execution status (`airtable: ok/failed`, `slack: ok/failed`) and HTTP 500 on failure instead of false `ok: true`.
 - **Unverified Email Attribution Discipline** (`server/routers/coverageRouter.ts`): User email parameter is accepted as verified strictly for Clerk/session-authenticated users. Unauthenticated submissions are tagged `unverified:<email>` to prevent identity spoofing.
 - **Search-Miss Debounce & Separate Rate Limits** (`frontend/components/CoverageMapPage.tsx`, `server/routers/coverageRouter.ts`): Added a 1-second settled-state debounce on search misses and split rate limit keys (`search_miss` 15 req/10m vs `button` 5 req/10m).
-- **Airtable & Slack Channel ID Configuration** (`.env`, `server/constants.ts`, `server/slackChannels.ts`): Set `COVERAGE_REQUESTS_TABLE_ID=tblvHx1DzwuTq3TJE` and `SLACK_RESEARCH_CHANNEL_ID=C0AU0403M3M` across environment, constants, and deployment script.
 
 ### Added
 - **Coverage Map Component** (`frontend/components/CoverageMapPage.tsx`): Built the new Coverage Map view implementing Job J1 (Proof of Coverage). Features per-vertical evidence node depth badges (Strong ≥300 / Partial 50-299 / Thin 1-49 / Not Covered 0), real-time topic search across normalized tags, freshness markers for graphs updated within 7 days, and separate counting for supplemental data sources.

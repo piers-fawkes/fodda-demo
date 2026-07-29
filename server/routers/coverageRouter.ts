@@ -78,7 +78,16 @@ router.post('/request', async (req, res) => {
       const targetTable = COVERAGE_REQUESTS_TABLE;
       let fieldsPayload: Record<string, any> = {};
 
-      if (targetTable === LOGS_TABLE_QUESTIONS) {
+      if (targetTable === NOTIFICATION_REQUESTS_TABLE) {
+        fieldsPayload = {
+          expertId: 'coverage-request',
+          expertName: effectiveTopic,
+          userEmail: requesterEmail,
+          requestType: requestSource,
+          status: 'Queued',
+          createdAt: timestamp
+        };
+      } else if (targetTable === LOGS_TABLE_QUESTIONS) {
         fieldsPayload = {
           'question': `[Coverage Request] ${effectiveTopic}`,
           'userEmail': requesterEmail,
