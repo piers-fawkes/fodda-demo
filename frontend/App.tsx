@@ -17,6 +17,7 @@ import { UpgradeModal } from './components/UpgradeModal';
 import { ProfilePage } from './components/ProfilePage';
 import { ConnectionsPage } from './components/ConnectionsPage';
 import { MyGraphsPage } from './components/MyGraphsPage';
+import { CoverageMapPage } from './components/CoverageMapPage';
 import { KnowledgePage } from './components/KnowledgePage';
 import { GovernancePage } from './components/GovernancePage';
 import { BillingPage } from './components/BillingPage';
@@ -1234,9 +1235,19 @@ const App: React.FC = () => {
       return <KnowledgePage activeTab={knowledgeTabMap[activeView]} />;
     }
 
-    // My Graphs
-    if (activeView === 'my-graphs') {
-      return <MyGraphsPage graphs={graphCatalog} loading={graphsLoading} supplementalSources={dataService.getSupplementalSources()} userVertical={currentAccount?.vertical || 'all'} userEmail={currentUser?.email} disabledGraphs={currentUser?.disabledGraphs || ''} ownedGraphs={ownedGraphs} accountId={currentAccount?.id} onNavigate={setActiveView} />;
+    // Coverage Map & My Graphs
+    if (activeView === 'coverage' || activeView === 'my-graphs') {
+      return (
+        <CoverageMapPage
+          graphs={graphCatalog}
+          userVertical={currentAccount?.vertical || 'all'}
+          disabledGraphs={currentUser?.disabledGraphs ? currentUser.disabledGraphs.split(',') : []}
+          onToggleGraph={toggleGraph}
+          onNavigate={handleNavigate}
+          user={currentUser}
+          account={currentAccount}
+        />
+      );
     }
 
     // Skills

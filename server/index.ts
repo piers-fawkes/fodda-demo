@@ -20,6 +20,7 @@ import webhookRouter from "./routers/webhookRouter.js";
 import creatorRouter from "./routers/creatorRouter.js";
 import expertRouter from "./routers/expertRouter.js";
 import unclaimedRouter from "./routers/unclaimedRouter.js";
+import coverageRouter from "./routers/coverageRouter.js";
 import { resolveIdentity, isPendingKey, handleLegacyTrialKey } from './helpers.js';
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 
@@ -221,6 +222,7 @@ app.use("/api/contributions", contributionRouter);
 app.use("/api/creator", creatorRouter);
 app.use("/api/expert", requireAuth(), expertRouter);
 app.use("/api/unclaimed", unclaimedRouter);
+app.use("/api/coverage", coverageRouter);
 
 // Health Check
 app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));

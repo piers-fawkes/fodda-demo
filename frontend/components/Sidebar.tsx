@@ -190,16 +190,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* ── GRAPHS ── */}
+          {/* ── COVERAGE ── */}
           <div>
             <SectionHeader
-              label="Graphs"
-              isExpanded={expandedSections.graphs || activeView === 'my-graphs' || activeView === 'team-graphs'}
+              label="Coverage"
+              isExpanded={expandedSections.graphs || activeView === 'coverage' || activeView === 'my-graphs' || activeView === 'team-graphs'}
               onToggle={() => toggleSection('graphs')}
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>}
             />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.graphs || activeView === 'my-graphs' || activeView === 'team-graphs') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="My Graphs" onClick={() => { onNavigate('my-graphs'); onClose(); }} isActive={isActive('my-graphs')} indent />
+            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.graphs || activeView === 'coverage' || activeView === 'my-graphs' || activeView === 'team-graphs') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <NavItem label="Coverage Map" onClick={() => { onNavigate('coverage'); onClose(); }} isActive={isActive('coverage') || isActive('my-graphs')} indent />
               {(userRole === 'Owner' || userRole === 'Admin') && (
                 <NavItem label="Team Graphs" onClick={() => { onNavigate('team-graphs'); onClose(); }} isActive={isActive('team-graphs')} indent />
               )}

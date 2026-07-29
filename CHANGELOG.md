@@ -3,6 +3,21 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-29] — Phase 1: Coverage Map & Request Coverage Queue
+
+### Added
+- **Coverage Map Component** (`frontend/components/CoverageMapPage.tsx`): Built the new Coverage Map view implementing Job J1 (Proof of Coverage). Features per-vertical evidence node depth badges (Strong ≥300 / Partial 50-299 / Thin 1-49 / Not Covered 0), real-time topic search across normalized tags, freshness markers for graphs updated within 7 days, and separate counting for supplemental data sources.
+- **Search-Miss Demand Signal & Auto-Logging** (`frontend/components/CoverageMapPage.tsx`): Implemented zero-result search miss state ("Not covered today") with prefilled Request Coverage button and automatic background demand signal logging (`source: 'search_miss'`).
+- **Request Coverage Server Endpoint & Slack Alerts** (`server/routers/coverageRouter.ts`): Added `POST /api/coverage/request` with 5-req/10-min rate limiting, Airtable logging (`COVERAGE_REQUESTS_TABLE`), and automated Slack alerts to `#fodda-research`.
+- **Integrated Graph Toggles** (`frontend/components/CoverageMapPage.tsx`): Embedded per-graph enable/disable toggles directly on coverage cards, consolidating graph management into Coverage Map.
+
+### Changed
+- **Generic Placeholder Filtering** (`frontend/components/CoverageMapPage.tsx`): Implemented generic filter hiding graphs with `status === 'coming_soon'` or `status === 'live'` with 0 evidence nodes (automatically hiding placeholder records without hardcoding slug lists).
+- **Sidebar & App Routing** (`frontend/App.tsx`, `frontend/components/Sidebar.tsx`): Updated navigation routing to link "Coverage" / "Coverage Map" to `coverage` view with deep-link support.
+
+### Verified
+- **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1670 modules cleanly into `dist/` with 0 errors in 2.64s.
+
 ## [2026-07-29] — Phase 0: Trust Surface & Broken Basics Fixes
 
 ### Security
