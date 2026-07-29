@@ -675,7 +675,9 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Account Started</span>
-                                                    <span className="text-xs text-ink-2 font-bold tracking-tight">{(account as any).createdAt ? new Date((account as any).createdAt).toLocaleDateString() : 'Nov 12, 2024'}</span>
+                                                    <span className="text-xs text-ink-2 font-bold tracking-tight">
+                                                        {(account as any).startDate || (account as any).createdAt ? new Date((account as any).startDate || (account as any).createdAt).toLocaleDateString() : 'Active'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -718,11 +720,15 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                 <section className="p-8 bg-cream border border-line rounded-3xl shadow-sm">
                                     <h3 className="eyebrow mb-4">Plan Level</h3>
                                     <div className="flex items-end justify-between">
-                                        <div className="space-y-4">
-                                            <p className="font-serif italic text-2xl text-ink">{(account as any).planName || account.planLevel || 'Free'}</p>
-                                            <div className="flex flex-col">
-                                                <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Renewal Date</span>
-                                                <span className="text-xs text-ink-2 font-bold tracking-tight">{(account as any).renewalDate ? new Date((account as any).renewalDate).toLocaleDateString() : 'Nov 12, 2026'}</span>
+                                        <div>
+                                            <p className="font-serif italic text-3xl text-ink leading-tight">{(account as any).planName || account.planLevel || 'Pro'}</p>
+                                            <div className="flex items-center gap-4 mt-3">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Renewal Date</span>
+                                                    <span className="text-xs text-ink-2 font-bold tracking-tight">
+                                                        {(account as any).renewalDate || (account as any).subscriptionRenewalDate ? new Date((account as any).renewalDate || (account as any).subscriptionRenewalDate).toLocaleDateString() : 'Auto-renews monthly'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                         {onViewPlans && (

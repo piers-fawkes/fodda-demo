@@ -127,3 +127,42 @@ export async function buildMcpConnection(email: string): Promise<McpConnection> 
     token
   };
 }
+
+/**
+ * Revokes a user's mcpConnectionToken by clearing it in Airtable.
+ * Connector URL (mcp.fodda.ai/c/<token>) terminates instantly; org key is unaffected.
+ */
+export async function revokeMcpConnection(email: string): Promise<{ ok: boolean; message: string }> {
+  const normalizedEmail = email ? email.toLowerCase().trim() : '';
+  if (!normalizedEmail) return { ok: false, message: 'Email is required' };
+
+  const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
+  const userRec = userQuery.records?.[0];
+
+  if (!userRec) return { ok: false, message: `No user found for email ${normalizedEmail}` };
+
+  await updateAirtableRecord(USERS_TABLE, userRec.id, { mcpConnectionToken: '' });
+  return { ok: true, message: `MCP connection token for ${normalizedEmail} revoked successfully.` };
+}
+
+/**
+ * Regenerates a user's mcpConnectionToken (revokes old token and mints a new 24-byte token).
+ */
+export async function regenerateMcpConnection(email: string): Promise<McpConnection> {
+  const normalizedEmail = email ? email.toLowerCase().trim() : '';
+  if (!normalizedEmail) {
+    return { ok: false, hasActiveKey: false, alreadyExists: false, mcpUrl: null, sseUrl: null, claudeConnectorUrl: null, token: null, message: 'Email is required' };
+  }
+
+  const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
+  const userRec = userQuery.records?.[0];
+
+  if (!userRec) {
+    return { ok: false, hasActiveKey: false, alreadyExists: false, mcpUrl: null, sseUrl: null, claudeConnectorUrl: null, token: null, message: `No user found for email ${normalizedEmail}` };
+  }
+
+  const newToken = randomBytes(24).toString('base64url');
+  await updateAirtableRecord(USERS_TABLE, userRec.id, { mcpConnectionToken: newToken });
+
+  return await buildMcpConnection(normalizedEmail);
+}

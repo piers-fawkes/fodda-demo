@@ -187,21 +187,41 @@ export async function autoProvisionUser(userId: string | undefined, accountId: s
     const reqDomain = email.split('@')[1];
     if (reqDomain !== acctFields.autoProvisionDomain.toLowerCase().trim()) return;
 
-    // Domain matches and toggle is on! Provision the user.
+    // Domain matches and toggle is on! Provision the user with a personal connector token.
     const uniqueHandle = email.split('@')[0] + randomBytes(2).toString('hex');
+    const mcpToken = randomBytes(24).toString('base64url');
+
     const userFields = {
       "User Name": uniqueHandle,
       "email": email,
-      "Role": 'Employee',
+      "Role": 'Member',
       "Account": [accountId],
-      "emailConfirmed": false,
+      "emailConfirmed": true,
       "User Full Name": email.split('@')[0],
+      "mcpConnectionToken": mcpToken,
       "apiUse": "Auto-Provisioned via API/MCP"
     };
 
     const userRecord = await createAirtableRecord(USERS_TABLE, userFields);
     const newUserId = userRecord.records[0].id;
     const inviteFirstName = String(email.split('@')[0]);
+
+    // Send email notification to Account Owner
+    const ownerIdLink = acctFields['Account Owner'];
+    if (ownerIdLink && ownerIdLink.length > 0) {
+      queryAirtable(USERS_TABLE, `RECORD_ID() = '${ownerIdLink[0]}'`).then(ownerQuery => {
+        const ownerRecord = ownerQuery.records?.[0];
+        const ownerEmail = ownerRecord?.fields?.email || ownerRecord?.fields?.Email;
+        if (ownerEmail) {
+          sendDirectEmail(
+            ownerEmail,
+            `New team member ${email} joined ${acctFields['Account Name'] || 'your account'}`,
+            `Hello,\n\nA new team member (${email}) has automatically joined your Fodda account (${acctFields['Account Name'] || ''}) via corporate domain auto-provisioning.\n\nYou can manage team members and access roles in your Fodda Account Portal at https://app.fodda.ai.\n\nBest,\nThe Fodda Team`,
+            'internal'
+          ).catch(err => console.error('[Auto-Provision] Admin notification email failed:', err));
+        }
+      }).catch(err => console.error('[Auto-Provision] Owner lookup failed:', err));
+    }
 
     enrichUserBuyerType(email, inviteFirstName, '', '', updateAirtableRecord, USERS_TABLE, newUserId).catch(e => console.error('[Enrichment] Failed:', e));
 

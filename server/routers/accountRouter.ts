@@ -30,7 +30,7 @@ import {
   createOverageSubscription,
   generateSetupUrl,
 } from "../services/stripeOverageService.js";
-import { buildMcpConnection, getActiveKeysForAccount } from "../services/mcpConnectionService.js";
+import { buildMcpConnection, revokeMcpConnection, regenerateMcpConnection, getActiveKeysForAccount } from "../services/mcpConnectionService.js";
 
 const router = Router();
 
@@ -82,6 +82,58 @@ router.post('/mcp-connection', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+/**
+ * POST /api/account/mcp-connection/revoke
+ * Instantly revokes a user's personal MCP connection token by clearing it in Airtable.
+ */
+router.post('/mcp-connection/revoke', async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+    const { email: bodyEmail } = req.body || {};
+    const isAdmin = user.role === 'Owner' || user.role === 'Admin';
+    const targetEmail = (isAdmin && bodyEmail) ? String(bodyEmail).toLowerCase().trim() : user.email;
+
+    const result = await revokeMcpConnection(targetEmail);
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[mcp-connection/revoke] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/account/mcp-connection/regenerate
+ * Regenerates a user's personal MCP connection token (for lost device / security cases).
+ */
+router.post('/mcp-connection/regenerate', async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+    const { email: bodyEmail } = req.body || {};
+    const isAdmin = user.role === 'Owner' || user.role === 'Admin';
+    const targetEmail = (isAdmin && bodyEmail) ? String(bodyEmail).toLowerCase().trim() : user.email;
+
+    const connection = await regenerateMcpConnection(targetEmail);
+    return res.json(connection);
+  } catch (err: any) {
+    console.error('[mcp-connection/regenerate] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/*
+ * POST /api/account/invite-csv
+ * Parked until specific use case arises.
+ */
+/*
+router.post('/invite-csv', async (req, res) => {
+  ...
+});
+*/
 
 router.post("/invite", async (req, res) => {
   try {

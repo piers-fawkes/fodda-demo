@@ -366,6 +366,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                   </>
                 )}
               </button>
+              {mcpConn?.claudeConnectorUrl && (
+                <a
+                  href={mcpConn.claudeConnectorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-300 flex items-center gap-2 bg-brand text-white hover:bg-brand-dark shadow-md"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  Add to Claude
+                </a>
+              )}
             </div>
             <div className="mt-3 flex items-center justify-between text-[10px] text-ink-3 flex-wrap gap-1">
               <span>SSE Endpoint (Cursor/Desktop): <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">https://mcp.fodda.ai/sse</code> (Header: <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">Authorization: Bearer sk_live_...</code>)</span>

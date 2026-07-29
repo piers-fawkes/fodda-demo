@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { mcpChat, listMcpTools } from '../services/mcpChatService.js';
-import { resolveIdentity, resolveEmailFromApiKey } from '../helpers.js';
+import { resolveIdentity, resolveEmailFromApiKey, autoProvisionUser } from '../helpers.js';
 
 const router = Router();
 
@@ -21,9 +21,11 @@ router.get("/tools", async (req, res) => {
     const identity = await resolveIdentity(apiKey);
     if (!identity) return res.status(401).json({ ok: false, error: "Invalid API Key" });
 
-
-
     const userEmail = await resolveEmailFromApiKey(apiKey);
+    if (userEmail && userEmail.includes('@') && identity?.tenantId && identity.tenantId !== 'unknown_tenant') {
+      autoProvisionUser(userEmail, identity.tenantId).catch(err => console.error('[McpRouter] Auto-provision check failed:', err));
+    }
+
     const tools = await listMcpTools(apiKey, userEmail);
     
     res.json({ 

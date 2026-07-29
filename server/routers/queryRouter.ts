@@ -18,7 +18,8 @@ import {
   checkTrialLimit,
   incrementUsage,
   signOutboundRequest,
-  extractNumericLimit
+  extractNumericLimit,
+  autoProvisionUser
 } from '../helpers.js';
 import { calculateQueryUnits } from "../../shared/metering.js";
 import { detectAccountType } from "../services/accountTypeService.js";
@@ -111,7 +112,9 @@ router.post("/query", async (req, res) => {
     const tenantId = identity?.tenantId;
     const userId = (req.headers['x-user-id'] as string) || (req.body.userId as string);
 
-
+    if (userId && typeof userId === 'string' && userId.includes('@') && tenantId && tenantId !== 'unknown_tenant') {
+      autoProvisionUser(userId, tenantId).catch(err => console.error('[QueryRouter] Auto-provision check failed:', err));
+    }
 
     let accountFields: any = null;
     if (tenantId && tenantId !== 'unknown_tenant') {

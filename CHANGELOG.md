@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — Phase 2: Team & Identity
+
+### Added
+- **Per-User Connection Tokens (`mcpConnectionToken`)** (`server/services/mcpConnectionService.ts`, `server/routers/accountRouter.ts`): Standardized per-user connector URL scheme `https://mcp.fodda.ai/c/<token>`. Added `POST /api/account/mcp-connection/revoke` and `POST /api/account/mcp-connection/regenerate` endpoints (gated to Owner/Admin via Clerk authentication).
+- **Primary Connection UI** (`frontend/components/ProfilePage.tsx`): Surfaced personal `/c/<token>` connector URL card and **"Add Fodda to Claude"** deep-link button directly on user profile and connection pages.
+- **Opt-In Corporate Auto-Provisioning & Admin Notification** (`server/helpers.ts`, `server/routers/queryRouter.ts`, `server/routers/mcpRouter.ts`): Wired `autoProvisionUser()` helper to check `autoProvisionToggle === true` and domain match on incoming query/MCP calls. Dispatches automated email notification (`sendDirectEmail`) to Account Owner when a new member joins.
+- **Real Dates & Clean Plan Names** (`frontend/components/AccountPortal.tsx`): Removed hardcoded Nov 12 fallbacks in Account Health & Billing views, displaying real subscription start/renewal dates and clean plan names.
+- **Unified Role Vocabulary**: Standardized role labels across frontend & backend to `Owner` / `Admin` / `Member`.
+
 ## [2026-07-29] — Phase 1: Coverage Map & Request Coverage Queue
 
 ### Security & Reliability Remediation
