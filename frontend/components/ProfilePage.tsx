@@ -30,6 +30,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
   const [sseCopied, setSseCopied] = useState(false);
   const [mcpConn, setMcpConn] = useState<any>(null);
 
+  // Rotate API Key state
+  const [isRotateModalOpen, setIsRotateModalOpen] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotateError, setRotateError] = useState<string | null>(null);
+
+  const handleRotateApiKey = async () => {
+    setIsRotating(true);
+    setRotateError(null);
+    try {
+      const res = await dataService.rotateApiKey(user.email);
+      if (res.ok && res.apiKey) {
+        if (onUpdate) {
+          onUpdate(user, { ...account, apiKey: res.apiKey });
+        }
+        if (res.mcpConn) {
+          setMcpConn(res.mcpConn);
+        } else if (user?.email) {
+          dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+        }
+        navigator.clipboard.writeText(res.apiKey);
+        setToast({ msg: 'API Key rotated successfully! New key copied to clipboard.', type: 'success' });
+        setIsRotateModalOpen(false);
+        setTimeout(() => setToast(null), 3500);
+      } else {
+        setRotateError(res.error || 'Failed to rotate API Key.');
+      }
+    } catch (err: any) {
+      setRotateError(err.message || 'An error occurred while rotating API Key.');
+    } finally {
+      setIsRotating(false);
+    }
+  };
+
   useEffect(() => {
     if (user?.email) {
       dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
@@ -149,10 +182,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
   const usagePercent = maxQueries > 0 ? Math.min(100, (currentQueries / maxQueries) * 100) : 0;
 
   // MCP URL
-  const mcpFullUrl = mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
-  const sseFullUrl = mcpConn?.sseUrl || `https://mcp.fodda.ai/sse?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
-  // Show only the base with ellipsis for the masked version
-  const mcpMaskedUrl = mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token.slice(0, 6)}…` : `https://mcp.fodda.ai/mcp?api_key=${'•'.repeat(8)}…`;
+  const mcpFullUrl = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
+  const sseFullUrl = 'https://mcp.fodda.ai/sse';
+  // Show base with ellipsis for the masked version
+  const mcpMaskedUrl = mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token.slice(0, 6)}…` : 'https://mcp.fodda.ai/c/••••••••…';
 
   const copyMcpUrl = () => {
     navigator.clipboard.writeText(mcpFullUrl);
@@ -338,8 +371,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                 )}
               </button>
             </div>
-            <div className="mt-3 flex items-center justify-between text-[10px] text-ink-3">
-              <span>SSE URL (Cursor/Desktop): <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">{sseFullUrl.slice(0, 45)}…</code></span>
+            <div className="mt-3 flex items-center justify-between text-[10px] text-ink-3 flex-wrap gap-1">
+              <span>SSE Endpoint (Cursor/Desktop): <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">https://mcp.fodda.ai/sse</code> (Header: <code className="font-mono bg-cream px-1.5 py-0.5 rounded border border-line">Authorization: Bearer sk_live_...</code>)</span>
               <button onClick={copySseUrl} className="text-brand hover:underline font-bold ml-2">
                 {sseCopied ? '✓ Copied' : 'Copy SSE'}
               </button>
@@ -414,6 +447,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                   <div className="flex items-center gap-2">
                     <button onClick={() => setShowApiKey(!showApiKey)} className="text-[10px] text-ink-3 hover:text-ink font-bold">{showApiKey ? 'Hide' : 'Reveal'}</button>
                     <button onClick={() => { const key = account.apiKey || ''; if (key) { navigator.clipboard.writeText(key); setToast({ msg: 'API Key copied', type: 'success' }); setTimeout(() => setToast(null), 2000); } }} className="text-[10px] text-brand hover:underline font-bold">Copy</button>
+                    <button onClick={() => setIsRotateModalOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-700 font-bold hover:underline">Rotate Key</button>
                   </div>
                 </div>
                 <input type={showApiKey ? 'text' : 'password'} value={account.apiKey || 'Not Available'} readOnly className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-xs text-ink-2 focus:outline-none font-mono" />
@@ -496,6 +530,35 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                 className="px-5 py-2 bg-red-600 text-white font-bold text-sm rounded-lg hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 {isDeleting ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Rotate API Key Confirmation Modal ─── */}
+      {isRotateModalOpen && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => { setIsRotateModalOpen(false); setRotateError(null); }}>
+          <div className="bg-paper rounded-2xl shadow-xl w-full max-w-md p-6 m-4 animate-fade-in-up border border-amber-200" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-ink">Rotate API Key</h3>
+                <p className="text-xs text-ink-3">Revoke existing key and issue a new one</p>
+              </div>
+            </div>
+            <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed mb-4">
+              Rotating your API key will revoke your current key immediately. Active token connections (<code className="font-mono font-bold">/c/:token</code>) will update on next resolution. Are you sure?
+            </div>
+            {rotateError && (
+              <p className="text-xs text-red-500 font-medium mb-3">{rotateError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => { setIsRotateModalOpen(false); setRotateError(null); }} className="px-4 py-2 text-ink-3 font-medium text-sm hover:text-ink">Cancel</button>
+              <button onClick={handleRotateApiKey} disabled={isRotating} className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-lg text-white font-bold disabled:opacity-50 transition-all">
+                {isRotating ? 'Rotating...' : 'Rotate Key Now'}
               </button>
             </div>
           </div>

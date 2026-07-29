@@ -633,12 +633,12 @@ Founder, Fodda`.trim();
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-[#fdfcf2] border border-[#e8e6d9] rounded-xl px-5 py-3.5 shadow-inner">
                             <p className="text-[11px] font-mono text-[#1a1a1a] break-all">
-                              {lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${showApiKey ? lookupResult.apiKey : '••••••'}&user_id=${encodeURIComponent(lookupResult.user.email)}`}
+                              {lookupMcpConn?.mcpUrl || (lookupMcpConn?.token ? `https://mcp.fodda.ai/c/${lookupMcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}
                             </p>
                           </div>
                           <button
                             onClick={async () => {
-                              const mcpUrl = lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`;
+                              const mcpUrl = lookupMcpConn?.mcpUrl || (lookupMcpConn?.token ? `https://mcp.fodda.ai/c/${lookupMcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
                               await navigator.clipboard.writeText(mcpUrl);
                               setCopiedMcpUrl(true);
                               setTimeout(() => setCopiedMcpUrl(false), 2000);
@@ -664,12 +664,12 @@ Founder, Fodda`.trim();
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-[#fdfcf2] border border-[#e8e6d9] rounded-xl px-5 py-3.5 shadow-inner">
                             <p className="text-[11px] font-mono text-[#1a1a1a] break-all">
-                              {lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(lookupMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`}
+                              {lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(lookupMcpConn?.mcpUrl || 'https://mcp.fodda.ai/c/:token')}`}
                             </p>
                           </div>
                           <button
                             onClick={async () => {
-                              const claudeUrl = lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(`https://mcp.fodda.ai/mcp?api_key=${lookupResult.apiKey}&user_id=${encodeURIComponent(lookupResult.user.email)}`)}`;
+                              const claudeUrl = lookupMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(lookupMcpConn?.mcpUrl || 'https://mcp.fodda.ai/c/:token')}`;
                               await navigator.clipboard.writeText(claudeUrl);
                               setCopiedMcpUrl(true);
                               setTimeout(() => setCopiedMcpUrl(false), 2000);
@@ -866,7 +866,7 @@ Founder, Fodda`.trim();
                 </button>
 
                 {trialGenerated && trialEmail.trim() && trialKey.trim() && (() => {
-                  const mcpUrl = trialMcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${encodeURIComponent(trialKey.trim())}&user_id=${encodeURIComponent(trialEmail.trim())}`;
+                  const mcpUrl = trialMcpConn?.mcpUrl || (trialMcpConn?.token ? `https://mcp.fodda.ai/c/${trialMcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
                   const claudeUrl = trialMcpConn?.claudeConnectorUrl || `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpUrl)}`;
                   return (
                     <div className="space-y-6 pt-4 border-t border-[#f3f1e8] animate-fade-in-up">
@@ -1218,7 +1218,7 @@ Founder, Fodda`.trim();
                               <div className="flex items-center gap-3">
                                 <div className="flex-1 bg-[#fdfcf2] border border-[#e8e6d9] rounded-xl px-5 py-3.5 shadow-inner">
                                   <p className="text-[11px] font-mono text-[#1a1a1a] break-all">
-                                    {isRevealed ? trial.mcp_url : `https://mcp.fodda.ai/mcp?api_key=••••••`}
+                                    {isRevealed ? (trial.mcp_url || 'https://mcp.fodda.ai/c/:token') : 'https://mcp.fodda.ai/c/••••••••…'}
                                   </p>
                                 </div>
                                 <button

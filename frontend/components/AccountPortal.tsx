@@ -194,24 +194,25 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const handleRegenerateKey = async () => {
-        if (!confirm("⚠️ WARNING: Regenerating the API Key will immediately invalidate the old key. integrations using the old key will break.")) return;
+        if (!confirm("Rotating your API key will revoke your current key immediately. Active token connections (/c/:token) will update on next resolution. Are you sure?")) return;
         setRegeneratingKey(true);
         try {
-            const res = await fetch('/api/account/regenerate-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountId: account.id, role: user.role })
-            });
-            const data = await res.json();
-            if (data.ok) {
-                alert(`New API Key Generated: \n\n${data.apiKey} \n\nPlease copy this now.`);
+            const data = await dataService.rotateApiKey(user.email);
+            if (data.ok && data.apiKey) {
+                if (data.mcpConn) {
+                    setMcpConn(data.mcpConn);
+                } else if (user?.email) {
+                    dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+                }
+                navigator.clipboard.writeText(data.apiKey);
+                alert(`New API Key Generated and copied to clipboard: \n\n${data.apiKey}`);
                 onUpdate?.({ ...account, apiKey: data.apiKey });
             } else {
-                alert("Failed to regenerate key: " + data.error);
+                alert("Failed to rotate key: " + (data.error || 'Unknown error'));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Error regenerating key");
+            alert("Error rotating API key: " + e.message);
         } finally {
             setRegeneratingKey(false);
         }
@@ -522,7 +523,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const generateVertexConfig = () => {
-        const url = mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+        const url = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
         return JSON.stringify({
             tools: [{
                 type: 'mcp',
@@ -549,11 +550,11 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const getClaudeConnectorUrl = () => {
-        return mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+        return mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
     };
 
     const getSseConnectorUrl = () => {
-        return mcpConn?.sseUrl || `${MCP_SSE_URL}?api_key=${account.apiKey || 'YOUR_API_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`;
+        return MCP_SSE_URL;
     };
 
     const handleCopyClaudeUrl = () => {
@@ -1317,7 +1318,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-3 animate-fade-in-up">
                                             <p className="text-sm text-ink-2">One click to add Fodda to Claude with your API key pre-filled:</p>
                                             <a
-                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(getClaudeConnectorUrl())}`}
+                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token'))}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="w-full px-4 py-3 bg-[#DE7356] hover:bg-[#c9624a] text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#DE7356]/20"
@@ -1335,9 +1336,9 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-3 animate-fade-in-up">
                                             <p className="text-sm text-ink-2">Run this in your terminal to add Fodda to Claude Code:</p>
                                             <div className="relative group">
-                                                <pre className="p-4 bg-ink rounded-xl text-[12px] font-mono text-[#DE7356] border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`}</pre>
+                                                <pre className="p-4 bg-ink rounded-xl text-[12px] font-mono text-[#DE7356] border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport http fodda "${mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}"`}</pre>
                                                 <button
-                                                    onClick={() => handleCopyField(`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`, 'claude-code-cmd')}
+                                                    onClick={() => handleCopyField(`claude mcp add --transport http fodda "${mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}"`, 'claude-code-cmd')}
                                                     className={`absolute top-3 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'claude-code-cmd' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
                                                     title="Copy command"
                                                 >
@@ -1939,14 +1940,14 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             <label className="block text-[9px] font-black text-ink-4 uppercase tracking-[0.2em] mb-4">Authentication Protocols</label>
                                             <div className="space-y-3">
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">Streamable HTTP (<code className="text-brand">/mcp</code>)</p>
-                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-purple-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{`${MCP_ENDPOINT}?api_key=<YOUR_API_KEY>&user_id=<YOUR_EMAIL>`}</pre>
+                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">Streamable HTTP (<code className="text-brand">/c/:token</code>)</p>
+                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-purple-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}</pre>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">SSE (<code className="text-ink-4">/sse</code>)</p>
-                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-blue-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{`${MCP_SSE_URL}?api_key=<YOUR_API_KEY>&user_id=<YOUR_EMAIL>`}</pre>
+                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">SSE (<code className="text-ink-4">/sse</code> with Authorization Bearer header)</p>
+                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-blue-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{`URL: ${MCP_SSE_URL}\nHeader: Authorization: Bearer ${account.apiKey || 'sk_live_...'}`}</pre>
                                                 </div>
-                                                <p className="text-[9px] text-ink-4 mt-1.5">No headers required. Paste either URL directly into your MCP client settings.</p>
+                                                <p className="text-[9px] text-ink-4 mt-1.5">Token connection URLs (/c/:token) handle auth automatically. For SSE (/sse), supply Authorization Bearer header.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -2684,7 +2685,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                         <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest">Network Access Endpoint</p>
                                                         <div className="flex items-center gap-2">
                                                             <code className="flex-1 p-3 bg-white border border-[#e8e6d9] rounded-xl text-[11px] font-mono break-all text-[#1a1a1a]">
-                                                                https://mcp.fodda.ai/mcp?api_key={account.apiKey || 'YOUR_KEY'}&user_id={encodeURIComponent(user.email || 'YOUR_EMAIL')}
+                                                                {mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}
                                                             </code>
                                                         </div>
                                                     </div>

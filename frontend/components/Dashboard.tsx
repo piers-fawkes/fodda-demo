@@ -435,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Connector URL</label>
                                             <button
                                                 onClick={() => {
-                                                    const url = mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`;
+                                                    const url = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
                                                     navigator.clipboard.writeText(url);
                                                     alert("MCP URL copied to clipboard");
                                                 }}
@@ -446,7 +446,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </div>
                                         <input
                                             type="text"
-                                            value={mcpConn?.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${account.apiKey || ''}&user_id=${encodeURIComponent(user.email || '')}`}
+                                            value={mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}
                                             readOnly
                                             className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[10px] text-ink-3 focus:outline-none font-mono"
                                         />

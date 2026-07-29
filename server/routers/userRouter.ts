@@ -1,12 +1,15 @@
 import { Router } from 'express';
+import { randomBytes } from 'crypto';
 import { 
   queryAirtable, 
   updateAirtableRecord, 
+  createAirtableRecord,
   DatabaseUnavailableError,
   escapeAirtableString
 } from '../db.js';
-import { USERS_TABLE } from '../constants.js';
+import { USERS_TABLE, API_KEYS_TABLE } from '../constants.js';
 import { authenticateSession, rewriteContext } from '../helpers.js';
+import { getActiveKeysForAccount, buildMcpConnection } from '../services/mcpConnectionService.js';
 
 const router = Router();
 
@@ -357,5 +360,79 @@ router.post('/toggle-share', async (req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+/**
+ * POST /api/user/api-key/rotate & POST /api/user/v1/user/api-key/rotate
+ * Self-service API Key Rotation for an account.
+ * Revokes existing active API keys for the account, creates a new sk_live_... key,
+ * refreshes connection token details, and returns updated key & mcpConn.
+ */
+const handleApiKeyRotation = async (req: any, res: any) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const { email } = req.body || {};
+    const targetEmail = (email && typeof email === 'string' ? email.toLowerCase().trim() : user.email);
+
+    if (user.role !== 'Owner' && user.role !== 'Admin' && targetEmail !== user.email) {
+      return res.status(403).json({ ok: false, error: 'Forbidden: Cannot rotate API key for another user' });
+    }
+
+    // Resolve user record to get accountId
+    const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(targetEmail)}'`);
+    const userRecord = userQuery.records?.[0];
+    if (!userRecord) {
+      return res.status(404).json({ ok: false, error: 'User record not found' });
+    }
+
+    const accountId = userRecord.fields.Account?.[0];
+    if (!accountId) {
+      return res.status(400).json({ ok: false, error: 'No account linked to user' });
+    }
+
+    // 1. Find existing active keys for account and revoke them
+    const activeKeysQuery = await getActiveKeysForAccount(accountId);
+    if (activeKeysQuery.records && activeKeysQuery.records.length > 0) {
+      for (const keyRec of activeKeysQuery.records) {
+        try {
+          await updateAirtableRecord(API_KEYS_TABLE, keyRec.id, {
+            'API Key Status': 'Revoked'
+          });
+        } catch (err) {
+          console.error(`[ApiKeyRotate] Error revoking key record ${keyRec.id}:`, err);
+        }
+      }
+    }
+
+    // 2. Generate new active API key
+    const newApiKey = `sk_live_${randomBytes(24).toString('hex')}`;
+    await createAirtableRecord(API_KEYS_TABLE, {
+      'API Key': newApiKey,
+      'API Key Status': 'Active',
+      'Account': [accountId]
+    });
+
+    // 3. Re-build MCP connection to update active connection data
+    const mcpConn = await buildMcpConnection(targetEmail);
+
+    console.log(`[ApiKeyRotate] Successfully rotated API key for account ${accountId} (user: ${targetEmail})`);
+
+    return res.json({
+      ok: true,
+      apiKey: newApiKey,
+      token: mcpConn.token,
+      mcpConn
+    });
+  } catch (err: any) {
+    console.error('[ApiKeyRotate] Failed to rotate API key:', err);
+    return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
+  }
+};
+
+router.post('/api-key/rotate', handleApiKeyRotation);
+router.post('/v1/user/api-key/rotate', handleApiKeyRotation);
 
 export default router;

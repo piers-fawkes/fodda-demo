@@ -1332,6 +1332,20 @@ class DataService {
       return { ok: false };
     }
   }
+
+  /**
+   * Self-service API Key Rotation.
+   * Revokes the current API key and issues a new sk_live_... key.
+   */
+  async rotateApiKey(email?: string): Promise<{ ok: boolean; apiKey?: string; token?: string; mcpConn?: McpConnection; error?: string }> {
+    try {
+      const res = await postJson<any>('/api/user/api-key/rotate', { email });
+      return res;
+    } catch (e: any) {
+      console.error('[DataService] rotateApiKey failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
 }
 
 export const dataService = new DataService();

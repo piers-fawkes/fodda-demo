@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-29] — App MCP URL Modernization & Self-Service Key Rotation
+
+### Added
+- **Self-Service API Key Rotation Endpoint** (`server/routers/userRouter.ts`): Added `POST /api/user/api-key/rotate` and `POST /v1/user/api-key/rotate` endpoints. Revokes active API key(s) for the user's account, generates a new `sk_live_...` key, refreshes connection token details, and returns updated key & connection payload.
+- **Client DataService Method** (`shared/dataService.ts`): Added `rotateApiKey(email?)` method to invoke key rotation and return updated API key and connection data.
+- **Key Rotation UI & Modal** (`frontend/components/ProfilePage.tsx` & `frontend/components/AccountPortal.tsx`): Added "Rotate Key" / "Reset API Key" action buttons and confirmation warning modal (*"Rotating your API key will revoke your current key immediately..."*). Auto-copies the new key to clipboard with toast notification.
+
+### Changed
+- **Modernized MCP Connection Display** (`frontend/components/ProfilePage.tsx`, `AccountPortal.tsx`, `Dashboard.tsx`, `AdminPortal.tsx`): Updated displayed MCP URLs from legacy query params (`?api_key=...&user_id=...`) to short token-resolved URLs (`https://mcp.fodda.ai/c/:token`) and updated SSE instruction cards to specify standard `Authorization: Bearer sk_live_...` headers.
+
 ## [2026-07-29] — Fix OAuth Google & LinkedIn Buttons in AuthGate
 
 ### Fixed
