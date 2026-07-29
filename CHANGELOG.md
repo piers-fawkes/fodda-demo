@@ -32,6 +32,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Verified
 - **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1669 modules cleanly into `dist/` with 0 TypeScript/Vite errors in 2.22 seconds.
 
+### Deployed
+- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00458-p55` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Health check `/health` returned HTTP 200 OK (`{"status":"ok"}`).
+
 ## [2026-07-29] — App MCP URL Modernization & Self-Service Key Rotation
 
 ### Added
