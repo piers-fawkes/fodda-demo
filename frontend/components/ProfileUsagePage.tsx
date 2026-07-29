@@ -18,76 +18,16 @@ export const ProfileUsagePage: React.FC<ProfileUsagePageProps> = ({ user, accoun
   const [usage, setUsage] = useState<UserUsageStats | null>(null);
 
   useEffect(() => {
-    // Build usage data from user props — no separate API call needed.
-    // This mirrors how AccountPortal.loadUsageData works for team stats.
+    // Build usage data from real user props
     const personalQueries = Number((user as any).monthlyQueries || 0);
     const lastLogin = (user as any).lastLogin || null;
-
-    const now = new Date();
-
-    // Generate 30-day daily trend
-    const dailyTrend: { date: string; queryCount: number }[] = [];
-    for (let d = 0; d < 30; d++) {
-      const dt = new Date(now.getFullYear(), now.getMonth(), d + 1);
-      if (dt > now) break;
-      dailyTrend.push({ date: dt.toISOString().split('T')[0], queryCount: 0 });
-    }
-
-    // Distribute queries across days
-    let queriesToDistribute = personalQueries;
-    while (queriesToDistribute > 0 && dailyTrend.length > 0) {
-      const randomDayIdx = Math.floor(Math.random() * dailyTrend.length);
-      const addAmount = Math.min(queriesToDistribute, Math.max(1, Math.floor(Math.random() * (personalQueries / 5 || 5))));
-      dailyTrend[randomDayIdx].queryCount += addAmount;
-      queriesToDistribute -= addAmount;
-    }
-
-    // Generate 6-month monthly trend
-    const monthlyTrend: { month: string; queryCount: number }[] = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const startMonth = new Date();
-    startMonth.setMonth(startMonth.getMonth() - 5);
-    for (let i = 0; i < 6; i++) {
-      const m = new Date(startMonth.getFullYear(), startMonth.getMonth() + i, 1);
-      let count = 0;
-      if (i === 5) {
-        count = personalQueries;
-      } else {
-        count = Math.max(0, Math.round(personalQueries * (0.4 + Math.random() * 0.8)));
-      }
-      monthlyTrend.push({
-        month: `${monthNames[m.getMonth()]} ${m.getFullYear().toString().slice(-2)}`,
-        queryCount: count
-      });
-    }
-
-    // Graph distribution
-    const graphData = [
-      { graphId: 'retail', graphName: 'Retail', queryCount: Math.round(personalQueries * 0.45) },
-      { graphId: 'beauty', graphName: 'Beauty', queryCount: Math.round(personalQueries * 0.25) },
-      { graphId: 'sports', graphName: 'Sports', queryCount: Math.round(personalQueries * 0.20) },
-      { graphId: 'sic', graphName: 'SIC', queryCount: Math.round(personalQueries * 0.10) },
-    ];
-
-    let graphSum = graphData.reduce((acc, g) => acc + g.queryCount, 0);
-    if (graphSum > personalQueries) {
-      graphData[0].queryCount -= (graphSum - personalQueries);
-    } else if (graphSum < personalQueries) {
-      graphData[0].queryCount += (personalQueries - graphSum);
-    }
-    graphSum = personalQueries;
-
-    const byGraph = graphData.map(g => ({
-      ...g,
-      percentage: graphSum > 0 ? (g.queryCount / graphSum) * 100 : 0
-    }));
 
     setUsage({
       monthlyQueries: personalQueries,
       lastLogin,
-      dailyTrend,
-      monthlyTrend,
-      byGraph
+      dailyTrend: [],
+      monthlyTrend: [],
+      byGraph: []
     });
   }, [user]);
 
@@ -110,7 +50,7 @@ export const ProfileUsagePage: React.FC<ProfileUsagePageProps> = ({ user, accoun
     <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
       {/* Page Header */}
       <div className="px-8 pt-8 pb-4">
-        <p className="eyebrow mb-1">Personal Telemetry</p>
+        <p className="eyebrow mb-1">My Usage</p>
         <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Your Usage</h1>
         <p className="text-sm text-ink-3 mt-1">Track your personal query volume, graph utilization, and monthly trends</p>
       </div>
@@ -143,7 +83,7 @@ export const ProfileUsagePage: React.FC<ProfileUsagePageProps> = ({ user, accoun
                   <div className="flex justify-between items-end">
                     <span className="text-xs font-bold text-ink uppercase tracking-wider">{graph.graphName}</span>
                     <span className="text-[10px] font-mono font-bold text-ink-3 tracking-tighter">
-                      {graph.queryCount.toLocaleString()} {graph.queryCount === 1 ? 'UNIT' : 'UNITS'}
+                      {graph.queryCount.toLocaleString()} {graph.queryCount === 1 ? 'UNIT' : 'queries'}
                     </span>
                   </div>
                   <div className="h-2 bg-cream rounded-full border border-line/50 overflow-hidden shadow-inner">

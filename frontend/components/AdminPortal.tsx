@@ -1565,7 +1565,7 @@ Founder, Fodda`.trim();
           {activeTab === 'referrals' && (
             <div className="space-y-12 animate-fade-in-up">
               <header className="max-w-3xl">
-                <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-[0.2em] mb-2">Network Expansion</p>
+                <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-[0.2em] mb-2">Team Access</p>
                 <h2 className="text-4xl font-serif italic text-[#1a1a1a] mb-4">Referral Channels</h2>
                 <p className="text-sm text-[#6a6a6a] font-serif italic leading-relaxed">Generate shareable signup vectors that scope new users to a specific knowledge graph. Entry via these channels limits initial access to the designated vertical cluster.</p>
               </header>

@@ -353,21 +353,6 @@ export const MyGraphsPage: React.FC<MyGraphsPageProps> = ({ graphs, loading, sup
 
   // Mock Add Research Resource state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [resourceForm, setResourceForm] = useState({ name: '', url: '', apiKey: '', mcpUrl: '', type: 'url' as 'url' | 'mcp' });
-  const [savedResources, setSavedResources] = useState<Array<{ name: string; url: string; apiKey?: string; type: string }>>(() => {
-    try {
-      const stored = localStorage.getItem('fodda_linked_research');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('fodda_linked_research', JSON.stringify(savedResources));
-    } catch {}
-  }, [savedResources]);
 
   const visibleGraphs = useMemo(() =>
     graphs.filter(g => {
@@ -404,21 +389,6 @@ export const MyGraphsPage: React.FC<MyGraphsPageProps> = ({ graphs, loading, sup
 
 
 
-  const handleSaveResource = () => {
-    if (!resourceForm.name || (!resourceForm.url && !resourceForm.mcpUrl)) return;
-    setSavedResources(prev => [...prev, {
-      name: resourceForm.name,
-      url: resourceForm.type === 'mcp' ? resourceForm.mcpUrl : resourceForm.url,
-      apiKey: resourceForm.apiKey || undefined,
-      type: resourceForm.type
-    }]);
-    setResourceForm({ name: '', url: '', apiKey: '', mcpUrl: '', type: 'url' });
-    setShowAddForm(false);
-  };
-
-  const handleDeleteResource = (index: number) => {
-    setSavedResources(prev => prev.filter((_, i) => i !== index));
-  };
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return null;
@@ -937,7 +907,7 @@ export const MyGraphsPage: React.FC<MyGraphsPageProps> = ({ graphs, loading, sup
         })}
 
         {/* ═══ Custom Section — User Reports + Linked Research ═══ */}
-        {activeCategory !== 'new' && (activeCategory === 'all' || activeCategory === 'user') && (activeCategory === 'user' || grouped.user.length > 0 || savedResources.length > 0 || showAddForm) && (() => {
+        {activeCategory !== 'new' && (activeCategory === 'all' || activeCategory === 'user') && (activeCategory === 'user' || grouped.user.length > 0 || showAddForm) && (() => {
           const customIds = grouped.user.map(g => g.id);
           const customAllEnabled = customIds.length > 0 && customIds.every(id => !disabledSet.has(id));
           const customStaleCount = countStale(grouped.user);
@@ -1060,95 +1030,18 @@ export const MyGraphsPage: React.FC<MyGraphsPageProps> = ({ graphs, loading, sup
                   </button>
                 </div>
 
-                {/* Add Research Resource Form */}
+                {/* Add Research Resource Roadmap Card */}
                 {showAddForm && (
-                  <div className="bg-paper border border-line rounded-xl p-6 mb-3">
-                    <h3 className="text-sm font-bold text-ink mb-4">Add a Research Resource</h3>
-                    <p className="text-xs text-ink-3 mb-4">Connect a new data source via URL & API Key or MCP endpoint.</p>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-ink-3 uppercase tracking-widest mb-1.5">Resource Name</label>
-                        <input type="text" value={resourceForm.name} onChange={e => setResourceForm({ ...resourceForm, name: e.target.value })} placeholder="e.g., McKinsey Retail Insights" className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand" />
-                      </div>
-                      <div className="flex gap-3">
-                        <button onClick={() => setResourceForm({ ...resourceForm, type: 'url' })} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all ${resourceForm.type === 'url' ? 'bg-brand-soft text-brand border-brand/30' : 'text-ink-3 border-line hover:border-line-strong'}`}>URL + API Key</button>
-                        <button onClick={() => setResourceForm({ ...resourceForm, type: 'mcp' })} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all ${resourceForm.type === 'mcp' ? 'bg-brand-soft text-brand border-brand/30' : 'text-ink-3 border-line hover:border-line-strong'}`}>MCP URL</button>
-                      </div>
-                      {resourceForm.type === 'url' ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-[10px] font-bold text-ink-3 uppercase tracking-widest mb-1.5">Endpoint URL</label>
-                            <input type="url" value={resourceForm.url} onChange={e => setResourceForm({ ...resourceForm, url: e.target.value })} placeholder="https://api.example.com/v1/data" className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-ink-3 uppercase tracking-widest mb-1.5">API Key</label>
-                            <input type="password" value={resourceForm.apiKey} onChange={e => setResourceForm({ ...resourceForm, apiKey: e.target.value })} placeholder="sk-..." className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-[10px] font-bold text-ink-3 uppercase tracking-widest mb-1.5">MCP Server URL</label>
-                            <input type="url" value={resourceForm.mcpUrl} onChange={e => setResourceForm({ ...resourceForm, mcpUrl: e.target.value })} placeholder="https://mcp.example.com/sse" className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-ink-3 uppercase tracking-widest mb-1.5">API Key / Access Token (Optional)</label>
-                            <input type="password" value={resourceForm.apiKey} onChange={e => setResourceForm({ ...resourceForm, apiKey: e.target.value })} placeholder="Optional token" className="w-full px-4 py-2 bg-cream border border-line rounded-lg text-sm text-ink focus:outline-none focus:border-brand" />
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex justify-end gap-3 pt-2">
-                        <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-ink-3 text-sm font-medium hover:text-ink">Cancel</button>
-                        <button onClick={handleSaveResource} className="px-5 py-2 bg-brand text-white font-bold text-xs rounded-lg hover:bg-brand-dark">Save Resource</button>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-ink-4 italic mt-3">This is a preview feature. Resources saved here will be stored locally for now.</p>
+                  <div className="bg-paper border border-line rounded-xl p-6 mb-3 text-center space-y-3 shadow-sm">
+                    <div className="inline-block px-2.5 py-0.5 bg-brand/10 text-brand text-[9px] font-mono font-bold uppercase tracking-wider rounded-full">On the Roadmap</div>
+                    <h3 className="text-sm font-bold text-ink">Connect Your Own Data Source</h3>
+                    <p className="text-xs text-ink-3 max-w-md mx-auto leading-relaxed">
+                      Fodda holds the connection, not the data — your source answers your queries and nobody else's.
+                    </p>
+                    <button onClick={() => setShowAddForm(false)} className="px-4 py-1.5 text-xs text-ink-3 hover:text-ink font-medium">Close</button>
                   </div>
                 )}
 
-                {/* Saved Linked Research Resources */}
-                {savedResources.length > 0 && (
-                  <div className="space-y-1.5">
-                    {savedResources.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-lg border bg-paper border-line">
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border shrink-0 ${r.type === 'mcp' ? 'bg-purple-50 text-brand border-brand/20' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
-                            {r.name[0]?.toUpperCase() || '?'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <h4 className="text-sm font-bold text-ink truncate">{r.name}</h4>
-                              <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded ${r.type === 'mcp' ? 'bg-brand-soft text-brand border border-brand/20' : 'bg-teal-50 text-teal-700 border border-teal-200'}`}>{r.type === 'mcp' ? 'MCP' : 'API'}</span>
-                            </div>
-                            <span className="text-[10px] text-ink-4 font-mono truncate block">{r.url}</span>
-                            {r.apiKey && (
-                              <span className="text-[9px] text-ink-3 mt-0.5 block font-mono">Key: ••••••••</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] text-amber-600 font-bold uppercase">Pending</span>
-                          <button
-                            onClick={() => handleDeleteResource(i)}
-                            className="p-1.5 text-ink-4 hover:text-red-500 transition-colors rounded hover:bg-red-50/50"
-                            title="Delete resource"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Empty state for Linked Research when no resources and form is closed */}
-                {savedResources.length === 0 && !showAddForm && (
-                  <div className="p-4 rounded-xl border border-dashed border-line text-center">
-                    <p className="text-xs text-ink-3">No linked research resources yet. Click <span className="text-teal-700 font-bold">+ Add</span> to connect an external data source.</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -153,62 +153,94 @@ const App: React.FC = () => {
   // Default to 'profile'. After login, we may override based on apiUse preference.
   // Deep-linking: check pathname for direct navigation (e.g. /account/settings, /account/top-up)
   const [pendingTopUpModal, setPendingTopUpModal] = useState(false);
+
+  const deepLinkMap: Record<string, AppView> = useMemo(() => ({
+    '/account/settings': 'account-overview',
+    '/account/overview': 'account-overview',
+    '/account/team': 'account-team',
+    '/account/usage': 'account-usage',
+    '/account/context': 'account-context',
+    '/account/governance': 'account-governance',
+    '/profile': 'profile',
+    '/profile/context': 'profile-context',
+    '/profile/usage': 'profile-usage',
+    '/connections/claude': 'connections-claude',
+    '/connections/chatgpt': 'connections-chatgpt',
+    '/connections/gemini': 'connections-gemini',
+    '/connections/api': 'connections-api',
+    '/connections/mcp': 'connections-mcp',
+    '/graphs': 'my-graphs',
+    '/sandbox': 'sandbox',
+    '/research': 'sandbox',
+    '/expert': 'expert-chat',
+    '/account/billing': 'account-billing',
+    '/knowledge/api-docs': 'knowledge-api-docs',
+  }), []);
+
   const [activeView, setActiveView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-      const deepLinkMap: Record<string, AppView> = {
-        '/account/settings': 'account-overview',
-        '/account/overview': 'account-overview',
-        '/account/team': 'account-team',
-        '/account/usage': 'account-usage',
-        '/account/context': 'account-context',
-        '/account/governance': 'account-governance',
-        '/profile': 'profile',
-        '/profile/context': 'profile-context',
-        '/profile/usage': 'profile-usage',
-        '/connections/claude': 'connections-claude',
-        '/connections/chatgpt': 'connections-chatgpt',
-        '/connections/gemini': 'connections-gemini',
-        '/connections/api': 'connections-api',
-        '/connections/mcp': 'connections-mcp',
-        '/graphs': 'my-graphs',
-        '/sandbox': 'sandbox',
-        '/research': 'sandbox',
-        '/expert': 'expert-chat',
-        '/account/billing': 'account-billing',
-        '/knowledge/api-docs': 'knowledge-api-docs',
-      };
       if (deepLinkMap[path]) {
-        // Clean the URL so it doesn't interfere with SPA routing
-        window.history.replaceState({}, document.title, '/');
         return deepLinkMap[path];
       }
-      // Handle ?view=billing deep link (MCP hands this URL to agents — errorHandling.ts:303)
       const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      if (viewParam === 'billing') {
-        window.history.replaceState({}, document.title, '/');
+      if (urlParams.get('view') === 'billing') {
         return 'account-billing' as AppView;
       }
-      // Handle ?expert= query param (navigate to expert-chat)
-      if (typeof window !== 'undefined' && urlParams.get('expert')) {
-        window.history.replaceState({}, document.title, '/');
-        return 'expert-chat' as AppView;
-      }
-      // Handle /expert/<slug> deep-link
-      if (path.startsWith('/expert/')) {
-        window.history.replaceState({}, document.title, '/');
+      if (urlParams.get('expert') || path.startsWith('/expert/')) {
         return 'expert-chat' as AppView;
       }
       if (path === '/account/top-up' || path === '/account/topup') {
-        window.history.replaceState({}, document.title, '/');
-        // Can't open modal synchronously in useState — use pendingTopUpModal flag
         setTimeout(() => setPendingTopUpModal(true), 0);
-        return 'profile';
+        return 'account-billing' as AppView;
       }
     }
     return 'profile';
   });
+
+  // Sync activeView changes with browser URL
+  const handleNavigate = useCallback((view: AppView) => {
+    setActiveView(view);
+    if (typeof window !== 'undefined') {
+      const viewToPath: Partial<Record<AppView, string>> = {
+        'account-overview': '/account/overview',
+        'account-team': '/account/team',
+        'account-usage': '/account/usage',
+        'account-context': '/account/context',
+        'account-governance': '/account/governance',
+        'account-billing': '/account/billing',
+        'profile': '/profile',
+        'profile-context': '/profile/context',
+        'profile-usage': '/profile/usage',
+        'connections-claude': '/connections/claude',
+        'connections-chatgpt': '/connections/chatgpt',
+        'connections-gemini': '/connections/gemini',
+        'connections-api': '/connections/api',
+        'connections-mcp': '/connections/mcp',
+        'my-graphs': '/graphs',
+        'sandbox': '/sandbox',
+        'expert-chat': '/expert',
+        'knowledge-api-docs': '/knowledge/api-docs',
+      };
+      const targetPath = viewToPath[view] || '/';
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ view }, '', targetPath);
+      }
+    }
+  }, []);
+
+  // Listen for browser Back/Forward popstate events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      if (deepLinkMap[path]) {
+        setActiveView(deepLinkMap[path]);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [deepLinkMap]);
   const [hasSetInitialView, setHasSetInitialView] = useState(false);
 
   const [isDevMode, setIsDevMode] = useState(false);
@@ -1893,7 +1925,7 @@ const App: React.FC = () => {
       {isUnlocked && (
         <Sidebar
           activeView={activeView}
-          onNavigate={setActiveView}
+          onNavigate={handleNavigate}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           userRole={currentUser?.role}

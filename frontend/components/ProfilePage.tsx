@@ -334,10 +334,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Live</span>
-              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex-1 relative">

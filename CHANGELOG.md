@@ -3,6 +3,35 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-29] — Phase 0: Trust Surface & Broken Basics Fixes
+
+### Security
+- **Strict Clerk-Only Session Fallback** (`server/helpers.ts`): Removed unverified header (`x-user-email`), body (`requesterEmail`/`email`), and query string (`email`) fallback parameters from `authenticateSession`. Restricted authentication strictly to database-validated `x-session-token` or Clerk-verified `req.auth` tokens (with primary email resolution via `@clerk/express` `clerkClient` if `sessionClaims.email` is absent). Eliminates risk of header/body email spoofing across sensitive endpoints (e.g. key rotation, account deletion, team invites).
+
+### Changed
+- **Per-User Usage Counter Lookup** (`server/helpers.ts`): Fixed `incrementUsageCounters` to support user email lookup in addition to Airtable record IDs (`rec...`).
+- **Removed Fabricated Usage Charts** (`frontend/components/AccountPortal.tsx`, `frontend/components/ProfileUsagePage.tsx`): Removed `Math.random()` loops, fake past 6-month data, and hardcoded domain distributions (`40% Retail / 30% Beauty / 20% Sports / 10% SIC`). Replaced with real query counters.
+- **Removed Hardcoded Rank & Status Indicators** (`frontend/components/AccountPortal.tsx`, `frontend/components/ProfilePage.tsx`): Removed hardcoded "Network Rank: Top 15%", "Lifetime Rev" multiplier (`queries * $0.45`), hardcoded "Live / Stable" Environment Sync, and the fake green "Live" pulse dot on profile cards.
+- **Completed Vocabulary Sweep** (`frontend/components/`): Replaced telemetry-speak across UI components:
+  - "Personal Telemetry" → "My Usage" (`ProfileUsagePage.tsx`)
+  - "Telemetry Fault" → "Unable to load usage data" (`AccountPortal.tsx`)
+  - "Aggregate Consumption" → "Total Usage" (`AccountPortal.tsx`)
+  - "UNITS" → "queries" (`AccountPortal.tsx`, `ProfileUsagePage.tsx`)
+  - "Network Expansion" → "Team Access" (`AccountPortal.tsx`, `AdminPortal.tsx`)
+  - "Collaborator Invite Portal" → "Invite Team Member" (`UsersList.tsx`)
+  - "Sever Associate" → "Remove User" (`UsersList.tsx`)
+  - "Intelligence Vectors" → "Available Tools" (`AccountPortal.tsx`)
+- **Cleaned Sidebar Navigation & Footer** (`frontend/components/Sidebar.tsx`): Renamed `Demo Area` section header to `Ask` (containing `Expert Chat` and `Test Bench`) and removed legacy "Fodda Console v2.0" string from footer.
+- **Deep Link Navigation & Browser History** (`frontend/App.tsx`): Replaced path-wiping logic (`replaceState(..., '/')`) on deep links with client-side history navigation (`pushState`/`popstate`).
+- **Sidebar & Deep-link Routing Dispatch** (`frontend/App.tsx`): Updated `Sidebar` `onNavigate` prop to call `handleNavigate` to preserve URL routing (e.g., `/account/billing`, `/connections/claude`).
+
+### Added
+- **ChatGPT Connector Roadmap Notice** (`frontend/components/AccountPortal.tsx`): Added explicit `chatgpt` connection tab rendering a clean "ChatGPT Connector — On the Roadmap" notice instead of an empty shell.
+- **Linked Data Source Roadmap Card** (`frontend/components/MyGraphsPage.tsx`): Replaced plaintext local credentials form (`fodda_linked_research`) with a roadmap notice stating *"Fodda holds the connection, not the data — your source answers your queries and nobody else's."*
+
+### Verified
+- **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1669 modules cleanly into `dist/` with 0 TypeScript/Vite errors in 2.22 seconds.
+
 ## [2026-07-29] — App MCP URL Modernization & Self-Service Key Rotation
 
 ### Added

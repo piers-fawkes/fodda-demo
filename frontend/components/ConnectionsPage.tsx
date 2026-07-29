@@ -55,7 +55,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         onUpdate={onUpdate}
         onViewPlans={onViewPlans}
         onViewApiDocs={onViewApiDocs}
-        initialTab={activeTab}
+        initialTab={activeTab as any}
         inline={true}
       />
     </div>

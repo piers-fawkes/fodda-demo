@@ -30,7 +30,7 @@ router.get("/tools", async (req, res) => {
       ok: true, 
       tools,
       count: tools.length,
-      version: "1.0.0" // Default version for Fodda MCP Integration
+      version: process.env.npm_package_version || "1.0.0"
     });
   } catch (err: any) {
     console.error("[McpRouter] Tools Error:", err);

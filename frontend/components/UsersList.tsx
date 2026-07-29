@@ -62,7 +62,7 @@ export const UsersList: React.FC<UsersListProps> = ({
             {signupCode && (
                 <div className="bg-cream/40 border border-line rounded-2xl p-6 flex items-center justify-between shadow-sm">
                     <div>
-                        <h4 className="eyebrow mb-3">Collaborator Invite Portal</h4>
+                        <h4 className="eyebrow mb-3">Invite Team Member</h4>
                         <div className="flex items-center space-x-3">
                             <p className="text-sm font-mono font-bold text-ink bg-white px-4 py-2 rounded-xl border border-line tracking-widest shadow-sm select-all">
                                 {signupCode}
@@ -120,16 +120,16 @@ export const UsersList: React.FC<UsersListProps> = ({
             )}
 
             {!users || users.length === 0 ? (
-                <div className="text-ink-4 text-[10px] font-bold uppercase tracking-widest p-8 text-center border border-line rounded-2xl border-dashed bg-cream/20">No active research associates discovered.</div>
+                <div className="text-ink-4 text-[10px] font-bold uppercase tracking-widest p-8 text-center border border-line rounded-2xl border-dashed bg-cream/20">No team members found.</div>
             ) : (
                 <div className="overflow-hidden border border-line rounded-2xl shadow-sm bg-white">
                     <table className="min-w-full text-left">
                         <thead className="bg-cream">
                             <tr>
-                                <th className="px-6 py-4 eyebrow">Research Associate</th>
+                                <th className="px-6 py-4 eyebrow">Team Member</th>
                                 <th className="px-6 py-4 eyebrow">Role</th>
-                                <th className="px-6 py-4 eyebrow text-right">Heartbeat</th>
-                                <th className="px-6 py-4 eyebrow text-right">Unit Consumption</th>
+                                <th className="px-6 py-4 eyebrow text-right">Last Active</th>
+                                <th className="px-6 py-4 eyebrow text-right">Queries</th>
                                 <th className="px-6 py-4 eyebrow text-right">Auth Status</th>
                                 <th className="px-6 py-4 eyebrow text-right">Actions</th>
                             </tr>
@@ -184,13 +184,13 @@ export const UsersList: React.FC<UsersListProps> = ({
                                                     const diffMins = Math.floor(diffMs / 60000);
                                                     const diffHours = Math.floor(diffMs / 3600000);
                                                     const diffDays = Math.floor(diffMs / 86400000);
-                                                    if (diffMins < 5) return 'Alive Now';
+                                                    if (diffMins < 5) return 'Active Now';
                                                     if (diffMins < 60) return `${diffMins}M ago`;
                                                     if (diffHours < 24) return `${diffHours}H ago`;
                                                     if (diffDays < 7) return `${diffDays}D ago`;
                                                     return d.toLocaleDateString();
                                                 })()
-                                                : 'Dormant'}
+                                                : 'Inactive'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-5 text-right">
@@ -263,7 +263,7 @@ export const UsersList: React.FC<UsersListProps> = ({
                                                 <button
                                                     onClick={() => onDelete(user.id, user.email || '')}
                                                     className="p-2 text-ink-4 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-red-200"
-                                                    title="Sever Associate"
+                                                    title="Remove User"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>

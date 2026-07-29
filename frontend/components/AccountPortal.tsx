@@ -14,12 +14,12 @@ interface AccountPortalProps {
     onViewPlans?: () => void;
     onViewApiDocs?: () => void;
     onSetupPayment?: () => void;
-    initialTab?: 'overview' | 'team' | 'usage' | 'claude' | 'notion' | 'copilot' | 'gemini' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity';
+    initialTab?: 'overview' | 'team' | 'usage' | 'claude' | 'chatgpt' | 'notion' | 'copilot' | 'gemini' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity';
     inline?: boolean;
 }
 
 export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, user, account, onUpdate, onViewPlans, onViewApiDocs, onSetupPayment, initialTab, inline }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'usage' | 'claude' | 'notion' | 'copilot' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity'>(initialTab === 'gemini' ? 'mcp' : (initialTab === 'perplexity' ? 'perplexity' : (initialTab || 'overview')));
+    const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'usage' | 'claude' | 'chatgpt' | 'notion' | 'copilot' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity'>(initialTab === 'gemini' ? 'mcp' : (initialTab === 'perplexity' ? 'perplexity' : (initialTab || 'overview')));
     const [accountUsers, setAccountUsers] = useState<User[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [usersError, setUsersError] = useState<string | null>(null);
@@ -290,64 +290,16 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
             const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
-            // Generate simple 30-day trend that properly sums to 'current'
-            const dailyTrend: { date: string; queryCount: number }[] = [];
-            for (let d = 0; d < 30; d++) {
-                const dt = new Date(now.getFullYear(), now.getMonth(), d + 1);
-                if (dt > now) break;
-                dailyTrend.push({ date: dt.toISOString().split('T')[0], queryCount: 0 });
-            }
-
-            // Randomly distribute current queries
-            let queriesToDistribute = current;
-            while (queriesToDistribute > 0 && dailyTrend.length > 0) {
-                const randomDayIdx = Math.floor(Math.random() * dailyTrend.length);
-                const addAmount = Math.min(queriesToDistribute, Math.max(1, Math.floor(Math.random() * (current / 5))));
-                dailyTrend[randomDayIdx].queryCount += addAmount;
-                queriesToDistribute -= addAmount;
-            }
-
-            // Generate monthly trend for past 6 months
-            const monthlyTrend: { month: string; queryCount: number }[] = [];
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const startMonth = new Date();
-            startMonth.setMonth(startMonth.getMonth() - 5);
-            for (let i = 0; i < 6; i++) {
-                const m = new Date(startMonth.getFullYear(), startMonth.getMonth() + i, 1);
-                let count = 0;
-                if (i === 5) {
-                    count = current;
-                } else {
-                    count = Math.max(2, Math.round(current * (0.5 + Math.random() * 0.7)));
-                }
-                monthlyTrend.push({
-                    month: `${monthNames[m.getMonth()]} ${m.getFullYear().toString().slice(-2)}`,
-                    queryCount: count
-                });
-            }
-
-            const graphData = [
-                { graphId: 'retail', graphName: 'Retail', queryCount: Math.round(current * 0.4) },
-                { graphId: 'beauty', graphName: 'Beauty', queryCount: Math.round(current * 0.3) },
-                { graphId: 'sports', graphName: 'Sports', queryCount: Math.round(current * 0.2) },
-                { graphId: 'sic', graphName: 'SIC', queryCount: Math.round(current * 0.1) },
-            ];
-            // Fix rounding errors to ensure they sum to 'current' and calc correct percentage
-            let graphSum = graphData.reduce((acc, g) => acc + g.queryCount, 0);
-            if (graphSum > current) { graphData[0].queryCount -= (graphSum - current); }
-            else if (graphSum < current) { graphData[0].queryCount += (current - graphSum); }
-            graphSum = current;
-
             setUsageData({
                 totalQueries: current,
                 monthlyQueries: current,
                 queryLimit: limit,
                 periodStart,
                 periodEnd,
-                dailyTrend,
-                dailyBreakdown: dailyTrend,
-                monthlyTrend,
-                byGraph: graphData.map(g => ({ ...g, percentage: graphSum > 0 ? (g.queryCount / graphSum) * 100 : 0 })),
+                dailyTrend: [],
+                dailyBreakdown: [],
+                monthlyTrend: [],
+                byGraph: [],
                 byUser: [
                     { userId: user.id, userName: user.name || '', userEmail: user.email, queryCount: current, percentage: 100 },
                 ],
@@ -660,10 +612,10 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                             onClick={() => setActiveTab('usage')}
                             className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'usage' ? 'bg-ink text-white shadow-xl shadow-ink/20' : 'text-ink-4 hover:bg-cream hover:text-ink'}`}
                         >
-                            Telemetry
+                            Usage
                         </button>
                         
-                        <p className="eyebrow px-4 pt-8 mb-4">Inference Nodes</p>
+                        <p className="eyebrow px-4 pt-8 mb-4">Connections</p>
                         <button
                             onClick={() => setActiveTab('claude')}
                             className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'claude' ? 'bg-brand text-white shadow-xl shadow-brand/20' : 'text-ink-4 hover:bg-cream hover:text-ink'}`}
@@ -1103,14 +1055,14 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     </div>
                                 ) : usageError ? (
                                     <div className="p-8 bg-red-50 border border-red-100 rounded-3xl text-red-800 text-sm font-bold shadow-sm">
-                                        Telemetry Fault: {usageError}
+                                        Unable to load usage data: {usageError}
                                     </div>
                                 ) : usageData ? (
                                     <>
                                         {/* Summary Stats */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="bg-paper border border-line p-8 rounded-3xl shadow-sm">
-                                                <p className="eyebrow mb-2">Aggregate Consumption</p>
+                                                <p className="eyebrow mb-2">Total Usage</p>
                                                 <p className="font-serif italic text-4xl text-ink leading-tight">{usageData.totalQueries.toLocaleString()}</p>
                                                 <p className="text-[10px] font-black text-ink-4 uppercase tracking-widest mt-2">Historical Cumulative API Calls</p>
                                             </div>
@@ -1129,7 +1081,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                         <div key={graph.graphId} className="space-y-2">
                                                             <div className="flex justify-between items-end">
                                                                 <span className="text-xs font-bold text-ink uppercase tracking-wider">{graph.graphName}</span>
-                                                                <span className="text-[10px] font-mono font-bold text-ink-3 tracking-tighter">{graph.queryCount.toLocaleString()} {graph.queryCount === 1 ? 'UNIT' : 'UNITS'}</span>
+                                                                <span className="text-[10px] font-mono font-bold text-ink-3 tracking-tighter">{graph.queryCount.toLocaleString()} {graph.queryCount === 1 ? 'UNIT' : 'queries'}</span>
                                                             </div>
                                                             <div className="h-2 bg-cream rounded-full border border-line/50 overflow-hidden shadow-inner">
                                                                 <div
@@ -1889,6 +1841,19 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                             </div>
                         )}
 
+                        {activeTab === 'chatgpt' && (
+                            <div className="p-8 bg-paper border border-line rounded-3xl max-w-4xl space-y-4 text-center py-16 shadow-sm">
+                                <span className="text-4xl block mb-2">🤖</span>
+                                <h3 className="text-xl font-serif italic text-ink">ChatGPT Connector</h3>
+                                <p className="text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
+                                    Direct Custom GPT integration is on our roadmap. In the meantime, connect via our standard Streamable HTTP MCP server or API access.
+                                </p>
+                                <div className="inline-block px-3 py-1 bg-brand/10 text-brand text-xs font-mono font-bold uppercase tracking-wider rounded-full">
+                                    On the Roadmap
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'mcp' && (
                             <div className="space-y-10 max-w-4xl">
 
@@ -1953,12 +1918,12 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-5 bg-paper rounded-2xl border border-line">
-                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5">Intelligence Vectors</p>
+                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5">Available Tools</p>
                                             <p className="text-2xl font-serif italic text-brand">{loadingMcp ? '...' : mcpToolCount}</p>
                                         </div>
                                         <div className="p-5 bg-paper rounded-2xl border border-line">
-                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5">Environment Sync</p>
-                                            <p className="text-sm font-bold text-ink uppercase tracking-wide">Live / Stable</p>
+                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5 font-mono">Server Version</p>
+                                            <p className="text-sm font-bold text-ink uppercase tracking-wide font-mono">{mcpVersion || '1.0.0'}</p>
                                         </div>
                                     </div>
                                     {mcpError && (
@@ -2720,8 +2685,8 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             </div>
 
                                             <div className="p-8 bg-white border border-[#e8e6d9] rounded-2xl shadow-sm text-center flex flex-col justify-center">
-                                                <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest mb-2">Network Rank</p>
-                                                <p className="text-xl font-serif italic text-[#1a1a1a]">Top 15%</p>
+                                                <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest mb-2 font-mono">Monthly Queries</p>
+                                                <p className="text-xl font-serif italic text-[#1a1a1a]">{(account as any).currentQueryCount || 0}</p>
                                             </div>
                                         </div>
 
@@ -2813,7 +2778,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                                 { label: g.sourceType === 'pdf' ? 'Trends Index' : 'Signals Index', val: g.trendCount || g.signalCount },
                                                                 { label: g.sourceType === 'pdf' ? 'Semantic Nodes' : 'Pattern Nodes', val: g.evidenceCount || g.patternCount },
                                                                 { label: 'Network Queries', val: g.queryCount },
-                                                                { label: 'Lifetime Rev', val: `$${((g.queryCount || 0) * 0.45).toFixed(2)}` }
+                                                                { label: 'Total Queries', val: g.queryCount || 0 }
                                                             ].map(stat => (
                                                                 <div key={stat.label} className="group/stat">
                                                                     <p className="text-[9px] text-[#b4b1a1] uppercase tracking-widest mb-1 group-hover/stat:text-[#1a1a1a] transition-colors">{stat.label}</p>
@@ -2923,7 +2888,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             <h3 className="text-[10px] font-bold text-red-600 uppercase tracking-widest flex items-center gap-2"><span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Danger Zone</h3>
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wide">Network Security Token</p>
+                                                    <p className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wide">API Key</p>
                                                     <p className="text-[10px] text-red-600/70 font-serif italic">Regenerating your API key will break all existing MCP integrations immediately.</p>
                                                 </div>
                                                 <button
@@ -2948,13 +2913,13 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                 <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#1a1a1a]/40 backdrop-blur-sm" onClick={() => setIsInviteModalOpen(false)}>
                     <div className="bg-white p-10 rounded-3xl border border-[#e8e6d9] shadow-2xl w-full max-w-md animate-fade-in-up" onClick={e => e.stopPropagation()}>
                         <header className="mb-8">
-                            <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest mb-1">Network Expansion</p>
+                            <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest mb-1">Team Access</p>
                             <h3 className="text-2xl font-serif italic text-[#1a1a1a]">Invite Team Members</h3>
                         </header>
 
                         <div className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest px-1">Network Identity (Email)</label>
+                                <label className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest px-1">Email Address</label>
                                 <textarea
                                     value={inviteEmail}
                                     onChange={e => setInviteEmail(e.target.value)}
@@ -2964,7 +2929,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest px-1">Access Protocol (Role)</label>
+                                <label className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest px-1">Role</label>
                                 <div className="relative">
                                     <select
                                         value={inviteRole}

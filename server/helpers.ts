@@ -1,4 +1,5 @@
 import { randomBytes, createHash, createHmac } from 'crypto';
+import { clerkClient } from '@clerk/express';
 import { 
   queryAirtable, 
   updateAirtableRecord, 
@@ -450,9 +451,13 @@ export async function incrementUsage(userId: string | undefined, tenantId: strin
   if (userId) {
     tasks.push((async () => {
       try {
-        const userQuery = await queryAirtable(USERS_TABLE, `RECORD_ID() = '${userId}'`);
+        const isRecordId = userId.startsWith('rec');
+        const userFilter = isRecordId
+          ? `RECORD_ID() = '${userId}'`
+          : `LOWER({email}) = '${escapeAirtableString(userId.toLowerCase().trim())}'`;
+        const userQuery = await queryAirtable(USERS_TABLE, userFilter);
         const userRec = userQuery.records?.[0];
-        if (userRec) await updateAirtableRecord(USERS_TABLE, userId, { "apiUseCount": (userRec.fields.apiUseCount || 0) + tokenCost });
+        if (userRec) await updateAirtableRecord(USERS_TABLE, userRec.id, { "apiUseCount": (userRec.fields.apiUseCount || 0) + tokenCost });
       } catch (err) { console.error(`[Usage-User] Failed:`, err); }
     })());
   }
@@ -469,50 +474,74 @@ export interface AuthenticatedUser {
 }
 
 /**
- * Authenticates a user session from the X-Session-Token header, request body, or query params.
- * Strictly fail-closed: returns null if the token is invalid, expired, or on database error.
+ * Authenticates a user session from the X-Session-Token header, request body, query params, or Clerk email.
+ * Fail-closed: returns null if no valid token or matching user email is found.
  */
 export async function authenticateSession(req: any): Promise<AuthenticatedUser | null> {
   const sessionToken = (req.headers['x-session-token'] || req.body?.sessionToken || req.query?.sessionToken) as string | undefined;
-  if (!sessionToken) {
-    console.warn(`[Auth] No sessionToken provided for path ${req.path}`);
-    return null;
+
+  if (sessionToken) {
+    try {
+      const result = await queryAirtable(USERS_TABLE, `{sessionToken} = '${escapeAirtableString(sessionToken)}'`);
+      const record = result.records?.[0];
+      if (record) {
+        const expiresAt = record.fields?.sessionExpiresAt;
+        if (!expiresAt || Date.now() <= new Date(expiresAt).getTime()) {
+          const email = record.fields?.email;
+          if (email) {
+            const role = record.fields?.Role || record.fields?.role || 'User';
+            const accountArray = record.fields?.Account;
+            const accountId = Array.isArray(accountArray) && accountArray.length > 0 ? accountArray[0] : '';
+            return {
+              id: record.id,
+              email: String(email).toLowerCase().trim(),
+              role: String(role),
+              accountId: String(accountId)
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Auth] Session token lookup failed:", err);
+    }
   }
 
-  try {
-    const result = await queryAirtable(USERS_TABLE, `{sessionToken} = '${escapeAirtableString(sessionToken)}'`);
-    const record = result.records?.[0];
-    if (!record) {
-      console.warn(`[Auth] Invalid sessionToken: ${sessionToken}`);
-      return null;
+  // Verified Clerk Authentication fallback (req.auth)
+  let verifiedEmail: string | undefined = req.auth?.sessionClaims?.email || req.auth?.claims?.email;
+
+  // If sessionClaims does not expose email directly, resolve verified email via Clerk API
+  if (!verifiedEmail && req.auth?.userId) {
+    try {
+      const clerkUser = await clerkClient.users.getUser(req.auth.userId);
+      verifiedEmail = clerkUser.emailAddresses?.find((e: any) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress || clerkUser.emailAddresses?.[0]?.emailAddress;
+    } catch (err) {
+      console.error("[Auth] Clerk user lookup failed:", err);
     }
-
-    const expiresAt = record.fields?.sessionExpiresAt;
-    if (expiresAt && Date.now() > new Date(expiresAt).getTime()) {
-      console.warn(`[Auth] Expired sessionToken: ${sessionToken}`);
-      return null;
-    }
-
-    const email = record.fields?.email;
-    if (!email) {
-      console.warn(`[Auth] User record missing email for sessionToken: ${sessionToken}`);
-      return null;
-    }
-
-    const role = record.fields?.Role || record.fields?.role || 'User';
-    const accountArray = record.fields?.Account;
-    const accountId = Array.isArray(accountArray) && accountArray.length > 0 ? accountArray[0] : '';
-
-    return {
-      id: record.id,
-      email: String(email).toLowerCase().trim(),
-      role: String(role),
-      accountId: String(accountId)
-    };
-  } catch (err) {
-    console.error("[Auth] Session validation failed due to error:", err);
-    return null; // Fail-closed
   }
+
+  if (verifiedEmail && typeof verifiedEmail === 'string') {
+    const cleanEmail = verifiedEmail.toLowerCase().trim();
+    try {
+      const result = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(cleanEmail)}'`);
+      const record = result.records?.[0];
+      if (record) {
+        const role = record.fields?.Role || record.fields?.role || 'User';
+        const accountArray = record.fields?.Account;
+        const accountId = Array.isArray(accountArray) && accountArray.length > 0 ? accountArray[0] : '';
+        return {
+          id: record.id,
+          email: cleanEmail,
+          role: String(role),
+          accountId: String(accountId)
+        };
+      }
+    } catch (err) {
+      console.error("[Auth] Verified Clerk email lookup failed:", err);
+    }
+  }
+
+  console.warn(`[Auth] No valid sessionToken or verified Clerk user email found for path ${req.path}`);
+  return null;
 }
 
 // --- Legacy Trial Key Handler ---
