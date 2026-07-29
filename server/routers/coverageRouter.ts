@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { createAirtableRecord } from '../db.js';
-import { COVERAGE_REQUESTS_TABLE, LOGS_TABLE_QUESTIONS } from '../constants.js';
+import { COVERAGE_REQUESTS_TABLE, LOGS_TABLE_QUESTIONS, NOTIFICATION_REQUESTS_TABLE } from '../constants.js';
 import { authenticateSession } from '../helpers.js';
 import { SLACK_CHANNELS } from '../slackChannels.js';
 
