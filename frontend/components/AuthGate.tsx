@@ -113,23 +113,31 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
   /** Trigger an OAuth redirect via Clerk. Stores a flag so SsoCallbackPage
    *  knows to show the "tell us more" modal for brand-new signups.
-   *  Uses signIn.sso() — the Clerk Core 3 API on SignInFutureResource. */
-  const handleOAuth = (provider: 'oauth_google' | 'oauth_linkedin_oidc') => {
+   *  Uses signIn.sso() / signUp.sso() — the Clerk Core 3 API on SignInFutureResource / SignUpFutureResource. */
+  const handleOAuth = async (provider: 'oauth_google' | 'oauth_linkedin_oidc') => {
     sessionStorage.setItem('fodda.oauthPending', provider);
     if (isSignUp) {
       if (!signUp) return;
-      signUp.authenticateWithRedirect({
+      const { error } = await signUp.sso({
         strategy: provider,
         redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/`,
+        redirectCallbackUrl: `${window.location.origin}/sso-callback`,
       });
+      if (error) {
+        console.error('[AuthGate] signUp.sso error:', error);
+        setErrorHeader(error.longMessage || error.message || 'OAuth sign-up failed.');
+      }
     } else {
       if (!signIn) return;
-      signIn.authenticateWithRedirect({
+      const { error } = await signIn.sso({
         strategy: provider,
         redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/`,
+        redirectCallbackUrl: `${window.location.origin}/sso-callback`,
       });
+      if (error) {
+        console.error('[AuthGate] signIn.sso error:', error);
+        setErrorHeader(error.longMessage || error.message || 'OAuth sign-in failed.');
+      }
     }
   };
 

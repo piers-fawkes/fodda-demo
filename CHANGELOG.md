@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-29] — Fix OAuth Google & LinkedIn Buttons in AuthGate
+
+### Fixed
+- **Google & LinkedIn OAuth Sign-In** (`frontend/components/AuthGate.tsx`): Updated `handleOAuth` method to call Clerk Core 3 API methods `signUp.sso()` and `signIn.sso()` with `redirectUrl` and `redirectCallbackUrl` instead of calling non-existent `authenticateWithRedirect()`. Resolves issue where clicking "Continue with Google" or "Continue with LinkedIn" triggered no response or JS error on `app.fodda.ai`.
+
+### Deployed
+- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00456-jn6` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Health check returned HTTP 200 OK.
+
 ## [2026-07-26] — In-App Plan List Filtering Fix
 
 ### Changed
