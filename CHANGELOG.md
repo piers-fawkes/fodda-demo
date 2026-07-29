@@ -18,6 +18,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Verified
 - **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1670 modules cleanly into `dist/` with 0 errors in 2.64s.
 
+### Deployed
+- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00459-v7x` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Verified `/health` (HTTP 200 OK) and live POST endpoint `/api/coverage/request` (`{"ok":true}`).
+
 ## [2026-07-29] — Phase 0: Trust Surface & Broken Basics Fixes
 
 ### Security
