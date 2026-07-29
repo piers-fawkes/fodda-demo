@@ -15,7 +15,7 @@
 export const SLACK_CHANNELS = {
   research: {
     name: 'fodda-research',
-    id: process.env.SLACK_RESEARCH_CHANNEL_ID || 'C06QWNN67DB',
+    id: process.env.SLACK_RESEARCH_CHANNEL_ID || 'C0AU0403M3M',
   },
   sales: {
     name: 'fodda-sales',

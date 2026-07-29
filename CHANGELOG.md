@@ -5,10 +5,16 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-07-29] — Phase 1: Coverage Map & Request Coverage Queue
 
+### Security & Reliability Remediation
+- **Honest Per-Leg Status Response** (`server/routers/coverageRouter.ts`): Refactored `POST /api/coverage/request` to return explicit per-leg execution status (`airtable: ok/failed`, `slack: ok/failed`) and HTTP 500 on failure instead of false `ok: true`.
+- **Unverified Email Attribution Discipline** (`server/routers/coverageRouter.ts`): User email parameter is accepted as verified strictly for Clerk/session-authenticated users. Unauthenticated submissions are tagged `unverified:<email>` to prevent identity spoofing.
+- **Search-Miss Debounce & Separate Rate Limits** (`frontend/components/CoverageMapPage.tsx`, `server/routers/coverageRouter.ts`): Added a 1-second settled-state debounce on search misses and split rate limit keys (`search_miss` 15 req/10m vs `button` 5 req/10m).
+- **Airtable & Slack Channel ID Configuration** (`.env`, `server/constants.ts`, `server/slackChannels.ts`): Set `COVERAGE_REQUESTS_TABLE_ID=tblvHx1DzwuTq3TJE` and `SLACK_RESEARCH_CHANNEL_ID=C0AU0403M3M` across environment, constants, and deployment script.
+
 ### Added
 - **Coverage Map Component** (`frontend/components/CoverageMapPage.tsx`): Built the new Coverage Map view implementing Job J1 (Proof of Coverage). Features per-vertical evidence node depth badges (Strong ≥300 / Partial 50-299 / Thin 1-49 / Not Covered 0), real-time topic search across normalized tags, freshness markers for graphs updated within 7 days, and separate counting for supplemental data sources.
 - **Search-Miss Demand Signal & Auto-Logging** (`frontend/components/CoverageMapPage.tsx`): Implemented zero-result search miss state ("Not covered today") with prefilled Request Coverage button and automatic background demand signal logging (`source: 'search_miss'`).
-- **Request Coverage Server Endpoint & Slack Alerts** (`server/routers/coverageRouter.ts`): Added `POST /api/coverage/request` with 5-req/10-min rate limiting, Airtable logging (`COVERAGE_REQUESTS_TABLE`), and automated Slack alerts to `#fodda-research`.
+- **Request Coverage Server Endpoint & Slack Alerts** (`server/routers/coverageRouter.ts`): Added `POST /api/coverage/request` with rate limiting, Airtable logging, and automated Slack alerts to `#fodda-research`.
 - **Integrated Graph Toggles** (`frontend/components/CoverageMapPage.tsx`): Embedded per-graph enable/disable toggles directly on coverage cards, consolidating graph management into Coverage Map.
 
 ### Changed
@@ -16,10 +22,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **Sidebar & App Routing** (`frontend/App.tsx`, `frontend/components/Sidebar.tsx`): Updated navigation routing to link "Coverage" / "Coverage Map" to `coverage` view with deep-link support.
 
 ### Verified
-- **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1670 modules cleanly into `dist/` with 0 errors in 2.64s.
-
-### Deployed
-- **Cloud Run Deployment**: Deployed revision `fodda-sandbox-00459-v7x` serving 100% traffic on `app.fodda.ai` and `https://fodda-sandbox-1095548227950.us-central1.run.app`. Verified `/health` (HTTP 200 OK) and live POST endpoint `/api/coverage/request` (`{"ok":true}`).
+- **Production Build Verification**: Ran `npm run build` (`vite build`). Compiled 1670 modules cleanly into `dist/` with 0 errors in 2.28s.
+- **Slack Alert Verification**: Confirmed Slack message delivery to channel `C0AU0403M3M` (`#fodda-research`).
+- **Airtable Write Verification**: Confirmed record creation in Airtable table `tblvHx1DzwuTq3TJE`.
 
 ## [2026-07-29] — Phase 0: Trust Surface & Broken Basics Fixes
 

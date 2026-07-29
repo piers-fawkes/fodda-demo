@@ -59,6 +59,8 @@ description: How to deploy the Fodda App to Google Cloud Run
   --update-env-vars "RESEND_API_KEY=$(grep '^RESEND_API_KEY=' .env | cut -d= -f2-)" \
   --update-env-vars "SLACK_BOT_TOKEN=$(grep '^SLACK_BOT_TOKEN=' .env | cut -d= -f2-)" \
   --update-env-vars "SLACK_SIGNING_SECRET=$(grep '^SLACK_SIGNING_SECRET=' .env | cut -d= -f2-)" \
+  --update-env-vars "SLACK_RESEARCH_CHANNEL_ID=$(grep '^SLACK_RESEARCH_CHANNEL_ID=' .env | cut -d= -f2-)" \
+  --update-env-vars "COVERAGE_REQUESTS_TABLE_ID=$(grep '^COVERAGE_REQUESTS_TABLE_ID=' .env | cut -d= -f2-)" \
   --update-env-vars "VITE_CLERK_PUBLISHABLE_KEY=$(grep '^VITE_CLERK_PUBLISHABLE_KEY=' .env | cut -d= -f2-)" \
   --update-env-vars "CLERK_PUBLISHABLE_KEY=$(grep '^CLERK_PUBLISHABLE_KEY=' .env | cut -d= -f2-)" \
   --update-env-vars "CLERK_SECRET_KEY=$(grep '^CLERK_SECRET_KEY=' .env | cut -d= -f2-)" \

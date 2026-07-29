@@ -19,7 +19,7 @@ export const CONTENT_SUGGESTIONS_TABLE = 'tblLxGmyEZoWOQZnC'; // LinkedIn conten
 export const CONTEXT_CONTRIBUTIONS_TABLE = 'tblVXniVij4v9Blfs'; // User-produced content (corrections, extensions, authored)
 export const NOTIFICATION_REQUESTS_TABLE = process.env.NOTIFICATION_REQUESTS_TABLE_ID || 'tblc1qEPqx27FTROZ'; // Unclaimed Expert notification queue
 export const USER_OBSERVATIONS_TABLE = 'tblMyBB02cZO5ZEB5'; // Append-only persona observations (nightly synthesis)
-export const COVERAGE_REQUESTS_TABLE = process.env.COVERAGE_REQUESTS_TABLE_ID || 'tblCoverageRequests'; // Requested coverage queue
+export const COVERAGE_REQUESTS_TABLE = process.env.COVERAGE_REQUESTS_TABLE_ID || LOGS_TABLE_QUESTIONS; // Requested coverage queue
 
 export const SCHEMA_VERSION = "2024.11.20";
 export const FODDA_API_URL = "https://fodda-api-cl2v4kptba-uc.a.run.app";

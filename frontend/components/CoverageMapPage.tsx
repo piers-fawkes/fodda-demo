@@ -96,11 +96,15 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
     });
   }, [trendGraphs, searchQuery]);
 
-  // Auto-log search miss as a demand signal to backend
+  // Auto-log search miss as a demand signal to backend (debounced 1s on settled zero-result state)
   useEffect(() => {
     const q = searchQuery.trim();
-    if (q.length >= 3 && filteredTrendGraphs.length === 0 && !loggedMissesRef.current.has(q.toLowerCase())) {
-      const term = q.toLowerCase();
+    if (q.length < 3 || filteredTrendGraphs.length > 0) return;
+
+    const term = q.toLowerCase();
+    if (loggedMissesRef.current.has(term)) return;
+
+    const timer = setTimeout(() => {
       loggedMissesRef.current.add(term);
 
       fetch('/api/coverage/request', {
@@ -113,7 +117,9 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
           accountId: account?.id
         })
       }).catch(err => console.warn('[CoverageMap] Search miss logging failed:', err));
-    }
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [searchQuery, filteredTrendGraphs.length, user?.email, account?.id]);
 
   // Group trend graphs by Vertical (Domain)
