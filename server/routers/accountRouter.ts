@@ -86,6 +86,7 @@ router.post('/mcp-connection', async (req, res) => {
 /**
  * POST /api/account/mcp-connection/revoke
  * Instantly revokes a user's personal MCP connection token by clearing it in Airtable.
+ * Account boundary guard: Admins/Owners can only manage users within their own account.
  */
 router.post('/mcp-connection/revoke', async (req, res) => {
   try {
@@ -95,6 +96,18 @@ router.post('/mcp-connection/revoke', async (req, res) => {
     const { email: bodyEmail } = req.body || {};
     const isAdmin = user.role === 'Owner' || user.role === 'Admin';
     const targetEmail = (isAdmin && bodyEmail) ? String(bodyEmail).toLowerCase().trim() : user.email;
+
+    if (targetEmail !== user.email) {
+      const targetUserQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(targetEmail)}'`);
+      const targetUserRec = targetUserQuery.records?.[0];
+      if (!targetUserRec) {
+        return res.status(404).json({ ok: false, error: `User ${targetEmail} not found.` });
+      }
+      const targetAccountId = targetUserRec.fields?.Account?.[0];
+      if (targetAccountId !== user.accountId) {
+        return res.status(403).json({ ok: false, error: 'Forbidden: Cannot manage users outside your account.' });
+      }
+    }
 
     const result = await revokeMcpConnection(targetEmail);
     return res.json(result);
@@ -107,6 +120,7 @@ router.post('/mcp-connection/revoke', async (req, res) => {
 /**
  * POST /api/account/mcp-connection/regenerate
  * Regenerates a user's personal MCP connection token (for lost device / security cases).
+ * Account boundary guard: Admins/Owners can only manage users within their own account.
  */
 router.post('/mcp-connection/regenerate', async (req, res) => {
   try {
@@ -116,6 +130,18 @@ router.post('/mcp-connection/regenerate', async (req, res) => {
     const { email: bodyEmail } = req.body || {};
     const isAdmin = user.role === 'Owner' || user.role === 'Admin';
     const targetEmail = (isAdmin && bodyEmail) ? String(bodyEmail).toLowerCase().trim() : user.email;
+
+    if (targetEmail !== user.email) {
+      const targetUserQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(targetEmail)}'`);
+      const targetUserRec = targetUserQuery.records?.[0];
+      if (!targetUserRec) {
+        return res.status(404).json({ ok: false, error: `User ${targetEmail} not found.` });
+      }
+      const targetAccountId = targetUserRec.fields?.Account?.[0];
+      if (targetAccountId !== user.accountId) {
+        return res.status(403).json({ ok: false, error: 'Forbidden: Cannot manage users outside your account.' });
+      }
+    }
 
     const connection = await regenerateMcpConnection(targetEmail);
     return res.json(connection);
@@ -172,7 +198,7 @@ router.post("/invite", async (req, res) => {
         const userFields = {
           "User Name": uniqueHandle,
           "email": singleEmail,
-          "Role": (role === 'Owner' || role === 'Admin') ? role : 'Employee',
+          "Role": (role === 'Owner' || role === 'Admin') ? role : 'Member',
           "Account": [accountId],
           "emailConfirmed": false,
           "User Full Name": singleEmail.split('@')[0]
@@ -1198,7 +1224,7 @@ router.get("/:accountId/users", async (req, res) => {
         userName: f['User Name'] || '',
         name: f['User Full Name'] || '',
         jobTitle: f['Job Title'] || '',
-        role: f.Role || 'Employee',
+        role: (f.Role === 'Employee' || !f.Role) ? 'Member' : f.Role,
         lastLogin: f.lastLogin || null,
         monthlyQueries: Number(f.monthlyQueries || 0),
         maxplanQueries: Number(f.maxplanQueries || 0),

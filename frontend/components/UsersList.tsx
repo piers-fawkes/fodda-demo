@@ -149,7 +149,7 @@ export const UsersList: React.FC<UsersListProps> = ({
                                     <td className="px-6 py-5">
                                         {onRoleChange && (currentUserRole === 'Owner' || currentUserRole === 'Admin') && user.id !== currentUserId ? (
                                             <select
-                                                value={user.role || 'Employee'}
+                                                value={(user.role === 'Employee' || !user.role) ? 'Member' : user.role}
                                                 onChange={async (e) => {
                                                     setUpdatingRole(user.id);
                                                     await onRoleChange(user.id, e.target.value);
@@ -166,11 +166,11 @@ export const UsersList: React.FC<UsersListProps> = ({
                                             >
                                                 <option value="Owner">Owner</option>
                                                 <option value="Admin">Admin</option>
-                                                <option value="Employee">Employee</option>
+                                                <option value="Member">Member</option>
                                             </select>
                                         ) : (
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${user.role === 'Owner' || user.role === 'Admin' ? 'bg-brand-soft text-brand border-brand/20' : 'bg-paper text-ink-3 border-line'}`}>
-                                                {user.role}
+                                                {user.role === 'Employee' ? 'Member' : user.role}
                                             </span>
                                         )}
                                     </td>
