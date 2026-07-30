@@ -32,14 +32,16 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
   const monthlyQueryLimit = usageData?.monthlyQueryLimit ?? (account.monthlyQueryLimit || 100);
   const remainingQueries = usageData?.remainingQueries ?? Math.max(0, monthlyQueryLimit - monthlyQueries);
   const totalQueries = usageData?.totalQueries ?? (account as any).totalQueries ?? monthlyQueries;
-  const costPerQuery = usageData?.costPerQuery || '$0.50';
+  const costPerQuery = usageData?.costPerQuery || '—';
 
   const usagePercent = monthlyQueryLimit > 0 ? Math.min(100, Math.round((monthlyQueries / monthlyQueryLimit) * 100)) : 0;
 
   const dailyTrend: { date: string; queryCount: number }[] = usageData?.dailyTrend || [];
   const byGraph: { graphId: string; graphName: string; queryCount: number; percentage: number }[] = usageData?.byGraph || [];
+  const recentQueries: { id: string; question: string; userEmail: string; graphId: string; timestamp: string; responseTimeMs: number | null; stepCount: number; source: string }[] = usageData?.recentQueries || [];
 
   const maxDaily = Math.max(1, ...dailyTrend.map(d => d.queryCount));
+  const hasMultiStep = recentQueries.some(q => (q.stepCount || 1) > 1);
 
   return (
     <div className={`space-y-8 ${className}`}>
@@ -149,6 +151,67 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
           )}
         </div>
       </div>
+
+      {/* ─── Recent Query Executions ─── */}
+      {recentQueries.length > 0 && (
+        <div className="p-7 bg-white border border-line rounded-3xl shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Recent Executions</h3>
+            <span className="text-[11px] font-bold text-ink-3 bg-cream border border-line px-3 py-1 rounded-full">
+              Latest Activity
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wider text-ink-3">
+                  <th className="pb-3 pr-4">Query</th>
+                  <th className="pb-3 px-4">Domain</th>
+                  <th className="pb-3 px-4">Date</th>
+                  <th className="pb-3 px-4">Source</th>
+                  {hasMultiStep && <th className="pb-3 pl-4 text-right">Steps</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/40 text-xs">
+                {recentQueries.map((q) => {
+                  const dateStr = q.timestamp ? new Date(q.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                  const isMulti = (q.stepCount || 1) > 1;
+                  return (
+                    <tr key={q.id} className="hover:bg-cream/30 transition-colors">
+                      <td className="py-3 pr-4 font-medium text-ink max-w-xs truncate" title={q.question}>
+                        {q.question}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-ink-3 text-[11px]">
+                        {q.graphId}
+                      </td>
+                      <td className="py-3 px-4 text-ink-3 text-[11px]">
+                        {dateStr}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${q.source === 'mcp' ? 'bg-purple-100 text-purple-800 border border-purple-200' : q.source === 'trial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                          {q.source || 'api'}
+                        </span>
+                      </td>
+                      {hasMultiStep && (
+                        <td className="py-3 pl-4 text-right">
+                          {isMulti ? (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              {q.stepCount} steps
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-ink-3">1 step</span>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

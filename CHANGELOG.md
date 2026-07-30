@@ -3,6 +3,20 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — Phase 3: Step Count Semantics, Fallback Cleanups & Deployment
+
+### Fixed & Enhanced
+- **Corrected `/api/query` Step Logging (`server/routers/queryRouter.ts`)**: Fixed step logging logic to log `stepCount = 1` for single-step API queries, dropping the `usage.tokens` multiplier fallback.
+- **MCP Multi-Step Log Capture (`server/routers/mcpRouter.ts`)**: Added fire-and-forget log writes to `LOGS_TABLE_QUESTIONS` on `mcpChat` completion with `stepCount = toolCalls.length` and `source: 'mcp'`.
+- **Eliminated Hardcoded Pricing Fallbacks (`server/routers/accountRouter.ts`)**: Removed server-side `monthlyPrice || 100` and `$0.50` default fallbacks. Unit rates are calculated dynamically from Account or linked Plan price fields, returning `null` when missing.
+- **Dynamic Usage Meter UI (`frontend/components/UsageMeter.tsx`)**: Updated `UsageMeter.tsx` to display `"—"` when unit rate data is missing/unpopulated, added a Recent Activity view, and dynamically rendered step badges for multi-step entries (`N steps`) while suppressing step columns for single-step views.
+
+### Verification Run
+- Ran `npm run build` — compiled cleanly without errors.
+- Verified `/api/query` logs single-step `stepCount: 1`.
+- Verified `mcpRouter.ts` logs multi-step executions.
+- Verified missing cost data renders `"—"` in `UsageMeter.tsx`.
+
 ## [2026-07-30] — Phase 3: Plain-Language Meter & Real Usage Data
 
 ### Added

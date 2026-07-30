@@ -125,10 +125,30 @@ router.get('/usage', async (req, res) => {
     const totalQueries = Number(accFields.totalQueries || accFields['Total Queries'] || monthlyQueries);
     const remainingQueries = Math.max(0, monthlyQueryLimit - monthlyQueries);
 
-    // Dynamic cost per query calculation (no hardcoded literals)
-    const monthlyPrice = Number(accFields.monthlyPrice || 100);
-    const costPerQueryNum = monthlyQueryLimit > 0 ? (monthlyPrice / monthlyQueryLimit) : 0.50;
-    const costPerQueryDisplay = `$${costPerQueryNum.toFixed(2)}`;
+    // Dynamic cost per query calculation (no hardcoded price fallbacks)
+    let monthlyPrice: number | null = null;
+    const priceVal = accFields.monthlyPriceUSD ?? accFields['Monthly Price'] ?? accFields.Price ?? accFields.monthlyPrice;
+    if (priceVal != null && !isNaN(Number(priceVal))) {
+      monthlyPrice = Number(priceVal);
+    } else if (accFields.Plan && Array.isArray(accFields.Plan) && accFields.Plan.length > 0) {
+      try {
+        const planQuery = await queryAirtable(PLANS_TABLE, `RECORD_ID() = '${escapeAirtableString(accFields.Plan[0])}'`);
+        const planRec = planQuery.records?.[0];
+        if (planRec?.fields) {
+          const pf = planRec.fields;
+          const planPriceVal = pf.monthlyPriceUSD ?? pf['Monthly Price'] ?? pf.Price ?? pf.monthlyPrice;
+          if (planPriceVal != null && !isNaN(Number(planPriceVal))) {
+            monthlyPrice = Number(planPriceVal);
+          }
+        }
+      } catch (err) {
+        console.warn('[AccountUsage] Linked plan price lookup failed:', err);
+      }
+    }
+
+    const costPerQueryDisplay = (monthlyPrice != null && monthlyQueryLimit > 0)
+      ? `$${(monthlyPrice / monthlyQueryLimit).toFixed(2)}`
+      : null;
 
     // 2. Fetch Log Table Breakdowns for rolling 30 days from LOGS_TABLE_QUESTIONS
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -203,7 +223,7 @@ router.get('/usage', async (req, res) => {
       graphId: r.fields?.graphId || r.fields?.vertical || 'default',
       timestamp: r.fields?.Date || new Date().toISOString(),
       responseTimeMs: r.fields?.responseTimeMs || null,
-      stepCount: r.fields?.stepCount || r.fields?.resultCount || 1,
+      stepCount: r.fields?.stepCount ?? 1,
       source: r.fields?.source || 'api'
     }));
 

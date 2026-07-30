@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { mcpChat, listMcpTools } from '../services/mcpChatService.js';
 import { resolveIdentity, resolveEmailFromApiKey, autoProvisionUser } from '../helpers.js';
+import { createAirtableRecord, LOGS_TABLE_QUESTIONS } from '../db.js';
 
 const router = Router();
 
@@ -100,6 +101,19 @@ router.post("/chat", async (req, res) => {
       firstName,
       personaContext
     );
+
+    // Fire-and-forget query log write with true MCP step count
+    createAirtableRecord(LOGS_TABLE_QUESTIONS, {
+      "question": query,
+      "userEmail": userId,
+      "graphId": vertical || 'all',
+      "Date": new Date().toISOString(),
+      "stepCount": Math.max(1, result.toolCalls?.length || 0),
+      "responseTimeMs": result.totalDurationMs || 0,
+      "source": 'mcp',
+      "accountId": accountContext || '',
+      "taxonomy_node": (vertical || 'all').substring(0, 100),
+    }).catch(err => console.error('[McpRouter] Log write failed:', err?.message));
 
     res.json({ ok: true, ...result });
   } catch (err: any) {
