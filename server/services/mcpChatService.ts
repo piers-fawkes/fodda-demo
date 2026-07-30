@@ -33,6 +33,7 @@ export interface McpChatResult {
   toolCalls: ToolCallLog[];
   totalDurationMs: number;
   failureType?: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null;
+  traceJson?: string;
   error?: string;
 }
 
@@ -462,12 +463,35 @@ Format your final answer as rich markdown with ## headers for trends.`;
       }
     }
 
+    // Compute evidence min/max dates (the 120-day window)
+    let minDate: string | null = null;
+    let maxDate: string | null = null;
+    collectedData.evidence.forEach((ev: any) => {
+      const dStr = ev.date || ev.Date || ev.published_date || ev.timestamp;
+      if (dStr) {
+        if (!minDate || dStr < minDate) minDate = dStr;
+        if (!maxDate || dStr > maxDate) maxDate = dStr;
+      }
+    });
+
+    const traceJson = JSON.stringify({
+      version: '1.0',
+      query,
+      vertical,
+      totalDurationMs: totalDuration,
+      toolCalls: toolCallLog,
+      evidenceDateRange: minDate && maxDate ? `${minDate.split('T')[0]} to ${maxDate.split('T')[0]}` : '120-day active window',
+      humanExpertAttribution: vertical.startsWith('expert-') ? vertical.replace('expert-', '').replace(/-/g, ' ').toUpperCase() : null,
+      failureType
+    });
+
     return {
       answer: finalAnswer || 'No response generated.',
       suggestedQuestions,
       toolCalls: toolCallLog,
       totalDurationMs: totalDuration,
       failureType,
+      traceJson
     };
 
   } catch (err: any) {

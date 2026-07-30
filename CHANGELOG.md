@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — Phase 5: Expert Directory & Answer Receipts
+
+### Added
+- **Searchable Expert Directory (`ExpertDirectoryPage.tsx`)**: Built Expert Directory with topic/niche/keyword search, explicit visual separation between **Human Expert Twins** and **Synthetic Role Personas**, published blind spots, turnaround times, and real pricing/token costs.
+- **"Ask This Expert" Workflows**: Added one-click "Ask This Expert" buttons linking directly into the Test Bench with expert scope pre-selected.
+- **Server-Persisted Query Traces & Receipt API (`GET /api/account/receipt/:id`)** (`server/services/mcpChatService.ts`, `server/routers/accountRouter.ts`): Captured compact `traceJson` on chat completion (tool execution steps, min/max evidence dates, human expert attribution, latency) and persisted to `LOGS_TABLE_QUESTIONS`.
+- **Shareable Answer Receipt Drawer (`AnswerReceiptDrawer.tsx`)**: Built Answer Receipt process audit drawer featuring 120-day evidence recency discipline windows, human expert revenue attribution, tool execution step logs, and shareable deep-link URLs (`/receipt/:id`).
+- **Everywhere Receipt Entry Points**: Embedded receipt drawers across Chat message footers and Recent Executions rows in `<UsageMeter />`.
+
 ## [2026-07-30] — App: Pricing & Purchase Flow Fixes
 
 ### Fixed & Enhanced

@@ -6,9 +6,10 @@ interface UsageMeterProps {
   user: User;
   account: Account;
   className?: string;
+  onOpenReceipt?: (receiptId: string) => void;
 }
 
-export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className = '' }) => {
+export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className = '', onOpenReceipt }) => {
   const [usageData, setUsageData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -178,7 +179,12 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
                   const dateStr = q.timestamp ? new Date(q.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                   const isMulti = (q.stepCount || 1) > 1;
                   return (
-                    <tr key={q.id} className="hover:bg-cream/30 transition-colors">
+                    <tr
+                      key={q.id}
+                      onClick={() => onOpenReceipt?.(q.id)}
+                      className="hover:bg-cream/50 transition-colors cursor-pointer group"
+                      title="Click to view Answer Receipt"
+                    >
                       <td className="py-3 pr-4 font-medium text-ink max-w-xs truncate" title={q.question}>
                         {q.question}
                       </td>

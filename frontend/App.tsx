@@ -27,6 +27,8 @@ import { ProfileUsagePage } from './components/ProfileUsagePage';
 import { PaymentSetupModal } from './components/PaymentSetupModal';
 import { UsageWarningBanner } from './components/UsageWarningBanner';
 import { QueryLibraryPage } from './components/QueryLibraryPage';
+import { ExpertDirectoryPage } from './components/ExpertDirectoryPage';
+import { AnswerReceiptDrawer, ReceiptData } from './components/AnswerReceiptDrawer';
 import { ExpertTwinPage } from './components/ExpertTwinPage';
 import { UnclaimedExpertModal } from './components/UnclaimedExpertModal';
 import { dataService, ApiError } from '../shared/dataService';
@@ -105,6 +107,21 @@ const App: React.FC = () => {
   // Unclaimed expert modal state
   const [unclaimedExpert, setUnclaimedExpert] = useState<{ id: string; name: string; portraitUrl?: string } | null>(null);
   const [showUnclaimedModal, setShowUnclaimedModal] = useState(false);
+
+  // Receipt drawer state
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/^\/receipt\/(.+)$/);
+      return match ? match[1] : null;
+    }
+    return null;
+  });
+  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return /^\/receipt\/.+$/.test(window.location.pathname);
+    }
+    return false;
+  });
 
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1829,6 +1846,20 @@ const App: React.FC = () => {
       );
     }
 
+    if (activeView === 'directory') {
+      return (
+        <ExpertDirectoryPage
+          user={currentUser}
+          account={currentAccount}
+          onAskExpert={(expertSlug, defaultQuery) => {
+            setCurrentVertical(expertSlug as any);
+            if (defaultQuery) setInputValue(defaultQuery);
+            setActiveView('sandbox');
+          }}
+        />
+      );
+    }
+
     // Fallback — render profile
     return (
       <ProfilePage
@@ -1941,6 +1972,14 @@ const App: React.FC = () => {
         onToggleMcpMode={() => setIsMcpMode(!isMcpMode)}
         simulationMode={null}
         onSimulationChange={() => {}}
+      />
+      <AnswerReceiptDrawer
+        receiptId={selectedReceiptId}
+        isOpen={isReceiptOpen}
+        onClose={() => {
+          setIsReceiptOpen(false);
+          setSelectedReceiptId(null);
+        }}
       />
       {isAdminOpen && (
         <AdminPortal

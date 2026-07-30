@@ -327,6 +327,53 @@ router.get('/prompts', async (req, res) => {
 });
 
 /**
+ * GET /api/account/receipt/:id
+ * Returns full query receipt trace for a given query log ID.
+ */
+router.get('/receipt/:id', async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+    const logId = req.params.id;
+    if (!logId) return res.status(400).json({ ok: false, error: 'Log ID required' });
+
+    const queryRes = await queryAirtable(LOGS_TABLE_QUESTIONS, `RECORD_ID() = '${escapeAirtableString(logId)}'`);
+    const record = queryRes.records?.[0];
+    if (!record) return res.status(404).json({ ok: false, error: 'Receipt not found' });
+
+    const fields = record.fields || {};
+    let traceObj: any = {};
+    if (fields.traceJson) {
+      try {
+        traceObj = JSON.parse(fields.traceJson);
+      } catch { /* ignore invalid JSON */ }
+    }
+
+    return res.json({
+      ok: true,
+      receipt: {
+        id: record.id,
+        question: fields.question || 'Query',
+        userEmail: fields.userEmail || 'anonymous',
+        graphId: fields.graphId || fields.vertical || 'default',
+        timestamp: fields.Date || new Date().toISOString(),
+        responseTimeMs: fields.responseTimeMs || traceObj.totalDurationMs || null,
+        stepCount: fields.stepCount || traceObj.toolCalls?.length || 1,
+        source: fields.source || 'api',
+        evidenceDateRange: traceObj.evidenceDateRange || '120-day active window',
+        humanExpertAttribution: traceObj.humanExpertAttribution || (fields.graphId?.startsWith('expert-') ? fields.graphId.replace('expert-', '').toUpperCase() : null),
+        failureType: traceObj.failureType || null,
+        toolCalls: traceObj.toolCalls || []
+      }
+    });
+  } catch (err: any) {
+    console.error('[GET /api/account/receipt/:id] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
  * POST /api/account/mcp-connection/revoke
  * Instantly revokes a user's personal MCP connection token by clearing it in Airtable.
  * Account boundary guard: Admins/Owners can only manage users within their own account.

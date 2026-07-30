@@ -102,7 +102,7 @@ router.post("/chat", async (req, res) => {
       personaContext
     );
 
-    // Fire-and-forget query log write with true MCP step count
+    // Fire-and-forget query log write with true MCP step count & trace JSON
     createAirtableRecord(LOGS_TABLE_QUESTIONS, {
       "question": query,
       "userEmail": userId,
@@ -113,6 +113,7 @@ router.post("/chat", async (req, res) => {
       "source": 'mcp',
       "accountId": accountContext || '',
       "taxonomy_node": (vertical || 'all').substring(0, 100),
+      "traceJson": result.traceJson || ''
     }).catch(err => console.error('[McpRouter] Log write failed:', err?.message));
 
     res.json({ ok: true, ...result });
