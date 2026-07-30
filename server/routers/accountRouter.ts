@@ -343,6 +343,14 @@ router.get('/receipt/:id', async (req, res) => {
     if (!record) return res.status(404).json({ ok: false, error: 'Receipt not found' });
 
     const fields = record.fields || {};
+    
+    // Cross-tenant account boundary check
+    const recAccountId = fields.accountId || fields.accessKey;
+    const recEmail = (fields.userEmail || '').toLowerCase().trim();
+    if (user.role !== 'Owner' && user.role !== 'Admin' && recAccountId && recAccountId !== user.accountId && recEmail !== user.email.toLowerCase().trim()) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+
     let traceObj: any = {};
     if (fields.traceJson) {
       try {
@@ -361,7 +369,7 @@ router.get('/receipt/:id', async (req, res) => {
         responseTimeMs: fields.responseTimeMs || traceObj.totalDurationMs || null,
         stepCount: fields.stepCount || traceObj.toolCalls?.length || 1,
         source: fields.source || 'api',
-        evidenceDateRange: traceObj.evidenceDateRange || '120-day active window',
+        evidenceDateRange: traceObj.evidenceDateRange || null,
         humanExpertAttribution: traceObj.humanExpertAttribution || (fields.graphId?.startsWith('expert-') ? fields.graphId.replace('expert-', '').toUpperCase() : null),
         failureType: traceObj.failureType || null,
         toolCalls: traceObj.toolCalls || []

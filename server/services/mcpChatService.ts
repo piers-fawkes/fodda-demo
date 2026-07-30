@@ -480,7 +480,7 @@ Format your final answer as rich markdown with ## headers for trends.`;
       vertical,
       totalDurationMs: totalDuration,
       toolCalls: toolCallLog,
-      evidenceDateRange: minDate && maxDate ? `${minDate.split('T')[0]} to ${maxDate.split('T')[0]}` : '120-day active window',
+      evidenceDateRange: minDate && maxDate ? `${minDate.split('T')[0]} to ${maxDate.split('T')[0]}` : null,
       humanExpertAttribution: vertical.startsWith('expert-') ? vertical.replace('expert-', '').replace(/-/g, ' ').toUpperCase() : null,
       failureType
     });
