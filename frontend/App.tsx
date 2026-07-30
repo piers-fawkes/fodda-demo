@@ -26,6 +26,7 @@ import { AccountContextWiki } from './components/AccountContextWiki';
 import { ProfileUsagePage } from './components/ProfileUsagePage';
 import { PaymentSetupModal } from './components/PaymentSetupModal';
 import { UsageWarningBanner } from './components/UsageWarningBanner';
+import { QueryLibraryPage } from './components/QueryLibraryPage';
 import { ExpertTwinPage } from './components/ExpertTwinPage';
 import { UnclaimedExpertModal } from './components/UnclaimedExpertModal';
 import { dataService, ApiError } from '../shared/dataService';
@@ -757,11 +758,13 @@ const App: React.FC = () => {
           evidence: [],
           relatedTrends: [],
           suggestedQuestions: mcpResult.suggestedQuestions || [],
+          stepCount: mcpResult.toolCalls?.length || 1,
+          failureType: mcpResult.failureType,
           diagnostic: {
             dataStatus: 'MCP_AGENTIC',
             termsUsed: mcpResult.toolCalls?.map((tc: any) => tc.tool) || []
           }
-        };
+        } as Message;
 
         setMessages((prev: Message[]) => [...prev, assistantMsg]);
 
@@ -1810,6 +1813,20 @@ const App: React.FC = () => {
             </div>
           </div>
         </>
+      );
+    }
+
+    if (activeView === 'library') {
+      return (
+        <QueryLibraryPage
+          user={currentUser}
+          account={currentAccount}
+          onTryPrompt={(promptText, graphId) => {
+            setInputValue(promptText);
+            if (graphId) setCurrentVertical(graphId as any);
+            setActiveView('sandbox');
+          }}
+        />
       );
     }
 

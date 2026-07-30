@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — Phase 4: Query Library & Unified Test Bench Merge
+
+### Added
+- **Canonical Prompt Bank API (`GET /api/prompts`)** (`server/routers/accountRouter.ts`): Built endpoint reading directly from `server/data/prompt-bank.json`, enriching prompt entries with Job to be Done taxonomy metadata (`Pitch Prep`, `Trend Scan`, `Market Sizing`, `Deck Review`, `Competitor Read`, `Earnings Read`).
+- **In-App Query Library View** (`frontend/components/QueryLibraryPage.tsx`): Built Query Library page categorized by Jobs to be Done with tool capability metadata (`"Runs brand_intelligence · ~20 calls"`), copy-to-clipboard, and "Try in Test Bench" action buttons.
+- **Unified Test Bench & Sidebar Hygiene** (`frontend/components/ChatInterface.tsx`, `frontend/components/Sidebar.tsx`): Merged expert-chat and sandbox into one unified Test Bench interface, updated sidebar Ask section to exactly two items (**Query Library** and **Test Bench**), and preserved legacy deep links (`/expert`, `/sandbox`, `/research`).
+- **3 Server-Classified Failure States & Per-Answer Receipts**: Classified `mcpChat` execution outcomes (`NO_COVERAGE`, `DIDNT_ROUTE`, `TIMEOUT`) with tailored resolution UI and rendered step receipts (`N steps · N queries`) on every answer.
+- **Safe "Try in Test Bench"**: Configured "Try in Test Bench" to navigate and prefill the input bar without auto-submitting.
+
 ## [2026-07-30] — Phase 3: Step Count Semantics, Fallback Cleanups & Deployment
 
 ### Fixed & Enhanced

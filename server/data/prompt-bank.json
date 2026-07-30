@@ -2,6 +2,50 @@
   "_readme": "Prompt bank for onboarding emails. Prompts should be 10-25 words, ready to paste into Fodda or Claude with Fodda connected. Edit this file and redeploy to update prompts without code changes.",
   "_buyer_types": ["Agency Strategist", "Enterprise Research/AI", "AI Startup/Developer", "Publisher/Thought Leader", "Unknown"],
   "_graph_ids": ["retail", "beauty", "sports", "ce-design"],
+  "_jobs": [
+    {
+      "id": "pitch-prep",
+      "label": "Pitch Prep",
+      "tool": "brand_intelligence",
+      "estimatedCalls": "15–20 calls",
+      "description": "Quick, punchy competitive intelligence snapshots to brief clients and shape pitch decks."
+    },
+    {
+      "id": "trend-scan",
+      "label": "Trend Scan",
+      "tool": "topic_research",
+      "estimatedCalls": "15–20 calls",
+      "description": "Early signal detection and emerging category shifts across active knowledge domains."
+    },
+    {
+      "id": "market-sizing",
+      "label": "Market Sizing",
+      "tool": "deep_research",
+      "estimatedCalls": "20–30 calls",
+      "description": "Deep multi-step evidence gathering for market opportunities and consumer shifts."
+    },
+    {
+      "id": "deck-review",
+      "label": "Deck Review",
+      "tool": "brand_intelligence",
+      "estimatedCalls": "~20 calls",
+      "description": "Data-backed signals and counterintuitive examples to validate slide assertions."
+    },
+    {
+      "id": "competitor-read",
+      "label": "Competitor Read",
+      "tool": "standalone_brand_tracker",
+      "estimatedCalls": "~20 calls",
+      "description": "Structured brand performance comparison, friction removal, and experience audits."
+    },
+    {
+      "id": "earnings-read",
+      "label": "Earnings Read",
+      "tool": "expert_consult",
+      "estimatedCalls": "5–10 calls",
+      "description": "Targeted domain expert insights into operational shifts and strategic pivots."
+    }
+  ],
 
   "retail": {
     "general": [

@@ -317,18 +317,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       </div>
                     )}
 
-                    <div className="mt-6 pt-3 border-t border-line flex items-center justify-between opacity-60 hover:opacity-100 transition-opacity">
+                    {/* Classified Failure States */}
+                    {(msg as any).failureType === 'NO_COVERAGE' && (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                        <p className="text-xs font-bold text-red-800">No coverage found in this domain today.</p>
+                        <p className="text-xs text-red-600">We don't have indexed evidence nodes matching this topic yet.</p>
+                        <button onClick={() => onSendMessage(`[Coverage Request] ${msg.content}`)} className="px-3 py-1.5 bg-red-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-red-700 transition-colors">
+                          Request Coverage
+                        </button>
+                      </div>
+                    )}
+
+                    {(msg as any).failureType === 'DIDNT_ROUTE' && (
+                      <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
+                        <p className="text-xs font-bold text-purple-900">Query didn't match a tool handler.</p>
+                        <p className="text-xs text-purple-700">Try phrasing your prompt using forcing verbs like "Show me signals" or "Give me a brief".</p>
+                        <button onClick={() => onSendMessage('show query library')} className="px-3 py-1.5 bg-purple-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-purple-800 transition-colors">
+                          Browse Query Library
+                        </button>
+                      </div>
+                    )}
+
+                    {(msg as any).failureType === 'TIMEOUT' && (
+                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                        <p className="text-xs font-bold text-amber-900">Execution cap reached (45s timeout).</p>
+                        <p className="text-xs text-amber-700">The deep evidence loop timed out. You can retry with a specific graph scope.</p>
+                        <button onClick={() => onSendMessage(msg.content)} className="px-3 py-1.5 bg-amber-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-amber-800 transition-colors">
+                          Retry Query
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Footer Receipts & Actions */}
+                    <div className="mt-6 pt-3 border-t border-line flex items-center justify-between opacity-70 hover:opacity-100 transition-opacity">
                       <div className="flex items-center space-x-2">
-                        {/* Index diagnostic hidden — available via Diagnostic Console instead
-                        {msg.diagnostic && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-mono text-ink-4 uppercase tracking-widest">Index:</span>
-                            <span className={`text-[9px] font-mono font-bold uppercase tracking-widest ${msg.diagnostic.dataStatus.includes('TREND') ? 'text-green-600' : 'text-ink-3'}`}>
-                              {msg.diagnostic.dataStatus}
-                            </span>
-                          </div>
-                        )}
-                        */}
+                        <span className="text-[10px] font-mono font-bold text-ink-3 uppercase tracking-wider bg-cream px-2 py-0.5 rounded border border-line">
+                          {((msg as any).stepCount || (msg as any).toolCalls?.length || 1)} {((msg as any).stepCount || (msg as any).toolCalls?.length || 1) === 1 ? 'step' : 'steps'} · {((msg as any).stepCount || (msg as any).toolCalls?.length || 1)} queries
+                        </span>
                       </div>
                       <div className="flex items-center space-x-3">
                         <button
