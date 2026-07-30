@@ -3,6 +3,19 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — App: Pricing & Purchase Flow Fixes
+
+### Fixed & Enhanced
+- **Pending-Plan Auto-Checkout for Returning Users** (`frontend/App.tsx`): Dropped `isFirstLogin` condition so returning users with `fodda.pendingPlanCode` in `localStorage` auto-checkout on sign-in. Retained intent keys until checkout session URL is successfully created.
+- **Airtable Field Name Typo (`Monthly API Limit`)** (`server/routers/accountRouter.ts`, `server/routers/authRouter.ts`, `server/helpers.ts`): Replaced all 10 occurrences of `Monthly Query Limit` with `Monthly API Limit` to align with the live Airtable Plans schema.
+- **Authenticated Subscription Checkout (`POST /api/account/checkout/subscribe`)** (`server/routers/accountRouter.ts`): Added session authentication (`authenticateSession`) requiring a valid session token or Clerk JWT; derived customer email from session instead of request body and added rate-limiting (10 requests/min).
+- **Public Domain Match Restriction** (`server/helpers.ts`, `server/routers/accountRouter.ts`): Added `isPublicEmailDomain` denylist (`gmail.com`, `outlook.com`, `gmx.*`, `yandex.*`, `proton.me`, etc.) to prevent domain-matching purchases from generic email providers to existing accounts, falling back to `PAYMENT_UNMATCHED_ADMIN` notifications.
+
+### Verification Run
+- **Field Name Audit**: `grep -rn "Monthly Query Limit" server/ frontend/ shared/` returned 0 hits.
+- **Domain & Rate Limit Tests**: Verified `isPublicEmailDomain` and `isRateLimited` against test matrix of 23 domain types and rate-limit triggers.
+- **Production Build**: Ran `npm run build` — Vite build succeeded cleanly in 2.79s.
+
 ## [2026-07-30] — Phase 4: Query Library & Unified Test Bench Merge
 
 ### Added

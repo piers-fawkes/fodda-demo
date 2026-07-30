@@ -710,7 +710,7 @@ router.get("/profile", async (req: any, res) => {
                 ...baseAccount, 
                 fetchedPlanName: planRec.fields['Package Name'] || planRec.fields.Name || 'Custom', 
                 fetchedPlanCode: Number(planRec.fields['planCode']) || baseAccount.planCode || 0, 
-                fetchedMonthlyQueryLimit: planRec.fields['Monthly Query Limit'] || extractNumericLimit(baseAccount, 10), 
+                fetchedMonthlyQueryLimit: planRec.fields['Monthly API Limit'] || extractNumericLimit(baseAccount, 10), 
                 fetchedIncludesPublicApis: planRec.fields['Includes Public APIs?'] || false 
               };
             }

@@ -19,6 +19,8 @@ import {
   extractNumericLimit, 
   extractRealValue,
   extractCorporateDomain,
+  isPublicEmailDomain,
+  isRateLimited,
   authenticateSession,
   rewriteContext
 } from '../helpers.js';
@@ -563,7 +565,7 @@ router.get("/plans", async (req, res) => {
       name: r.fields["Package Name"] || "Unnamed Plan",
       description: r.fields["Package Description"] || "",
       price: r.fields["monthlyPriceUSD"] != null ? `$${r.fields["monthlyPriceUSD"]}` : "$0",
-      monthlyQueryLimit: r.fields["Monthly Query Limit"] || 0,
+      monthlyQueryLimit: r.fields["Monthly API Limit"] || 0,
       planCode: Number(r.fields["planCode"]) || 0,
       stripeLink: r.fields["stripeLink"] || r.fields["Stripe Link"] || "",
       includesPublicApis: r.fields["Includes Public APIs?"] || false,
@@ -624,10 +626,10 @@ router.post("/stripe/webhook", async (req: any, res) => {
       let userRecord = userQuery.records?.[0];
       let accountId = userRecord?.fields?.["Account"]?.[0];
 
-      // ═══ FALLBACK: Domain-match if buyer email not in Users table ═══
+      // ═══ FALLBACK: Domain-match if buyer email not in Users table (corporate domains only) ═══
       if (!userRecord || !accountId) {
         const buyerDomain = normalizedEmail.split('@')[1];
-        if (buyerDomain) {
+        if (buyerDomain && !isPublicEmailDomain(buyerDomain)) {
           // Search for any Owner or Admin with the same email domain
           const domainUsers = await queryAirtable(USERS_TABLE, `AND(OR({Role} = 'Owner', {Role} = 'Admin'), FIND('${buyerDomain}', LOWER({email})))`);
           const domainMatches = (domainUsers.records || []).filter((u: any) => {
@@ -692,7 +694,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
       if (isTopUp) {
         // ═══ TOP-UP PATH: Add bonus tokens, don't change the plan ═══
-        const topUpAmount = Number(planRecord.fields["Monthly Query Limit"] || 100);
+        const topUpAmount = Number(planRecord.fields["Monthly API Limit"] || 100);
         const priceUSD = Number(session.amount_total || 0) / 100;
 
         const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${accountId}'`);
@@ -792,7 +794,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
           await createAirtableRecord(TOKEN_PURCHASES_TABLE, {
             "accountId": accountId,
             "userEmail": customerEmail,
-            "amount": Number(planRecord.fields["Monthly Query Limit"] || 0),
+            "amount": Number(planRecord.fields["Monthly API Limit"] || 0),
             "priceUSD": priceUSD,
             "stripeSessionId": session.id || '',
             "referralGraphId": sourceGraphId,
@@ -813,7 +815,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
         sendSystemEmail('PLAN_UPGRADED', customerEmail, { 
             planName: planRecord.fields["Package Name"], 
-            queryLimit: planRecord.fields["Monthly Query Limit"]?.toLocaleString(), 
+            queryLimit: planRecord.fields["Monthly API Limit"]?.toLocaleString(), 
             name: userRecord.fields["First Name"],
             apiKey: upgradeApiKey
         }).catch(() => {});
@@ -1057,8 +1059,19 @@ router.post("/checkout/custom", async (req, res) => {
 
 router.post("/checkout/subscribe", async (req, res) => {
   try {
-    const { email, planCode, trialDays } = req.body;
-    if (!email || !planCode) return res.status(400).json({ ok: false, error: "Missing email or planCode" });
+    const user = await authenticateSession(req);
+    if (!user || !user.email) {
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
+    }
+
+    const rateKey = `subscribe:${user.id || user.email}`;
+    if (isRateLimited(rateKey, 10, 60_000)) {
+      return res.status(429).json({ ok: false, error: "Too many checkout requests. Please try again in a minute." });
+    }
+
+    const { planCode, trialDays } = req.body;
+    const email = user.email;
+    if (!planCode) return res.status(400).json({ ok: false, error: "Missing planCode" });
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) return res.status(500).json({ ok: false, error: "Stripe not configured" });
@@ -1529,7 +1542,7 @@ router.get("/status", async (req, res) => {
       const planRec = planQuery.records?.[0];
       if (planRec) {
         planName = planRec.fields['Package Name'] || planRec.fields.Name || 'Free';
-        monthlyTokenLimit = Number(planRec.fields['Monthly Query Limit'] || 100);
+        monthlyTokenLimit = Number(planRec.fields['Monthly API Limit'] || 100);
       }
     }
 
@@ -1902,7 +1915,7 @@ router.post("/admin/lookup", async (req, res) => {
               id: planRec.id,
               name: planRec.fields['Package Name'] || 'Unknown',
               planCode: Number(planRec.fields['planCode'] || 0),
-              monthlyQueryLimit: Number(planRec.fields['Monthly Query Limit'] || 0),
+              monthlyQueryLimit: Number(planRec.fields['Monthly API Limit'] || 0),
               price: planRec.fields['monthlyPriceUSD'] != null ? `$${planRec.fields['monthlyPriceUSD']}` : '$0',
               graphsIncluded: planRec.fields['Graphs Included'] || '',
             };
@@ -2020,7 +2033,7 @@ router.post("/admin/change-plan", async (req, res) => {
     await updateAirtableRecord(ACCOUNTS_TABLE, accountId, accountUpdate);
 
     const newPlanName = planRecord.fields['Package Name'] || 'Unknown';
-    const newLimit = Number(planRecord.fields['Monthly Query Limit'] || 0);
+    const newLimit = Number(planRecord.fields['Monthly API Limit'] || 0);
 
     console.log(`[Admin] Plan changed for ${email}: → ${newPlanName} (planCode: ${planCode}) by admin`);
 
@@ -2108,7 +2121,7 @@ router.post("/checkout/agent-session", async (req, res) => {
       checkout_url: session.url,
       session_id: session.id,
       mode: 'stripe_checkout',
-      tokens: Number(topUpPlan.fields['Monthly API Limit'] || topUpPlan.fields['Monthly Query Limit'] || 200),
+      tokens: Number(topUpPlan.fields['Monthly API Limit'] || 200),
       price_usd: Number(topUpPlan.fields.monthlyPriceUSD || topUpPlan.fields['Price (USD)'] || 50),
     });
   } catch (err: any) {

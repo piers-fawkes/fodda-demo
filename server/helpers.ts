@@ -146,7 +146,7 @@ export const extractRealValue = (val: any) => {
 export function extractNumericLimit(fields: any, fallback = 100): number {
   const candidates = [
     fields.monthlyQueryLimit,
-    fields['Monthly Query Limit'],
+    fields['Monthly API Limit'],
     fields['Max Plan Queries'],
     fields['Max API Calls Number'],
     fields.maxplanQueries
@@ -159,15 +159,37 @@ export function extractNumericLimit(fields: any, fallback = 100): number {
   return fallback;
 }
 
+export function isPublicEmailDomain(domain: string): boolean {
+  if (!domain) return true;
+  const d = domain.toLowerCase().trim();
+  const exactSet = new Set([
+    'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com',
+    'yahoo.com', 'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com',
+    'mail.com', 'msn.com', 'pm.me', 'hey.com', 'zoho.com'
+  ]);
+  if (exactSet.has(d)) return true;
+  if (d.startsWith('gmx.') || d.startsWith('yandex.')) return true;
+  return false;
+}
+
 export function extractCorporateDomain(email: string): string | null {
   if (!email || !email.includes('@')) return null;
   const domain = email.split('@')[1].toLowerCase().trim();
-  const freeProviders = new Set([
-    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com',
-    'icloud.com', 'me.com', 'msn.com', 'live.com', 'protonmail.com', 'mail.com'
-  ]);
-  if (freeProviders.has(domain)) return null;
+  if (isPublicEmailDomain(domain)) return null;
   return domain;
+}
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+export function isRateLimited(key: string, limit: number, windowMs: number = 10 * 60_000): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  entry.count++;
+  return entry.count > limit;
 }
 
 export async function autoProvisionUser(userId: string | undefined, accountId: string): Promise<void> {

@@ -553,32 +553,31 @@ const App: React.FC = () => {
       setHasSetInitialView(true);
     }
 
-    // ─── Auto-checkout: pricing page "Buy Now" → register → Stripe ───
+    // ─── Auto-checkout: pricing page "Buy Now" → register/login → Stripe ───
     // If the user arrived from fodda.ai/pricing with a plan pre-selected,
-    // AuthGate stored the planCode in localStorage. On first login, we
-    // call the existing checkout/subscribe endpoint and redirect to Stripe.
+    // AuthGate stored the planCode in localStorage. Whenever authenticated,
+    // we call the checkout/subscribe endpoint and redirect to Stripe.
     const pendingPlanCode = localStorage.getItem('fodda.pendingPlanCode');
-    if (pendingPlanCode && auth.isFirstLogin && auth.user.email) {
+    if (pendingPlanCode && auth.user.email) {
       const pendingTier = localStorage.getItem('fodda.pendingTier') || '';
       const pendingPrice = localStorage.getItem('fodda.pendingPrice') || '';
-      // Clear immediately so we never double-trigger
-      localStorage.removeItem('fodda.pendingPlanCode');
-      localStorage.removeItem('fodda.pendingTier');
-      localStorage.removeItem('fodda.pendingPrice');
 
-      console.log(`[App] Auto-checkout: user signed up from pricing page (plan=${pendingPlanCode}, tier=${pendingTier}, price=$${pendingPrice}). Redirecting to Stripe...`);
+      console.log(`[App] Auto-checkout: user pending plan checkout (plan=${pendingPlanCode}, tier=${pendingTier}, price=$${pendingPrice}). Redirecting to Stripe...`);
 
       fetch('/api/account/checkout/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: auth.user.email,
           planCode: Number(pendingPlanCode),
         }),
       })
         .then(r => r.json())
         .then(data => {
           if (data.ok && data.checkout_url) {
+            // Clear only after checkout session is successfully created
+            localStorage.removeItem('fodda.pendingPlanCode');
+            localStorage.removeItem('fodda.pendingTier');
+            localStorage.removeItem('fodda.pendingPrice');
             window.location.href = data.checkout_url;
           } else {
             console.warn('[App] Auto-checkout: no checkout URL returned, opening upgrade modal instead', data);
