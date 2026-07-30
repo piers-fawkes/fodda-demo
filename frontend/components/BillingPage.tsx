@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Account, Plan } from '../../shared/types';
 import { dataService } from '../../shared/dataService';
+import { UsageMeter } from './UsageMeter';
 
 interface BillingPageProps {
   user: User;
@@ -214,40 +215,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
           )}
         </section>
 
-        {/* ═══ API Usage This Cycle (parity with MCP get_my_account) ═══ */}
-        <section className="p-6 bg-paper border border-line rounded-2xl">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="text-xs font-bold text-ink-3 uppercase tracking-widest mb-2">API Usage This Cycle</h3>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-ink">{apiCallsUsed.toLocaleString()}</span>
-                <span className="text-sm text-ink-3 font-medium">/ {apiCallsTotal.toLocaleString()} API calls</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-ink-4 uppercase tracking-widest mb-1">Resets</p>
-              <p className="text-xs font-medium text-ink-2">{formatResetDate()}</p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-4 space-y-2">
-            <div className="h-3 bg-cream rounded-full border border-line/50 overflow-hidden shadow-inner">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${
-                  isOverLimit ? 'bg-red-500' : usagePercent >= 80 ? 'bg-amber-500' : 'bg-brand'
-                }`}
-                style={{ width: `${Math.min(100, usagePercent)}%` }}
-              ></div>
-            </div>
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-              <span className="text-ink-4">
-                {apiCallsRemaining >= 0
-                  ? `${apiCallsRemaining.toLocaleString()} API calls remaining`
-                  : `${overageCount.toLocaleString()} API calls over limit`}
-              </span>
-              <span className="text-ink-4">{usagePercent.toFixed(0)}% used</span>
-            </div>
+        {/* ═══ Plain-Language Usage Meter ═══ */}
+        <section className="p-6 bg-paper border border-line rounded-2xl space-y-6">
+          <div>
+            <h3 className="text-xs font-bold text-ink-3 uppercase tracking-widest mb-4">Usage & Consumption</h3>
+            <UsageMeter user={user} account={account} />
           </div>
 
           {/* Overage state banner */}

@@ -10,7 +10,8 @@ import {
 import { 
   USERS_TABLE, 
   ACCOUNTS_TABLE, 
-  PLANS_TABLE 
+  PLANS_TABLE,
+  LOGS_TABLE_QUESTIONS
 } from '../constants.js';
 import { 
   extractNumericLimit, 
@@ -79,6 +80,152 @@ router.post('/mcp-connection', async (req, res) => {
     return res.json(connection);
   } catch (err: any) {
     console.error('[mcp-connection] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// --- In-Memory 5-minute cache for Usage Aggregations ---
+const usageCache = new Map<string, { data: any; expiresAt: number }>();
+const USAGE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * GET /api/account/usage
+ * Returns two-source usage metrics:
+ * 1. Headline numbers (monthlyQueries, totalQueries, remainingQueries) from Account record.
+ * 2. Breakdowns (byGraph, byUser, dailyTrend, recentQueries) from LOGS_TABLE_QUESTIONS (30-day window).
+ */
+router.get('/usage', async (req, res) => {
+  try {
+    const user = await authenticateSession(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+    const accountId = (req.query.accountId as string) || user.accountId;
+    if (!accountId) return res.status(400).json({ ok: false, error: 'Account ID required' });
+
+    // Enforce account boundary: non-admin can only query their own account
+    if (accountId !== user.accountId && user.role !== 'Owner' && user.role !== 'Admin') {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+
+    const now = Date.now();
+    const cacheKey = `usage_${accountId}`;
+    const cached = usageCache.get(cacheKey);
+    if (cached && now < cached.expiresAt) {
+      return res.json(cached.data);
+    }
+
+    // 1. Fetch Headline Numbers directly from Account Record
+    const accQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+    const accRec = accQuery.records?.[0];
+    if (!accRec) return res.status(404).json({ ok: false, error: 'Account not found' });
+
+    const accFields = accRec.fields || {};
+    const monthlyQueries = Number(accFields.monthlyQueries || 0);
+    const monthlyQueryLimit = extractNumericLimit(accFields, 100);
+    const totalQueries = Number(accFields.totalQueries || accFields['Total Queries'] || monthlyQueries);
+    const remainingQueries = Math.max(0, monthlyQueryLimit - monthlyQueries);
+
+    // Dynamic cost per query calculation (no hardcoded literals)
+    const monthlyPrice = Number(accFields.monthlyPrice || 100);
+    const costPerQueryNum = monthlyQueryLimit > 0 ? (monthlyPrice / monthlyQueryLimit) : 0.50;
+    const costPerQueryDisplay = `$${costPerQueryNum.toFixed(2)}`;
+
+    // 2. Fetch Log Table Breakdowns for rolling 30 days from LOGS_TABLE_QUESTIONS
+    const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Fetch logs linked to this account, excluding disguised coverage requests
+    const logsFilter = `AND(IS_AFTER({Date}, '${thirtyDaysAgo}'), NOT(FIND('[Coverage Request]', {question}) > 0))`;
+    const logsRes = await queryAirtable(LOGS_TABLE_QUESTIONS, logsFilter);
+    const logRecords = logsRes.records || [];
+
+    // Filter to logs matching accountId or user email belonging to this account
+    const accountMembersRes = await queryAirtable(USERS_TABLE, `FIND('${escapeAirtableString(accountId)}', {Account})`);
+    const memberEmails = new Set(
+      (accountMembersRes.records || []).map((r: any) => (r.fields?.email || '').toLowerCase().trim()).filter(Boolean)
+    );
+
+    const relevantLogs = logRecords.filter((r: any) => {
+      const recAccId = r.fields?.accountId || r.fields?.accessKey;
+      const recEmail = (r.fields?.userEmail || '').toLowerCase().trim();
+      return recAccId === accountId || memberEmails.has(recEmail);
+    });
+
+    // Aggregations
+    const graphMap = new Map<string, number>();
+    const userMap = new Map<string, number>();
+    const dailyMap = new Map<string, number>();
+
+    // Pre-fill daily map for rolling 30 days
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now - i * 24 * 60 * 60 * 1000);
+      const dateStr = d.toISOString().split('T')[0];
+      dailyMap.set(dateStr, 0);
+    }
+
+    relevantLogs.forEach((r: any) => {
+      const g = (r.fields?.graphId || r.fields?.vertical || 'default').toLowerCase().trim();
+      const u = (r.fields?.userEmail || 'unknown').toLowerCase().trim();
+      const dStr = r.fields?.Date ? new Date(r.fields.Date).toISOString().split('T')[0] : null;
+
+      graphMap.set(g, (graphMap.get(g) || 0) + 1);
+      userMap.set(u, (userMap.get(u) || 0) + 1);
+      if (dStr && dailyMap.has(dStr)) {
+        dailyMap.set(dStr, dailyMap.get(dStr)! + 1);
+      }
+    });
+
+    const totalLogCount = relevantLogs.length || 1;
+
+    const byGraph = Array.from(graphMap.entries()).map(([graphId, count]) => ({
+      graphId,
+      graphName: graphId.toUpperCase().replace(/-/g, ' '),
+      queryCount: count,
+      percentage: Math.round((count / totalLogCount) * 100)
+    })).sort((a, b) => b.queryCount - a.queryCount);
+
+    const byUser = Array.from(userMap.entries()).map(([email, count]) => ({
+      userId: email,
+      userEmail: email,
+      userName: email.split('@')[0],
+      queryCount: count,
+      percentage: Math.round((count / totalLogCount) * 100)
+    })).sort((a, b) => b.queryCount - a.queryCount);
+
+    const dailyTrend = Array.from(dailyMap.entries()).map(([date, queryCount]) => ({
+      date,
+      queryCount
+    }));
+
+    const recentQueries = relevantLogs.slice(0, 10).map((r: any) => ({
+      id: r.id,
+      question: r.fields?.question || r.fields?.apiCall || 'Query',
+      userEmail: r.fields?.userEmail || 'anonymous',
+      graphId: r.fields?.graphId || r.fields?.vertical || 'default',
+      timestamp: r.fields?.Date || new Date().toISOString(),
+      responseTimeMs: r.fields?.responseTimeMs || null,
+      stepCount: r.fields?.stepCount || r.fields?.resultCount || 1,
+      source: r.fields?.source || 'api'
+    }));
+
+    const payload = {
+      ok: true,
+      usage: {
+        totalQueries,
+        monthlyQueries,
+        monthlyQueryLimit,
+        remainingQueries,
+        costPerQuery: costPerQueryDisplay,
+        byGraph,
+        byUser,
+        dailyTrend,
+        recentQueries
+      }
+    };
+
+    usageCache.set(cacheKey, { data: payload, expiresAt: now + USAGE_CACHE_TTL });
+    return res.json(payload);
+  } catch (err: any) {
+    console.error('[GET /api/account/usage] Error:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

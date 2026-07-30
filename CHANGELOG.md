@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — Phase 3: Plain-Language Meter & Real Usage Data
+
+### Added
+- **Two-Source Usage Endpoint (`GET /api/account/usage`)** (`server/routers/accountRouter.ts`): Built live usage aggregation service with 5-minute server caching. Headline metrics (`monthlyQueries`, `monthlyQueryLimit`, `totalQueries`, `remainingQueries`) are sourced directly from canonical Account record counters; breakdowns (`byGraph`, `byUser`, `dailyTrend`, `recentQueries`) are aggregated from `LOGS_TABLE_QUESTIONS` with a 30-day date filter and `[Coverage Request]` exclusion.
+- **Single Reusable `<UsageMeter />` Component** (`frontend/components/UsageMeter.tsx`): Built unified Usage Meter component consumed across Profile Usage, Account Portal, and Billing views, guaranteeing 100% number consistency and eliminating duplicate/fake dashboards.
+- **Step Count Logging & Dynamic Pricing**: Logged `stepCount` on query execution (`server/routers/queryRouter.ts`) to make multi-step agent query costs legible; derived unit rates dynamically without hardcoded literals.
+- **WCAG AA Contrast & Terminology Sweep**: Enforced ≥ 4.5:1 text contrast across meter elements and standardized copy everywhere (*Queries*, *This Month*, *All Time*, *Change Plan*, *Add Team Members*).
+
 ## [2026-07-30] — Phase 2: Team & Identity
 
 ### Added

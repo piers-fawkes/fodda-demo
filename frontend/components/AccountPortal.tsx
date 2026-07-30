@@ -4,6 +4,7 @@ import { User, Account } from '../../shared/types';
 import { dataService } from '../../shared/dataService';
 import { UsersList } from './UsersList';
 import { AgentPaymentBanner } from './AgentPaymentBanner';
+import { UsageMeter } from './UsageMeter';
 
 interface AccountPortalProps {
     isOpen: boolean;
@@ -659,61 +660,19 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                 <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} />
 
                                 {/* Account Health */}
-                                <section className="p-8 bg-white border border-line rounded-3xl shadow-sm">
-                                    <h3 className="eyebrow mb-6">Account Health</h3>
-                                    <div className="grid grid-cols-2 gap-8">
-                                        {/* Company Details */}
-                                        <div className="space-y-4">
-                                            <div>
-                                                <p className="font-serif italic text-3xl text-ink leading-tight">{account.name || 'Anonymous Account'}</p>
-                                                {user.company && <p className="text-sm font-medium text-ink-3 mt-2">{user.company}</p>}
-                                            </div>
-                                            <div className="flex flex-col gap-4 pt-4 border-t border-line border-dashed">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Global ID</span>
-                                                    <span className="text-xs text-ink-2 font-mono font-bold tracking-tight">{account.id}</span>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Account Started</span>
-                                                    <span className="text-xs text-ink-2 font-bold tracking-tight">
-                                                        {(account as any).startDate || (account as any).createdAt ? new Date((account as any).startDate || (account as any).createdAt).toLocaleDateString() : 'Active'}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                <section className="p-8 bg-white border border-line rounded-3xl shadow-sm space-y-6">
+                                    <h3 className="eyebrow mb-2">Account Health</h3>
+                                    <div className="flex items-center justify-between pb-6 border-b border-line">
+                                        <div>
+                                            <p className="font-serif italic text-3xl text-ink leading-tight">{account.name || 'Anonymous Account'}</p>
+                                            {user.company && <p className="text-sm font-medium text-ink-3 mt-1">{user.company}</p>}
                                         </div>
-
-                                        {/* Usage Stats */}
-                                        <div className="space-y-6">
-                                            <div className="space-y-2">
-                                                <div className="flex items-baseline gap-2">
-                                                    <p className="font-serif italic text-3xl text-ink leading-none">{account.currentQueryCount || 0}</p>
-                                                    <p className="text-ink-4 font-bold text-xs">/ {account.monthlyQueryLimit || '∞'}</p>
-                                                </div>
-                                                <p className="text-[10px] font-black text-ink-4 uppercase tracking-widest">Queries consumed</p>
-                                            </div>
-                                            {account.monthlyQueryLimit && (
-                                                <div className="mt-4 space-y-2">
-                                                    <div className="w-full h-1.5 bg-paper rounded-full border border-line/50 overflow-hidden shadow-inner">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-1000 ease-out ${((account.currentQueryCount || 0) / account.monthlyQueryLimit) > 0.8
-                                                                ? 'bg-red-500'
-                                                                : ((account.currentQueryCount || 0) / account.monthlyQueryLimit) > 0.5
-                                                                    ? 'bg-amber-500'
-                                                                    : 'bg-brand'
-                                                                }`}
-                                                            style={{ width: `${Math.min(100, ((account.currentQueryCount || 0) / account.monthlyQueryLimit) * 100)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-[9px] font-black text-ink-4 uppercase tracking-widest">Track</span>
-                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${((account.currentQueryCount || 0) / account.monthlyQueryLimit) > 0.8 ? 'text-red-600' : 'text-brand'}`}>
-                                                            {Math.round(((account.currentQueryCount || 0) / account.monthlyQueryLimit) * 100)}% Used
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <div className="text-right">
+                                            <span className="text-[9px] font-black text-ink-3 uppercase tracking-widest block mb-1">Global ID</span>
+                                            <span className="text-xs text-ink-2 font-mono font-bold tracking-tight">{account.id}</span>
                                         </div>
                                     </div>
+                                    <UsageMeter user={user} account={account} />
                                 </section>
 
                                 {/* Plan & Tier */}

@@ -229,6 +229,7 @@ router.post("/query", async (req, res) => {
         "searchSlug": searchSlug,
         "Date": new Date().toISOString(),
         "resultCount": resultCount,
+        "stepCount": req.body.stepCount || usage.tokens || 1,
         "responseTimeMs": responseTimeMs,
         "resultQuality": resultQuality,
         "source": (apiKey.startsWith('sk_trial_') || accountType === 'trial') ? 'trial' : 'api',

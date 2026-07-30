@@ -813,6 +813,18 @@ class DataService {
     }
   }
 
+  async getAccountUsage(accountId?: string): Promise<any> {
+    try {
+      const url = accountId ? `/api/account/usage?accountId=${encodeURIComponent(accountId)}` : '/api/account/usage';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch account usage');
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] getAccountUsage failed:', e);
+      return { ok: false, error: e.message };
+    }
+  }
+
   async getLogs(): Promise<UserLog[]> {
     try {
       const res = await fetch(API_ENDPOINTS.GET_LOGS);
