@@ -136,7 +136,11 @@ export const AnswerReceiptDrawer: React.FC<AnswerReceiptDrawerProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  Evidence range: <strong className="font-mono">{data.evidenceDateRange || 'Date range not captured in evidence nodes'}</strong>. Fodda strictly enforces a 120-day evidence discipline so query answers never rely on stale historical assumptions.
+                  {data.evidenceDateRange ? (
+                    <>Evidence range: <strong className="font-mono">{data.evidenceDateRange}</strong>. Fodda strictly enforces a 120-day evidence discipline so query answers never rely on stale historical assumptions.</>
+                  ) : (
+                    <>Evidence range: <strong className="font-mono">Date range not captured in evidence nodes for this query</strong>.</>
+                  )}
                 </p>
               </div>
 

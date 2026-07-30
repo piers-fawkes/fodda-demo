@@ -25,6 +25,8 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ## [2026-07-30] — Phase 5: Expert Directory & Answer Receipts
 
 ### Added & Fixed
+- **Fail-Closed Account Boundary Guard on Receipt Endpoint (`GET /api/account/receipt/:id`)** (`server/routers/accountRouter.ts`): Refactored receipt authorization check to fail-closed (`!sameAccount && !sameUser → 403`), eliminating role-bypass vulnerabilities where account owners could bypass boundary checks across foreign accounts.
+- **Conditional Recency Discipline Copy** (`frontend/components/AnswerReceiptDrawer.tsx`): Conditionally rendered the 120-day evidence discipline claim only when a valid date range was observed, preventing unobserved queries from presenting uncaptured policy claims.
 - **Account Boundary Guard on Receipt Endpoint (`GET /api/account/receipt/:id`)** (`server/routers/accountRouter.ts`): Enforced cross-tenant account boundary security checks; non-admin users attempting to fetch log receipts belonging to another account now receive HTTP 403 Forbidden.
 - **Eliminated Fabricated Date Fallbacks** (`server/services/mcpChatService.ts`, `frontend/components/AnswerReceiptDrawer.tsx`): Removed hardcoded `'120-day active window'` fallback string from trace logic when evidence dates are unobserved, displaying `'Date range not captured in evidence nodes'` instead.
 - **Searchable Expert Directory (`ExpertDirectoryPage.tsx`)**: Built Expert Directory with topic/niche/keyword search, explicit visual separation between **Human Expert Twins** and **Synthetic Role Personas**, published blind spots, turnaround times, and real pricing/token costs.

@@ -345,10 +345,13 @@ router.get('/receipt/:id', async (req, res) => {
 
     const fields = record.fields || {};
     
-    // Cross-tenant account boundary check
+    // Fail-closed authorization check: Allow if provably same account or same user, else deny
     const recAccountId = fields.accountId || fields.accessKey;
     const recEmail = (fields.userEmail || '').toLowerCase().trim();
-    if (user.role !== 'Owner' && user.role !== 'Admin' && recAccountId && recAccountId !== user.accountId && recEmail !== user.email.toLowerCase().trim()) {
+    const sameAccount = !!(recAccountId && user.accountId && recAccountId === user.accountId);
+    const sameUser = !!(recEmail && user.email && recEmail === user.email.toLowerCase().trim());
+
+    if (!sameAccount && !sameUser) {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
 
