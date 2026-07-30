@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { randomBytes } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
 import { 
   queryAirtable, 
   createAirtableRecord, 
@@ -246,6 +248,78 @@ router.get('/usage', async (req, res) => {
     return res.json(payload);
   } catch (err: any) {
     console.error('[GET /api/account/usage] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/prompts
+ * Returns structured prompt bank items grouped by Job to be Done,
+ * reading directly from server/data/prompt-bank.json.
+ */
+router.get('/prompts', async (req, res) => {
+  try {
+    const bankPath = path.join(process.cwd(), 'server/data/prompt-bank.json');
+    let bankData: any = {};
+    if (existsSync(bankPath)) {
+      bankData = JSON.parse(readFileSync(bankPath, 'utf-8'));
+    }
+
+    const jobs = bankData._jobs || [
+      { id: "pitch-prep", label: "Pitch Prep", tool: "brand_intelligence", estimatedCalls: "15–20 calls", description: "Quick, punchy competitive intelligence snapshots to brief clients and shape pitch decks." },
+      { id: "trend-scan", label: "Trend Scan", tool: "topic_research", estimatedCalls: "15–20 calls", description: "Early signal detection and emerging category shifts across active knowledge domains." },
+      { id: "market-sizing", label: "Market Sizing", tool: "deep_research", estimatedCalls: "20–30 calls", description: "Deep multi-step evidence gathering for market opportunities and consumer shifts." },
+      { id: "deck-review", label: "Deck Review", tool: "brand_intelligence", estimatedCalls: "~20 calls", description: "Data-backed signals and counterintuitive examples to validate slide assertions." },
+      { id: "competitor-read", label: "Competitor Read", tool: "standalone_brand_tracker", estimatedCalls: "~20 calls", description: "Structured brand performance comparison, friction removal, and experience audits." },
+      { id: "earnings-read", label: "Earnings Read", tool: "expert_consult", estimatedCalls: "5–10 calls", description: "Targeted domain expert insights into operational shifts and strategic pivots." }
+    ];
+
+    const categorizedPrompts: Record<string, Array<{ id: string; text: string; graphId: string; buyerType?: string }>> = {};
+    jobs.forEach((j: any) => { categorizedPrompts[j.id] = []; });
+
+    let idx = 1;
+    Object.keys(bankData).forEach(key => {
+      if (key.startsWith('_')) return;
+      const graphSection = bankData[key];
+      if (typeof graphSection !== 'object') return;
+
+      Object.keys(graphSection).forEach(buyerKey => {
+        const list = graphSection[buyerKey];
+        if (!Array.isArray(list)) return;
+
+        list.forEach((promptText: string) => {
+          const lower = promptText.toLowerCase();
+          let targetJob = 'trend-scan';
+          if (lower.includes('brief') || lower.includes('pitch') || lower.includes('snapshot') || lower.includes('agency')) {
+            targetJob = 'pitch-prep';
+          } else if (lower.includes('deep') || lower.includes('market') || lower.includes('sizing') || lower.includes('data point')) {
+            targetJob = 'market-sizing';
+          } else if (lower.includes('deck') || lower.includes('validate') || lower.includes('example') || lower.includes('counterintuitive')) {
+            targetJob = 'deck-review';
+          } else if (lower.includes('competitor') || lower.includes('retailer') || lower.includes('brand') || lower.includes('versus')) {
+            targetJob = 'competitor-read';
+          } else if (lower.includes('earning') || lower.includes('investor') || lower.includes('shift') || lower.includes('operational')) {
+            targetJob = 'earnings-read';
+          }
+
+          if (!categorizedPrompts[targetJob]) categorizedPrompts[targetJob] = [];
+          categorizedPrompts[targetJob].push({
+            id: `prompt-${idx++}`,
+            text: promptText,
+            graphId: key,
+            buyerType: buyerKey
+          });
+        });
+      });
+    });
+
+    return res.json({
+      ok: true,
+      jobs,
+      promptsByJob: categorizedPrompts
+    });
+  } catch (err: any) {
+    console.error('[GET /api/prompts] Error:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

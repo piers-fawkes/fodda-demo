@@ -32,6 +32,7 @@ export interface McpChatResult {
   suggestedQuestions: string[];
   toolCalls: ToolCallLog[];
   totalDurationMs: number;
+  failureType?: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null;
   error?: string;
 }
 
@@ -444,22 +445,51 @@ Format your final answer as rich markdown with ## headers for trends.`;
       console.error('[McpChat] Skill execution failed (fail-open):', skillErr.message);
     }
 
+    const totalDuration = Date.now() - startTime;
+    let failureType: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null = null;
+
+    if (totalDuration >= TOTAL_TIMEOUT_MS) {
+      failureType = 'TIMEOUT';
+    } else if (toolCallLog.length === 0) {
+      failureType = 'DIDNT_ROUTE';
+    } else if (collectedData.trends.length === 0 && collectedData.evidence.length === 0) {
+      const emptyIndicator = toolCallLog.some(t => {
+        const lower = (t.resultPreview || '').toLowerCase();
+        return lower.includes('0 nodes') || lower.includes('empty') || lower.includes('no results') || lower.includes('not found') || lower.includes('no evidence');
+      });
+      if (emptyIndicator) {
+        failureType = 'NO_COVERAGE';
+      }
+    }
+
     return {
       answer: finalAnswer || 'No response generated.',
       suggestedQuestions,
       toolCalls: toolCallLog,
-      totalDurationMs: Date.now() - startTime,
+      totalDurationMs: totalDuration,
+      failureType,
     };
 
   } catch (err: any) {
     console.error('[McpChat] Fatal error:', err);
     try { if (mcpClient) await mcpClient.close(); } catch { /* ignore */ }
 
+    const totalDuration = Date.now() - startTime;
+    let failureType: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null = 'DIDNT_ROUTE';
+    const errMsg = (err.message || '').toLowerCase();
+
+    if (totalDuration >= TOTAL_TIMEOUT_MS || errMsg.includes('timeout')) {
+      failureType = 'TIMEOUT';
+    } else if (toolCallLog.length > 0) {
+      failureType = 'NO_COVERAGE';
+    }
+
     return {
       answer: '',
       suggestedQuestions: [],
       toolCalls: toolCallLog,
-      totalDurationMs: Date.now() - startTime,
+      totalDurationMs: totalDuration,
+      failureType,
       error: err.message,
     };
   }
