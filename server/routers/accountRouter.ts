@@ -36,6 +36,7 @@ import {
   generateSetupUrl,
 } from "../services/stripeOverageService.js";
 import { buildMcpConnection, revokeMcpConnection, regenerateMcpConnection, getActiveKeysForAccount } from "../services/mcpConnectionService.js";
+import { notifyPaymentSlack } from "../services/paymentSlackService.js";
 
 const router = Router();
 
@@ -675,7 +676,10 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
       const planQuery = await queryAirtable(PLANS_TABLE, `{stripePriceId} = '${stripePriceId}'`);
       const planRecord = planQuery.records?.[0];
-      if (!planRecord) return res.status(400).json({ error: "Plan not found" });
+      if (!planRecord) {
+        notifyPaymentSlack('plan_not_found', { customerEmail: normalizedEmail, stripePriceId, sessionId: session.id });
+        return res.status(400).json({ error: "Plan not found" });
+      }
 
       const userQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(normalizedEmail)}'`);
       let userRecord = userQuery.records?.[0];
@@ -700,7 +704,8 @@ router.post("/stripe/webhook", async (req: any, res) => {
             console.log(`[Stripe] Domain-matched ${normalizedEmail} to account ${accountId} via ${matchedUser.fields.email}`);
 
             // Notify admin that auto-matching succeeded
-            sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers@psfk.com', { customerEmail: normalizedEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: `✅ AUTO-RESOLVED: Domain-matched to account ${accountId} via ${matchedUser.fields.email}. No action needed.` }).catch(() => {});
+            sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers.fawkes@psfk.com', { customerEmail: normalizedEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: `✅ AUTO-RESOLVED: Domain-matched to account ${accountId} via ${matchedUser.fields.email}. No action needed.` }).catch(() => {});
+            notifyPaymentSlack('unmatched_payment_auto_resolved', { customerEmail: normalizedEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', accountId });
 
             if (!userRecord) {
               // Create user record for the buyer and link to the matched account
@@ -730,7 +735,8 @@ router.post("/stripe/webhook", async (req: any, res) => {
       if (!userRecord) {
         // Safety net: alert admin + email buyer
         const amountStr = `$${(Number(session.amount_total || 0) / 100).toFixed(2)}`;
-        sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers@psfk.com', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: 'User not found in Airtable (domain-match also failed)' }).catch(() => {});
+        sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers.fawkes@psfk.com', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: 'User not found in Airtable (domain-match also failed)' }).catch(() => {});
+        notifyPaymentSlack('unmatched_payment_no_user', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '' });
         sendDirectEmail(customerEmail, 'We received your payment — setting up your account', `Hi there 👋\n\nThanks for your payment! We received it successfully.\n\nWe're setting up your Fodda account now. If you already have an account, could you reply to this email and let us know the company name or email address associated with it?\n\nIf you're brand new to Fodda, we'll have your account ready shortly.\n\nPiers\nFounder, Fodda`).catch(() => {});
         console.warn(`[Stripe] UNMATCHED PAYMENT: No user found for ${customerEmail} (${amountStr})`);
         return res.json({ received: true, warning: "User not found - admin notified" });
@@ -738,7 +744,8 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
       if (!accountId) {
         const amountStr = `$${(Number(session.amount_total || 0) / 100).toFixed(2)}`;
-        sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers@psfk.com', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: 'User exists but has no linked Account' }).catch(() => {});
+        sendSystemEmail('PAYMENT_UNMATCHED_ADMIN', 'piers.fawkes@psfk.com', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '', reason: 'User exists but has no linked Account' }).catch(() => {});
+        notifyPaymentSlack('unmatched_payment_no_account', { customerEmail, amount: amountStr, stripePriceId: stripePriceId || '', sessionId: session.id || '' });
         console.warn(`[Stripe] UNMATCHED PAYMENT: User ${customerEmail} has no linked account`);
         return res.json({ received: true, warning: "Account missing - admin notified" });
       }
@@ -757,10 +764,21 @@ router.post("/stripe/webhook", async (req: any, res) => {
         const currentBonus = Number(accountRecord?.fields?.bonusTokens || 0);
         const sourceGraphId = accountRecord?.fields?.sourceGraphId || '';
 
-        await updateAirtableRecord(ACCOUNTS_TABLE, accountId, {
-          "bonusTokens": currentBonus + topUpAmount,
-          "limitReached": false,
-        });
+        try {
+          await updateAirtableRecord(ACCOUNTS_TABLE, accountId, {
+            "bonusTokens": currentBonus + topUpAmount,
+            "limitReached": false,
+          });
+        } catch (airtableErr: any) {
+          console.error('[Stripe] Top-up Airtable update failed:', airtableErr.message);
+          notifyPaymentSlack('airtable_update_failed', {
+            stage: 'top_up_bonusTokens',
+            customerEmail,
+            accountId,
+            amount: `$${(Number(session.amount_total || 0) / 100).toFixed(2)}`,
+            error: airtableErr.message,
+          });
+        }
 
         try {
           const { TOKEN_PURCHASES_TABLE } = await import('../constants.js');
@@ -837,7 +855,18 @@ router.post("/stripe/webhook", async (req: any, res) => {
           accountUpdate["vertical"] = "retail";
         }
 
-        await updateAirtableRecord(ACCOUNTS_TABLE, accountId, accountUpdate);
+        try {
+          await updateAirtableRecord(ACCOUNTS_TABLE, accountId, accountUpdate);
+        } catch (airtableErr: any) {
+          console.error('[Stripe] Plan upgrade Airtable update failed:', airtableErr.message);
+          notifyPaymentSlack('airtable_update_failed', {
+            stage: 'plan_upgrade_accountUpdate',
+            customerEmail,
+            accountId,
+            amount: `$${(Number(session.amount_total || 0) / 100).toFixed(2)}`,
+            error: airtableErr.message,
+          });
+        }
 
         // Log plan upgrade to Token Purchases table
         try {
@@ -1039,6 +1068,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
     res.json({ ok: true, received: true });
   } catch (err: any) {
     console.error('[Stripe Webhook] Error:', err.message);
+    notifyPaymentSlack('webhook_signature_failed', { error: err.message });
     res.status(400).json({ error: err.message });
   }
 });
@@ -1113,19 +1143,22 @@ router.post("/checkout/custom", async (req, res) => {
 });
 
 router.post("/checkout/subscribe", async (req, res) => {
+  let email = '';
+  let requestedPlanCode: any = undefined;
   try {
     const user = await authenticateSession(req);
     if (!user || !user.email) {
       return res.status(401).json({ ok: false, error: "Unauthorized" });
     }
 
+    email = user.email;
     const rateKey = `subscribe:${user.id || user.email}`;
     if (isRateLimited(rateKey, 10, 60_000)) {
       return res.status(429).json({ ok: false, error: "Too many checkout requests. Please try again in a minute." });
     }
 
     const { planCode, trialDays } = req.body;
-    const email = user.email;
+    requestedPlanCode = planCode;
     if (!planCode) return res.status(400).json({ ok: false, error: "Missing planCode" });
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -1134,10 +1167,16 @@ router.post("/checkout/subscribe", async (req, res) => {
     // Look up plan
     const planQuery = await queryAirtable(PLANS_TABLE, `{planCode} = ${planCode}`);
     const planRecord = planQuery.records?.[0];
-    if (!planRecord) return res.status(404).json({ ok: false, error: "Plan not found" });
+    if (!planRecord) {
+      notifyPaymentSlack('subscribe_plan_not_found', { email, planCode });
+      return res.status(404).json({ ok: false, error: "Plan not found" });
+    }
 
     const stripePriceId = planRecord.fields["stripePriceId"];
-    if (!stripePriceId) return res.status(400).json({ ok: false, error: "No Stripe price configured for this plan" });
+    if (!stripePriceId) {
+      notifyPaymentSlack('subscribe_no_price_id', { email, planCode });
+      return res.status(400).json({ ok: false, error: "No Stripe price configured for this plan" });
+    }
 
     const billingMode = planRecord.fields["billingMode"] || 'subscription';
     const Stripe = (await import('stripe')).default;
@@ -1165,6 +1204,40 @@ router.post("/checkout/subscribe", async (req, res) => {
     res.json({ ok: true, checkout_url: session.url });
   } catch (err: any) {
     console.error('[Checkout] Error:', err.message);
+    notifyPaymentSlack('subscribe_5xx', { email: email || 'unknown', planCode: requestedPlanCode, error: err.message });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * Client-side failure beacon for payment flows (e.g. auto-checkout failure).
+ * Forwards event details to paymentSlackService.
+ */
+router.post("/payment-event", async (req, res) => {
+  try {
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+    if (isRateLimited(`payment-event:${clientIp}`, 10, 60_000)) {
+      return res.status(429).json({ ok: false, error: "Too many events reported." });
+    }
+
+    const { stage, planCode, error } = req.body || {};
+    const allowedStages = ['auto_checkout_failed', 'client_checkout_error'];
+    if (!stage || !allowedStages.includes(stage)) {
+      return res.status(400).json({ ok: false, error: "Invalid or unsupported event stage." });
+    }
+
+    let email = 'anonymous';
+    try {
+      const user = await authenticateSession(req);
+      if (user?.email) email = user.email;
+    } catch (e) {}
+
+    const cleanError = typeof error === 'string' ? error.substring(0, 500) : 'Client checkout failure';
+    notifyPaymentSlack(stage, { email, planCode, error: cleanError });
+
+    res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[PaymentEvent] Error processing beacon:', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-07-30] — App: Payment-Journey Failure Alerts to Slack (#fodda-sales)
+
+### Added & Fixed
+- **Shared Payment Slack Service (`server/services/paymentSlackService.ts`)**: Built non-blocking, fire-and-forget alert helper `notifyPaymentSlack(stage, detail)` targeting `#fodda-sales` (channel `C0AV0HLSF24`, or `SLACK_SALES_CHANNEL_ID`). Features 10-minute in-memory deduplication window per stage + error signature, 10s timeout, and email redaction (`pi***@domain`) for non-critical alerts.
+- **Stripe Webhook Alert Wiring (`server/routers/accountRouter.ts`)**: Integrated Slack notifications into all failure paths on `/api/account/stripe/webhook`:
+  - `constructEvent` signature verification rejection (`webhook_signature_failed`).
+  - Missing plan record lookup (`plan_not_found`).
+  - Unmatched payments (`unmatched_payment_auto_resolved`, `unmatched_payment_no_user`, `unmatched_payment_no_account`).
+  - Post-payment Airtable record update failures (`airtable_update_failed` 🚨).
+  - Updated `PAYMENT_UNMATCHED_ADMIN` recipient email address from `piers@psfk.com` to `piers.fawkes@psfk.com`.
+- **Subscribe Endpoint Alert Wiring (`server/routers/accountRouter.ts`)**: Integrated Slack alerts into `POST /api/account/checkout/subscribe` for 5xx errors (`subscribe_5xx`), missing Stripe price ID (`subscribe_no_price_id`), and missing plan records (`subscribe_plan_not_found`). Routine 401 unauthenticated requests and 429 rate limits do not fire alerts.
+- **Client-Side Failure Beacon (`server/routers/accountRouter.ts`, `frontend/App.tsx`)**: Created new rate-limited endpoint `POST /api/account/payment-event` and wired failure beacon in `App.tsx` auto-checkout logic to report client-side checkout redirect failures to Slack.
+
+### Verification Run
+- **Deduplication Verification**: Verified identical events within 10 minutes are suppressed (1 message posted).
+- **Message Format & Payload Audit**: Verified all 7 failure stage payloads against mock Slack API runner: correct channel (`C0AV0HLSF24`), emoji severity, un-unfurl settings, and email redactions.
+- **Email Recipient Audit**: Confirmed all admin email alerts send to `piers.fawkes@psfk.com`.
+- **TypeScript & Runtime Verification**: Tested `paymentSlackService.ts` and `accountRouter.ts` execution; zero runtime exceptions.
+
 ## [2026-07-30] — Phase 5: Expert Directory & Answer Receipts
 
 ### Added & Fixed

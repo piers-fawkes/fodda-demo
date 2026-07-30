@@ -598,11 +598,29 @@ const App: React.FC = () => {
             window.location.href = data.checkout_url;
           } else {
             console.warn('[App] Auto-checkout: no checkout URL returned, opening upgrade modal instead', data);
+            fetch('/api/account/payment-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                stage: 'auto_checkout_failed',
+                planCode: Number(pendingPlanCode),
+                error: data.error || 'No checkout URL returned',
+              }),
+            }).catch(() => {});
             setIsUpgradeModalOpen(true);
           }
         })
         .catch(err => {
           console.error('[App] Auto-checkout failed:', err);
+          fetch('/api/account/payment-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              stage: 'auto_checkout_failed',
+              planCode: Number(pendingPlanCode),
+              error: err.message || 'Auto checkout request failed',
+            }),
+          }).catch(() => {});
           // Fallback: show upgrade modal so the user can still subscribe manually
           setIsUpgradeModalOpen(true);
         });
