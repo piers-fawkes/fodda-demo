@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { clerkClient } from '@clerk/express';
-import { queryAirtable, escapeAirtableString } from '../db.js';
-import { LOGS_TABLE_QUESTIONS } from '../constants.js';
+import { queryAirtable, updateAirtableRecord, escapeAirtableString } from '../db.js';
+import { LOGS_TABLE_QUESTIONS, CE_BASE_ID, CE_ANALYSTS_TABLE, GRAPH_LIST_TABLE, TOKEN_PURCHASES_TABLE } from '../constants.js';
 import { getGraph } from '../services/graph-registry.js';
+import { authenticateSession } from '../helpers.js';
 
 const router = Router();
 
@@ -179,6 +180,95 @@ router.get("/analytics", async (req: any, res) => {
 
   } catch (err: any) {
     console.error("[CreatorRouter] Failed to query analytics:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/creator/earnings
+ * Reads revenue attribution for the creator's graph from canonical TOKEN_PURCHASES_TABLE (tblNJdPZnVQ0jmlQh).
+ * Formula: 50% * SUM(unit value of paid queries attributed to this graph).
+ */
+router.get("/earnings", async (req: any, res) => {
+  try {
+    const graphId = req.query.graphId as string;
+    if (!graphId) return res.status(400).json({ ok: false, error: "graphId parameter is required" });
+
+    // Read from TOKEN_PURCHASES_TABLE (Token Purchase Log revenue attribution)
+    const formula = `FIND('${escapeAirtableString(graphId)}', {referralGraphId})`;
+    const purchaseRes = await queryAirtable(TOKEN_PURCHASES_TABLE, formula);
+    const purchaseRecords = purchaseRes.records || [];
+
+    let paidQueries = 0;
+    let totalRevenueUSD = 0;
+
+    for (const rec of purchaseRecords) {
+      const amount = Number(rec.fields.amount || 0);
+      const priceUSD = Number(rec.fields.priceUSD || 0);
+      paidQueries += amount;
+      totalRevenueUSD += priceUSD;
+    }
+
+    const expertEarningsUSD = Number((totalRevenueUSD * 0.5).toFixed(2));
+
+    // Also get activity footprint from question logs
+    const activityRes = await queryAirtable(LOGS_TABLE_QUESTIONS, `{graphId} = '${escapeAirtableString(graphId)}'`);
+    const activityRecords = activityRes.records || [];
+    const totalQueries = activityRecords.length;
+    const trialQueries = activityRecords.filter((r: any) => r.fields.source === 'trial').length;
+
+    return res.json({
+      ok: true,
+      earnings: {
+        graphId,
+        totalQueries,
+        paidQueries,
+        trialQueries,
+        revenueSharePercent: 50,
+        expertEarningsUSD,
+        status: purchaseRecords.length > 0 ? 'synced' : 'pending_sync',
+        syncNotice: purchaseRecords.length > 0 ? null : 'Revenue attribution syncing with canonical API purchase logs'
+      }
+    });
+  } catch (err: any) {
+    console.error("[CreatorRouter] Failed to fetch earnings:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/creator/takedown
+ * Updates expert graph status ({Status}: 'Active' | 'Paused') in CE_ANALYSTS_TABLE and GRAPH_LIST_TABLE.
+ */
+router.post("/takedown", async (req: any, res) => {
+  try {
+    const { graphId, status } = req.body || {};
+    if (!graphId || !status || !['Active', 'Paused'].includes(status)) {
+      return res.status(400).json({ ok: false, error: "Invalid graphId or status ('Active' | 'Paused' required)" });
+    }
+
+    // 1. Find Analyst record in CE base
+    const analystRes = await queryAirtable(CE_ANALYSTS_TABLE, `{graphId} = '${escapeAirtableString(graphId)}'`, '', CE_BASE_ID);
+    const analystRec = analystRes.records?.[0];
+    if (analystRec) {
+      await updateAirtableRecord(CE_ANALYSTS_TABLE, analystRec.id, { "Status": status }, CE_BASE_ID);
+    }
+
+    // 2. Also update GRAPH_LIST_TABLE in main base
+    const graphRes = await queryAirtable(GRAPH_LIST_TABLE, `{id} = '${escapeAirtableString(graphId)}'`);
+    const graphRec = graphRes.records?.[0];
+    if (graphRec) {
+      await updateAirtableRecord(GRAPH_LIST_TABLE, graphRec.id, { "Status": status });
+    }
+
+    return res.json({
+      ok: true,
+      graphId,
+      status,
+      latencyNotice: 'Takedown / Pause stops receiving new queries across all app and MCP channels within ~5 minutes.'
+    });
+  } catch (err: any) {
+    console.error("[CreatorRouter] Failed to update takedown status:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

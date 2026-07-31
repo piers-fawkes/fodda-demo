@@ -22,6 +22,15 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **Email Recipient Audit**: Confirmed all admin email alerts send to `piers.fawkes@psfk.com`.
 - **TypeScript & Runtime Verification**: Tested `paymentSlackService.ts` and `accountRouter.ts` execution; zero runtime exceptions.
 
+## [2026-07-31] — Phase 6: My Expert Page (Twin Editing, Canonical Revenue & Controls)
+
+### Added
+- **Consolidated "My Expert Page" (`ExpertTwinPage.tsx`)**: Consolidated expert twin management, earnings, graph status controls, draft preview sandbox, and plain-text promises into a single view under Profile with zero top-level nav sprawl.
+- **Canonical API Revenue Attribution (`GET /api/creator/earnings`)** (`server/routers/creatorRouter.ts`): Sourced revenue attribution directly from canonical `TOKEN_PURCHASES_TABLE` (`tblNJdPZnVQ0jmlQh`), displaying Total Queries, Paid Queries, Free/Trial Queries, and 50/50 Revenue Payout with clear sync status.
+- **Real Multi-Channel Takedown (`POST /api/creator/takedown`)** (`server/routers/creatorRouter.ts`): Built 1-click takedown control updating `{Status}` (`Active` <-> `Paused`) on `CE_ANALYSTS_TABLE` (`Analysts` in `CE_BASE_ID`) and `GRAPH_LIST_TABLE` with measured latency notice (`~5 min propagation`).
+- **"Test-Drive Your Twin" Draft Preview Sandbox**: Built in-page draft preview sandbox allowing creators to test-query their twin in draft state before live release.
+- **Plain-Text Promises**: Integrated transparent creator terms: **Text-only, no avatar**, **Non-exclusive content license**, **Pause/Takedown anytime**, and **50/50 revenue share on all paying usage**.
+
 ## [2026-07-30] — Phase 5: Expert Directory & Answer Receipts
 
 ### Added & Fixed

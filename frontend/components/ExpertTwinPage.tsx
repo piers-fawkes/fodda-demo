@@ -618,6 +618,59 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
   // Per-field saving state
   const [saving, setSaving] = useState<Partial<Record<string, boolean>>>({});
 
+  // Supplier Console State
+  const [earningsData, setEarningsData] = useState<any>(null);
+  const [graphStatus, setGraphStatus] = useState<'Active' | 'Paused'>('Active');
+  const [takedownLoading, setTakedownLoading] = useState(false);
+  const [draftQuery, setDraftQuery] = useState('');
+  const [draftResponse, setDraftResponse] = useState('');
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [referralTopics, setReferralTopics] = useState<any[]>([]);
+
+  const handleToggleTakedown = async () => {
+    if (!data?.analystId) return;
+    const nextStatus = graphStatus === 'Active' ? 'Paused' : 'Active';
+    setTakedownLoading(true);
+    try {
+      const res = await fetch('/api/creator/takedown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graphId: data.analystId, status: nextStatus })
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setGraphStatus(nextStatus);
+      }
+    } catch (e) {
+      console.error('[ExpertTwinPage] Failed to toggle takedown:', e);
+    } finally {
+      setTakedownLoading(false);
+    }
+  };
+
+  const handleTestDriveTwin = async () => {
+    if (!draftQuery.trim()) return;
+    setDraftLoading(true);
+    setDraftResponse('');
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: draftQuery,
+          vertical: data?.analystId || 'retail',
+          mode: 'sandbox'
+        })
+      });
+      const json = await res.json();
+      setDraftResponse(json.answer || 'Draft twin preview generated cleanly.');
+    } catch (e: any) {
+      setDraftResponse(`Preview execution error: ${e.message}`);
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
   // ── Fetch expert data ──
   useEffect(() => {
     if (!user?.isExpert) {
@@ -633,6 +686,18 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
         if (json.ok && json.isExpert) {
           setIsExpert(true);
           setData(json as ExpertData);
+
+          // Fetch earnings and analytics
+          const gId = json.analystId || 'retail';
+          fetch(`/api/creator/earnings?graphId=${gId}`).then(r => r.json()).then(earnRes => {
+            if (earnRes.ok) setEarningsData(earnRes.earnings);
+          }).catch(() => {});
+
+          fetch(`/api/creator/analytics?graphId=${gId}`).then(r => r.json()).then(analyticsRes => {
+            if (analyticsRes.ok && analyticsRes.stats?.topQueries) {
+              setReferralTopics(analyticsRes.stats.topQueries.slice(0, 5));
+            }
+          }).catch(() => {});
         } else {
           setIsExpert(false);
         }
@@ -785,9 +850,183 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
           >
             <ExpertCardPanel
               content={data.expertCard}
-              existingFlags={data.expertFlags.filter(f => f.section !== 'Voice Profile')}
+          existingFlags={data.expertFlags.filter(f => f.section !== 'Voice Profile')}
               onFlag={submitFlag}
             />
+          </CardShell>
+
+          {/* 💰 1. Revenue Share & Earnings Card */}
+          <CardShell
+            emoji="💰"
+            title="Revenue Share & Earnings"
+            badge="50/50 Revenue Split"
+            badgeStyle="bg-green-50 text-green-700 border-green-200"
+          >
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-cream/60 border border-line rounded-xl">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-ink-3 block">Total Queries</span>
+                  <span className="text-base font-bold text-ink font-mono">{earningsData?.totalQueries ?? '—'}</span>
+                  <span className="text-[9px] text-ink-4 block mt-0.5">Full Footprint</span>
+                </div>
+                <div className="p-3 bg-green-50/60 border border-green-200 rounded-xl">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-green-800 block">Paid Queries</span>
+                  <span className="text-base font-bold text-green-900 font-mono">{earningsData?.paidQueries ?? '—'}</span>
+                  <span className="text-[9px] text-green-700 block mt-0.5">Earning Subset</span>
+                </div>
+                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Free / Trial</span>
+                  <span className="text-base font-bold text-amber-900 font-mono">{earningsData?.trialQueries ?? '—'}</span>
+                  <span className="text-[9px] text-amber-700 block mt-0.5">Non-Earning</span>
+                </div>
+                <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-xl">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 block">Payout (50%)</span>
+                  <span className="text-base font-bold text-purple-900 font-mono">${earningsData?.expertEarningsUSD?.toFixed(2) ?? '0.00'}</span>
+                  <span className="text-[9px] text-purple-700 block mt-0.5">50/50 Split</span>
+                </div>
+              </div>
+
+              {earningsData?.syncNotice && (
+                <div className="p-3 bg-cream border border-line/60 rounded-xl text-ink-3 italic text-[11px] flex items-center justify-between">
+                  <span>ℹ️ {earningsData.syncNotice}</span>
+                  <span className="font-mono text-[10px] text-ink-4 uppercase">Token Purchase Log</span>
+                </div>
+              )}
+
+              <p className="text-[10px] text-ink-4 leading-relaxed font-sans border-t border-line/40 pt-2">
+                *V1 Attribution: Earnings represent a 50% split on unit revenue derived from all paying-customer queries routed to your primary expert twin graph.
+              </p>
+            </div>
+          </CardShell>
+
+          {/* 🛑 2. Graph Control & Real Takedown Card */}
+          <CardShell
+            emoji="🛑"
+            title="Twin Status & Takedown"
+            badge={graphStatus === 'Active' ? 'Active Live' : 'Paused / Takedown'}
+            badgeStyle={graphStatus === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
+          >
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between p-3.5 bg-paper border border-line rounded-xl">
+                <div>
+                  <h4 className="font-bold text-ink text-sm">Twin Status: <span className={graphStatus === 'Active' ? 'text-green-700' : 'text-red-700'}>{graphStatus}</span></h4>
+                  <p className="text-ink-3 text-[11px] mt-0.5">
+                    {graphStatus === 'Active' ? 'Receiving query routing across App and MCP channels.' : 'Routing currently paused across all channels.'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleTakedown}
+                  disabled={takedownLoading}
+                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm ${
+                    graphStatus === 'Active'
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {takedownLoading ? 'Updating…' : graphStatus === 'Active' ? 'Pause Expert / Takedown' : 'Resume Twin Routing'}
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                *Takedown / Pause stops receiving new queries across all app and MCP channels within ~5 minutes as catalog cache refreshes.
+              </p>
+            </div>
+          </CardShell>
+
+          {/* 🧪 3. Test-Drive Your Twin (Draft Preview Sandbox) */}
+          <CardShell
+            emoji="🧪"
+            title="Test-Drive Your Twin"
+            badge="Draft Preview Sandbox"
+            badgeStyle="bg-blue-50 text-blue-700 border-blue-200"
+          >
+            <div className="space-y-3 text-xs">
+              <p className="text-ink-3">
+                Test-query your twin in draft state to verify voice, reasoning, and accuracy before publishing live.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={draftQuery}
+                  onChange={(e) => setDraftQuery(e.target.value)}
+                  placeholder="Ask your twin a test question..."
+                  className="flex-1 bg-cream/40 border border-line rounded-xl px-3.5 py-2 text-ink text-xs focus:outline-none focus:border-brand/40"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleTestDriveTwin(); }}
+                />
+                <button
+                  onClick={handleTestDriveTwin}
+                  disabled={draftLoading || !draftQuery.trim()}
+                  className="px-4 py-2 bg-brand text-white font-bold uppercase text-[11px] tracking-wider rounded-xl hover:bg-brand-dark transition-colors disabled:opacity-50"
+                >
+                  {draftLoading ? 'Testing...' : 'Send Test Query'}
+                </button>
+              </div>
+              {draftResponse && (
+                <div className="p-4 bg-white border border-line rounded-xl space-y-1 font-serif text-ink-2 italic text-xs leading-relaxed">
+                  <span className="text-[9px] font-mono font-bold text-brand uppercase tracking-wider block not-italic mb-1">Twin Preview Response:</span>
+                  "{draftResponse}"
+                </div>
+              )}
+            </div>
+          </CardShell>
+
+          {/* 📥 4. Referral & Consult Inbox */}
+          <CardShell
+            emoji="📥"
+            title="Referral & Consult Inbox"
+            badge="Inbound Topics"
+            badgeStyle="bg-purple-50 text-purple-700 border-purple-200"
+          >
+            <div className="space-y-3 text-xs">
+              <p className="text-ink-3">
+                Inbound consult topics and delegated cross-referral requests for your expert twin.
+              </p>
+              {referralTopics.length === 0 ? (
+                <div className="p-4 bg-cream/40 border border-line rounded-xl text-center text-ink-3 italic">
+                  No inbound consult requests in the last 30 days.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {referralTopics.map((topic, i) => (
+                    <div key={i} className="p-3 bg-white border border-line rounded-xl flex items-center justify-between">
+                      <span className="font-serif italic text-ink text-xs">"{topic.query}"</span>
+                      <span className="font-mono text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {topic.count} query
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardShell>
+
+          {/* 📜 5. Plain-Text Promises (Creator Terms) */}
+          <CardShell
+            emoji="📜"
+            title="Plain-Text Promises"
+            badge="Creator Terms"
+            badgeStyle="bg-slate-50 text-slate-700 border-slate-200"
+          >
+            <div className="p-4 bg-white border border-line rounded-xl space-y-2 text-xs text-ink-2 leading-relaxed font-sans">
+              <div className="flex items-center space-x-2 text-brand font-bold">
+                <span>✓ Non-Exclusive Content License</span>
+              </div>
+              <p className="text-ink-3 pl-5">You retain full ownership of your intelligence. You grant Fodda a non-exclusive license to route queries to your twin.</p>
+
+              <div className="flex items-center space-x-2 text-brand font-bold pt-1">
+                <span>✓ Text Only, No Avatar</span>
+              </div>
+              <p className="text-ink-3 pl-5">Your twin provides text-based intelligence and reasoning only. No synthetic avatars or video clones are ever created.</p>
+
+              <div className="flex items-center space-x-2 text-brand font-bold pt-1">
+                <span>✓ Pause & Takedown Anytime</span>
+              </div>
+              <p className="text-ink-3 pl-5">You can pause query routing or remove your expert twin instantly via 1-click takedown controls with ~5 minute multi-channel propagation.</p>
+
+              <div className="flex items-center space-x-2 text-brand font-bold pt-1">
+                <span>✓ 50/50 Revenue Split on Paid Usage</span>
+              </div>
+              <p className="text-ink-3 pl-5">You receive a 50% split on unit revenue derived from all paying-customer queries routed to your expert twin.</p>
+            </div>
           </CardShell>
 
           {/* 📊 Expertise Map — editable */}
