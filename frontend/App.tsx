@@ -26,6 +26,7 @@ import { AccountContextWiki } from './components/AccountContextWiki';
 import { ProfileUsagePage } from './components/ProfileUsagePage';
 import { PaymentSetupModal } from './components/PaymentSetupModal';
 import { UsageWarningBanner } from './components/UsageWarningBanner';
+import { HomeDashboard } from './components/HomeDashboard';
 import { QueryLibraryPage } from './components/QueryLibraryPage';
 import { ExpertDirectoryPage } from './components/ExpertDirectoryPage';
 import { AnswerReceiptDrawer, ReceiptData } from './components/AnswerReceiptDrawer';
@@ -1847,6 +1848,25 @@ const App: React.FC = () => {
             </div>
           </div>
         </>
+      );
+    }
+
+    if (activeView === 'account-overview' || (activeView as string) === 'home') {
+      return (
+        <HomeDashboard
+          user={currentUser!}
+          account={currentAccount!}
+          onNavigate={(view: string) => setActiveView(view as any)}
+          onTryPrompt={(promptText, graphId) => {
+            setInputValue(promptText);
+            if (graphId) setCurrentVertical(graphId as any);
+            setActiveView('sandbox');
+          }}
+          onOpenReceipt={(receiptId) => {
+            setSelectedReceiptId(receiptId);
+            setIsReceiptOpen(true);
+          }}
+        />
       );
     }
 

@@ -22,9 +22,10 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **Email Recipient Audit**: Confirmed all admin email alerts send to `piers.fawkes@psfk.com`.
 - **TypeScript & Runtime Verification**: Tested `paymentSlackService.ts` and `accountRouter.ts` execution; zero runtime exceptions.
 
-## [2026-07-31] — Phase 7: Connections Consolidation & Reconciled 7-Destination Nav Structure
+## [2026-07-31] — Phase 7: Real Home Dashboard & Reconciled 7-Destination Nav Structure
 
 ### Added & Fixed
+- **Real Home Dashboard (`HomeDashboard.tsx`)** (`frontend/components/HomeDashboard.tsx`, `App.tsx`): Built and wired the front-door Home landing view (`/`) assembling the 5 real blocks (MCP Connection State & Claude quick link, Domain Coverage Snapshot, real-time Usage Meter with receipt drawer entry points, Recent Executions, and "What to Ask" prompt bank teasers with "Try in Test Bench" action buttons).
 - **Reconciled 7 Top-Level Destinations (`Sidebar.tsx`, `App.tsx`)**: Finalized sidebar navigation into exactly 7 clean, un-duplicated destinations (**Home**, **Ask**, **Experts**, **Coverage**, **Team & Access**, **Billing & Usage**, **Profile**), eliminating top-level nav sprawl and dead links.
 - **Unified Team & Access Destination (`ConnectionsPage.tsx` / `/connect`)**: Consolidated all 8 connector tabs (Claude MCP, ChatGPT, Gemini/Vertex, Microsoft Copilot, Perplexity, Notion, REST API/MCP Keys, and Team Members & Roles) into a single destination with per-user token safety lifecycle.
 - **"Add Your Own Source" Roadmap Card (`ConnectionsPage.tsx`)**: Added grayed-out enterprise roadmap card inviting partners and creators to connect custom knowledge graphs or proprietary APIs with Enterprise Beta inquiry triggers.
