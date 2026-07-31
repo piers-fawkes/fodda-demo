@@ -863,16 +863,11 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
             badgeStyle="bg-green-50 text-green-700 border-green-200"
           >
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="p-3 bg-cream/60 border border-line rounded-xl">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-ink-3 block">Total Queries</span>
-                  <span className="text-base font-bold text-ink font-mono">{earningsData?.totalQueries ?? '—'}</span>
-                  <span className="text-[9px] text-ink-4 block mt-0.5">Full Footprint</span>
-                </div>
-                <div className="p-3 bg-green-50/60 border border-green-200 rounded-xl">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-green-800 block">Paid Queries</span>
-                  <span className="text-base font-bold text-green-900 font-mono">{earningsData?.paidQueries ?? '—'}</span>
-                  <span className="text-[9px] text-green-700 block mt-0.5">Earning Subset</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-ink-3 block">In-App Activity</span>
+                  <span className="text-base font-bold text-ink font-mono">{earningsData?.inAppActivityFootprint ?? '—'}</span>
+                  <span className="text-[9px] text-ink-4 block mt-0.5">Session Footprint</span>
                 </div>
                 <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Free / Trial</span>
@@ -880,21 +875,23 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
                   <span className="text-[9px] text-amber-700 block mt-0.5">Non-Earning</span>
                 </div>
                 <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-xl">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 block">Payout (50%)</span>
-                  <span className="text-base font-bold text-purple-900 font-mono">${earningsData?.expertEarningsUSD?.toFixed(2) ?? '0.00'}</span>
-                  <span className="text-[9px] text-purple-700 block mt-0.5">50/50 Split</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 block">Revenue Share</span>
+                  <span className="text-base font-bold text-purple-900 font-mono">50 / 50</span>
+                  <span className="text-[9px] text-purple-700 block mt-0.5">Paid Usage Split</span>
                 </div>
               </div>
 
-              {earningsData?.syncNotice && (
-                <div className="p-3 bg-cream border border-line/60 rounded-xl text-ink-3 italic text-[11px] flex items-center justify-between">
-                  <span>ℹ️ {earningsData.syncNotice}</span>
-                  <span className="font-mono text-[10px] text-ink-4 uppercase">Token Purchase Log</span>
-                </div>
-              )}
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 space-y-1 text-[11px]">
+                <span className="font-bold flex items-center gap-1.5">
+                  <span>⏳</span> Earnings Calculation — Wiring Usage Attribution
+                </span>
+                <p className="text-amber-800 leading-relaxed text-[11px]">
+                  Fodda pays 50% revenue share on all paying-customer usage. Dollar payouts are currently pausing until the API metering layer provides per-query usage attribution across both app chat and Claude MCP connectors.
+                </p>
+              </div>
 
               <p className="text-[10px] text-ink-4 leading-relaxed font-sans border-t border-line/40 pt-2">
-                *V1 Attribution: Earnings represent a 50% split on unit revenue derived from all paying-customer queries routed to your primary expert twin graph.
+                *In-App Activity counts query sessions in Fodda web app. Full usage attribution across all MCP connectors will calculate final 50/50 revenue payouts.
               </p>
             </div>
           </CardShell>

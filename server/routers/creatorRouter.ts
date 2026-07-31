@@ -186,32 +186,15 @@ router.get("/analytics", async (req: any, res) => {
 
 /**
  * GET /api/creator/earnings
- * Reads revenue attribution for the creator's graph from canonical TOKEN_PURCHASES_TABLE (tblNJdPZnVQ0jmlQh).
- * Formula: 50% * SUM(unit value of paid queries attributed to this graph).
+ * Serves creator earnings status.
+ * Replaced inaccurate referral-bounty dollar calculations with an honest "Coming Soon — API usage attribution syncing" state.
  */
 router.get("/earnings", async (req: any, res) => {
   try {
     const graphId = req.query.graphId as string;
     if (!graphId) return res.status(400).json({ ok: false, error: "graphId parameter is required" });
 
-    // Read from TOKEN_PURCHASES_TABLE (Token Purchase Log revenue attribution)
-    const formula = `FIND('${escapeAirtableString(graphId)}', {referralGraphId})`;
-    const purchaseRes = await queryAirtable(TOKEN_PURCHASES_TABLE, formula);
-    const purchaseRecords = purchaseRes.records || [];
-
-    let paidQueries = 0;
-    let totalRevenueUSD = 0;
-
-    for (const rec of purchaseRecords) {
-      const amount = Number(rec.fields.amount || 0);
-      const priceUSD = Number(rec.fields.priceUSD || 0);
-      paidQueries += amount;
-      totalRevenueUSD += priceUSD;
-    }
-
-    const expertEarningsUSD = Number((totalRevenueUSD * 0.5).toFixed(2));
-
-    // Also get activity footprint from question logs
+    // Get activity footprint from question logs (in-app activity footprint)
     const activityRes = await queryAirtable(LOGS_TABLE_QUESTIONS, `{graphId} = '${escapeAirtableString(graphId)}'`);
     const activityRecords = activityRes.records || [];
     const totalQueries = activityRecords.length;
@@ -221,13 +204,13 @@ router.get("/earnings", async (req: any, res) => {
       ok: true,
       earnings: {
         graphId,
-        totalQueries,
-        paidQueries,
+        inAppActivityFootprint: totalQueries,
+        paidQueries: null,
         trialQueries,
         revenueSharePercent: 50,
-        expertEarningsUSD,
-        status: purchaseRecords.length > 0 ? 'synced' : 'pending_sync',
-        syncNotice: purchaseRecords.length > 0 ? null : 'Revenue attribution syncing with canonical API purchase logs'
+        expertEarningsUSD: null,
+        status: 'coming_soon',
+        syncNotice: 'Earnings — coming soon. We are wiring per-query usage attribution to the canonical API metering layer.'
       }
     });
   } catch (err: any) {
