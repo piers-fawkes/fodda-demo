@@ -187,7 +187,8 @@ router.get("/analytics", async (req: any, res) => {
 /**
  * GET /api/creator/earnings
  * Serves creator earnings status.
- * Replaced inaccurate referral-bounty dollar calculations with an honest "Coming Soon — API usage attribution syncing" state.
+ * Attempts to fetch per-query usage-attributed earnings from API layer (/v1/creator/earnings);
+ * falls back to coming_soon state with in-app footprint if API is not yet live.
  */
 router.get("/earnings", async (req: any, res) => {
   try {
@@ -199,6 +200,36 @@ router.get("/earnings", async (req: any, res) => {
     const activityRecords = activityRes.records || [];
     const totalQueries = activityRecords.length;
     const trialQueries = activityRecords.filter((r: any) => r.fields.source === 'trial').length;
+
+    // Try calling canonical API earnings endpoint if available
+    const apiUrl = process.env.FODDA_API_URL || 'https://api.fodda.co';
+    try {
+      const apiRes = await fetch(`${apiUrl}/v1/creator/earnings?graphId=${encodeURIComponent(graphId)}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(3000)
+      });
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        if (apiData && apiData.grossRevenueUSD !== undefined) {
+          return res.json({
+            ok: true,
+            earnings: {
+              graphId,
+              inAppActivityFootprint: totalQueries,
+              totalQueries: apiData.totalQueries || totalQueries,
+              paidQueries: apiData.paidQueries || 0,
+              trialQueries: apiData.freeTrialQueries || trialQueries,
+              revenueSharePercent: 50,
+              expertEarningsUSD: apiData.expertEarningsUSD || 0,
+              status: 'synced',
+              syncNotice: null
+            }
+          });
+        }
+      }
+    } catch (_e) {
+      // API endpoint not live yet — use coming_soon fallback
+    }
 
     return res.json({
       ok: true,
@@ -230,8 +261,10 @@ router.post("/takedown", async (req: any, res) => {
       return res.status(400).json({ ok: false, error: "Invalid graphId or status ('Active' | 'Paused' required)" });
     }
 
-    // 1. Find Analyst record in CE base
-    const analystRes = await queryAirtable(CE_ANALYSTS_TABLE, `{graphId} = '${escapeAirtableString(graphId)}'`, '', CE_BASE_ID);
+    // 1. Find Analyst record in CE base matching Analyst ID, expertSlug, or graphId
+    const safeGraphId = escapeAirtableString(graphId);
+    const formula = `OR({Analyst ID} = '${safeGraphId}', {expertSlug} = '${safeGraphId}', {graphId} = '${safeGraphId}')`;
+    const analystRes = await queryAirtable(CE_ANALYSTS_TABLE, formula, '', CE_BASE_ID);
     const analystRec = analystRes.records?.[0];
     if (analystRec) {
       await updateAirtableRecord(CE_ANALYSTS_TABLE, analystRec.id, { "Status": status }, CE_BASE_ID);

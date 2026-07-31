@@ -22,6 +22,12 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **Email Recipient Audit**: Confirmed all admin email alerts send to `piers.fawkes@psfk.com`.
 - **TypeScript & Runtime Verification**: Tested `paymentSlackService.ts` and `accountRouter.ts` execution; zero runtime exceptions.
 
+## [2026-07-31] — Supplier Console Follow-Ups: Takedown Join Key & Canonical API Earnings Proxy
+
+### Added & Fixed
+- **Fixed CE Analysts Table Takedown Join Key (`POST /api/creator/takedown`)** (`server/routers/creatorRouter.ts`): Updated record lookup in CE `Analysts` table to match by `Analyst ID` or `expertSlug` (`OR({Analyst ID} = '...', {expertSlug} = '...')`) rather than `graphId`, ensuring the analyst twin's status is updated so `/v1/analysts` and MCP tools respect pause status.
+- **Canonical API Earnings Proxy (`GET /api/creator/earnings`)** (`server/routers/creatorRouter.ts`): Integrated forward-compatible proxy to `GET /v1/creator/earnings` on the canonical API metering layer, preserving a safe `coming_soon` fallback when the endpoint is unpopulated.
+
 ## [2026-07-31] — Phase 7: Real Home Dashboard & Reconciled 7-Destination Nav Structure
 
 ### Added & Fixed
