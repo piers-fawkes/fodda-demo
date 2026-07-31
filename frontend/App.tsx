@@ -1878,6 +1878,27 @@ const App: React.FC = () => {
       );
     }
 
+    if (activeView.startsWith('connections-') || activeView === 'account-team') {
+      const tab = activeView === 'account-team' ? 'team' : (activeView.replace('connections-', '') as any);
+      return (
+        <ConnectionsPage
+          activeTab={tab}
+          user={currentUser}
+          account={currentAccount}
+          onUpdate={(u, a) => {
+            if (u) setCurrentUser(u);
+            if (a) setCurrentAccount(a);
+          }}
+          onNavigateTab={(t) => setActiveView(`connections-${t}` as any)}
+          onTryPrompt={(promptText, graphId) => {
+            setInputValue(promptText);
+            if (graphId) setCurrentVertical(graphId as any);
+            setActiveView('sandbox');
+          }}
+        />
+      );
+    }
+
     // Fallback — render profile
     return (
       <ProfilePage

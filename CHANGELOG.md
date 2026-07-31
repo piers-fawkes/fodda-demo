@@ -22,6 +22,14 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **Email Recipient Audit**: Confirmed all admin email alerts send to `piers.fawkes@psfk.com`.
 - **TypeScript & Runtime Verification**: Tested `paymentSlackService.ts` and `accountRouter.ts` execution; zero runtime exceptions.
 
+## [2026-07-31] — Phase 7: Connections Consolidation & Reconciled 7-Destination Nav Structure
+
+### Added & Fixed
+- **Reconciled 7 Top-Level Destinations (`Sidebar.tsx`, `App.tsx`)**: Finalized sidebar navigation into exactly 7 clean, un-duplicated destinations (**Home**, **Ask**, **Experts**, **Coverage**, **Team & Access**, **Billing & Usage**, **Profile**), eliminating top-level nav sprawl and dead links.
+- **Unified Team & Access Destination (`ConnectionsPage.tsx` / `/connect`)**: Consolidated all 8 connector tabs (Claude MCP, ChatGPT, Gemini/Vertex, Microsoft Copilot, Perplexity, Notion, REST API/MCP Keys, and Team Members & Roles) into a single destination with per-user token safety lifecycle.
+- **"Add Your Own Source" Roadmap Card (`ConnectionsPage.tsx`)**: Added grayed-out enterprise roadmap card inviting partners and creators to connect custom knowledge graphs or proprietary APIs with Enterprise Beta inquiry triggers.
+- **Documentation & Skills Footer Group (`Sidebar.tsx`)**: Moved documentation links, skills, and security pages to a clean footer link group.
+
 ## [2026-07-31] — Phase 6: My Expert Page (Twin Editing, Honest Revenue Status & Controls)
 
 ### Added & Fixed

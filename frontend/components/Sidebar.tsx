@@ -174,128 +174,82 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-0.5 scrollbar-hide">
+        {/* Navigation Sections — 7 Reconciled Destinations */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
 
-          {/* ── PROFILE ── */}
-          <div>
-            <SectionHeader
-              label="Profile"
-              isExpanded={expandedSections.profile || activeView === 'profile' || activeView === 'profile-context' || activeView === 'profile-usage'}
-              onToggle={() => toggleSection('profile')}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.profile || activeView === 'profile' || activeView === 'profile-context' || activeView === 'profile-usage' || activeView === 'expert-twin') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="Overview" onClick={() => { onNavigate('profile'); onClose(); }} isActive={isActive('profile')} indent />
-              <NavItem label="Context Wiki" onClick={() => { onNavigate('profile-context'); onClose(); }} isActive={isActive('profile-context')} indent />
-              <NavItem label="Usage" onClick={() => { onNavigate('profile-usage'); onClose(); }} isActive={isActive('profile-usage')} indent />
-              <NavItem label="My Twin" onClick={() => { onNavigate('expert-twin'); onClose(); }} isActive={isActive('expert-twin')} indent icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} />
-            </div>
-          </div>
+          {/* 1. HOME */}
+          <NavItem
+            label="Home"
+            onClick={() => { onNavigate('account-overview' as any); onClose(); }}
+            isActive={isActive('account-overview')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
+          />
 
-          {/* ── COVERAGE ── */}
-          <div>
-            <SectionHeader
-              label="Coverage"
-              isExpanded={expandedSections.graphs || activeView === 'coverage' || activeView === 'my-graphs' || activeView === 'team-graphs'}
-              onToggle={() => toggleSection('graphs')}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.graphs || activeView === 'coverage' || activeView === 'my-graphs' || activeView === 'team-graphs') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="Coverage Map" onClick={() => { onNavigate('coverage'); onClose(); }} isActive={isActive('coverage') || isActive('my-graphs')} indent />
-              {(userRole === 'Owner' || userRole === 'Admin') && (
-                <NavItem label="Team Graphs" onClick={() => { onNavigate('team-graphs'); onClose(); }} isActive={isActive('team-graphs')} indent />
-              )}
-            </div>
-          </div>
-
-          {/* ── SKILLS ── */}
-          <div>
-            <SectionHeader
-              label="Skills"
-              isExpanded={expandedSections.skills || activeView === 'skills'}
-              onToggle={() => toggleSection('skills')}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.skills || activeView === 'skills') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="My Skills" onClick={() => { onNavigate('skills'); onClose(); }} isActive={isActive('skills')} indent />
-            </div>
-          </div>
-
-          {/* ── ASK ── */}
+          {/* 2. ASK (Query Library + Test Bench) */}
           <div>
             <SectionHeader
               label="Ask"
-              isExpanded={expandedSections.demo || isInGroup('sandbox') || activeView === 'directory' || activeView === 'library' || activeView === 'expert-chat'}
+              isExpanded={expandedSections.demo || activeView === 'sandbox' || activeView === 'library' || activeView === 'expert-chat'}
               onToggle={() => toggleSection('demo')}
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>}
             />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.demo || activeView === 'sandbox' || activeView === 'directory' || activeView === 'library' || activeView === 'expert-chat') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="Expert Directory" onClick={() => { onNavigate('directory'); onClose(); }} isActive={isActive('directory')} indent />
+            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.demo || activeView === 'sandbox' || activeView === 'library' || activeView === 'expert-chat') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <NavItem label="Query Library" onClick={() => { onNavigate('library'); onClose(); }} isActive={isActive('library')} indent />
               <NavItem label="Test Bench" onClick={() => { onNavigate('sandbox'); onClose(); }} isActive={isActive('sandbox') || isActive('expert-chat')} indent />
             </div>
           </div>
 
-          {/* ── ACCOUNT (Owner/Admin only) ── */}
-          {isAdminOrOwner && (
-            <div>
-              <SectionHeader
-                label="Account"
-                isExpanded={expandedSections.account || isInGroup('account-')}
-                onToggle={() => toggleSection('account')}
-                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-              />
-              <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${expandedSections.account ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <NavItem label="Overview" onClick={() => { onNavigate('account-overview'); onClose(); }} isActive={isActive('account-overview')} indent />
-                <NavItem label="Team Members" onClick={() => { onNavigate('account-team'); onClose(); }} isActive={isActive('account-team')} indent />
-                <NavItem label="Usage" onClick={() => { onNavigate('account-usage'); onClose(); }} isActive={isActive('account-usage')} indent />
-                <NavItem label="Context Wiki" onClick={() => { onNavigate('account-context'); onClose(); }} isActive={isActive('account-context')} indent />
-                <NavItem label="Governance" onClick={() => {}} disabled={true} badge="Soon" indent />
-                <NavItem label="Billing" onClick={() => { onNavigate('account-billing'); onClose(); }} isActive={isActive('account-billing')} indent />
-              </div>
-            </div>
-          )}
+          {/* 3. EXPERTS */}
+          <NavItem
+            label="Experts"
+            onClick={() => { onNavigate('directory'); onClose(); }}
+            isActive={isActive('directory')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
+          />
 
-          {/* ── CONNECTIONS (alphabetical) ── */}
-          <div>
-            <SectionHeader
-              label="Connections"
-              isExpanded={expandedSections.connections}
-              onToggle={() => toggleSection('connections')}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${expandedSections.connections ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="API Access" onClick={() => { onNavigate('connections-api'); onClose(); }} isActive={isActive('connections-api')} indent />
-              <NavItem label="Claude Connector" onClick={() => { onNavigate('connections-claude'); onClose(); }} isActive={isActive('connections-claude')} indent />
-              <NavItem label="ChatGPT Connector" onClick={() => { onNavigate('connections-chatgpt'); onClose(); }} isActive={isActive('connections-chatgpt')} indent />
-              <NavItem label="Perplexity Integration" onClick={() => { onNavigate('connections-perplexity'); onClose(); }} isActive={isActive('connections-perplexity')} indent />
-              <NavItem label="Gemini / Vertex" onClick={() => { onNavigate('connections-gemini'); onClose(); }} isActive={isActive('connections-gemini')} indent />
-              <NavItem label="MCP Server" onClick={() => { onNavigate('connections-mcp'); onClose(); }} isActive={isActive('connections-mcp')} indent />
-              <NavItem label="Microsoft Copilot" onClick={() => { onNavigate('connections-copilot'); onClose(); }} isActive={isActive('connections-copilot')} indent />
-              <NavItem label="Notion Connector" onClick={() => { onNavigate('connections-notion'); onClose(); }} isActive={isActive('connections-notion')} indent />
-            </div>
-          </div>
+          {/* 4. COVERAGE */}
+          <NavItem
+            label="Coverage"
+            onClick={() => { onNavigate('coverage'); onClose(); }}
+            isActive={isActive('coverage') || isActive('my-graphs')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>}
+          />
 
-          {/* ── KNOWLEDGE ── */}
-          <div>
-            <SectionHeader
-              label="Knowledge"
-              isExpanded={expandedSections.knowledge || isInGroup('knowledge-')}
-              onToggle={() => toggleSection('knowledge')}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.knowledge || isInGroup('knowledge-')) ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <NavItem label="API Documentation" onClick={() => { onNavigate('knowledge-api-docs'); onClose(); }} isActive={isActive('knowledge-api-docs')} indent />
-              <NavItem label="Reliability" onClick={() => { onNavigate('knowledge-reliability'); onClose(); }} isActive={isActive('knowledge-reliability')} indent />
-              <NavItem label="Security" onClick={() => { onNavigate('knowledge-security'); onClose(); }} isActive={isActive('knowledge-security')} indent />
-            </div>
-          </div>
+          {/* 5. TEAM & ACCESS */}
+          <NavItem
+            label="Team & Access"
+            onClick={() => { onNavigate('connections-claude'); onClose(); }}
+            isActive={isActive('connections-claude') || isActive('connections-chatgpt') || isActive('connections-api') || isActive('account-team')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>}
+          />
+
+          {/* 6. BILLING & USAGE */}
+          <NavItem
+            label="Billing & Usage"
+            onClick={() => { onNavigate('account-billing'); onClose(); }}
+            isActive={isActive('account-billing') || isActive('account-usage')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+          />
+
+          {/* 7. PROFILE */}
+          <NavItem
+            label="Profile"
+            onClick={() => { onNavigate('profile'); onClose(); }}
+            isActive={isActive('profile') || isActive('expert-twin')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+          />
 
         </div>
 
-        {/* Footer — Logout + Version */}
+        {/* Footer — Documentation Links + Logout */}
         <div className="px-3 py-3 border-t border-line shrink-0 space-y-2">
+          <div className="flex items-center justify-between px-3 text-[10px] font-mono text-ink-3">
+            <button onClick={() => { onNavigate('knowledge-api-docs'); onClose(); }} className="hover:text-ink">Docs</button>
+            <span>·</span>
+            <button onClick={() => { onNavigate('skills'); onClose(); }} className="hover:text-ink">Skills</button>
+            <span>·</span>
+            <button onClick={() => { onNavigate('knowledge-security'); onClose(); }} className="hover:text-ink">Security</button>
+          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-ink-4 hover:text-red-500 hover:bg-red-50 transition-all text-sm font-medium"
