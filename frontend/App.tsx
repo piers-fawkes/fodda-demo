@@ -449,6 +449,25 @@ const App: React.FC = () => {
     }
   }, [pendingTopUpModal, isUnlocked]);
 
+  // Deep-link: resume OAuth consent flow if redirect_url query parameter is present
+  useEffect(() => {
+    if (isUnlocked && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const redirectUrl = params.get('redirect_url');
+      if (redirectUrl) {
+        try {
+          const parsed = new URL(redirectUrl);
+          if (parsed.hostname.endsWith('fodda.ai') || parsed.hostname.endsWith('clerk.com') || parsed.hostname.endsWith('clerk.fodda.ai')) {
+            console.log('[App] Resuming OAuth redirect to:', redirectUrl);
+            window.location.href = redirectUrl;
+          }
+        } catch (e) {
+          console.error('[App] Invalid redirect_url:', redirectUrl);
+        }
+      }
+    }
+  }, [isUnlocked]);
+
   // Auto-dismiss checkout banner after 8 seconds
   useEffect(() => {
     if (checkoutResult) {
@@ -576,7 +595,8 @@ const App: React.FC = () => {
     // AuthGate stored the planCode in localStorage. Whenever authenticated,
     // we call the checkout/subscribe endpoint and redirect to Stripe.
     const pendingPlanCode = localStorage.getItem('fodda.pendingPlanCode');
-    if (pendingPlanCode && auth.user.email) {
+    const hasRedirectUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('redirect_url');
+    if (pendingPlanCode && auth.user.email && !hasRedirectUrl) {
       const pendingTier = localStorage.getItem('fodda.pendingTier') || '';
       const pendingPrice = localStorage.getItem('fodda.pendingPrice') || '';
 
@@ -599,6 +619,9 @@ const App: React.FC = () => {
             window.location.href = data.checkout_url;
           } else {
             console.warn('[App] Auto-checkout: no checkout URL returned, opening upgrade modal instead', data);
+            localStorage.removeItem('fodda.pendingPlanCode');
+            localStorage.removeItem('fodda.pendingTier');
+            localStorage.removeItem('fodda.pendingPrice');
             fetch('/api/account/payment-event', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -608,24 +631,16 @@ const App: React.FC = () => {
                 error: data.error || 'No checkout URL returned',
               }),
             }).catch(() => {});
-            setIsUpgradeModalOpen(true);
           }
         })
         .catch(err => {
           console.error('[App] Auto-checkout failed:', err);
-          fetch('/api/account/payment-event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              stage: 'auto_checkout_failed',
-              planCode: Number(pendingPlanCode),
-              error: err.message || 'Auto checkout request failed',
-            }),
-          }).catch(() => {});
-          // Fallback: show upgrade modal so the user can still subscribe manually
-          setIsUpgradeModalOpen(true);
+          localStorage.removeItem('fodda.pendingPlanCode');
+          localStorage.removeItem('fodda.pendingTier');
+          localStorage.removeItem('fodda.pendingPrice');
         });
     }
+
 
     // Session start is tracked via Users table lastLogin — no need to log
     // a "[SESSION_START]" placeholder to the Questions table (it was polluting
