@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-02] — Auditor v2.4.0 Prompt Specification & Backburner Sync
+
+### Changed
+- **Auditor Specification (`public/Fodda_Integration_Auditor.md`)**: Updated Fodda Integration Use Case Analysis specification to v2.4.0. Refreshed headline MCP tool catalog (30+ tools), updated institutional data source coverage (100+ sources across 30+ countries), and documented A2A Agentic Delegation pay-per-task Deep Research via Stripe Shared Payment Tokens (`Authorization: Bearer spt_xxx` with upfront `402 Payment Required` pricing).
+
+### Added
+- **Backburner Backlog (`BACKBURNER.md`)**: Documented low-priority item for transitioning Claude connection UI recommendation from tokenized URLs (`/c/<token>`) to bare OAuth (`/mcp`) once end-to-end OAuth validation and directory approval complete.
+
 ## [2026-07-30] — App: Payment-Journey Failure Alerts to Slack (#fodda-sales)
 
 ### Added & Fixed

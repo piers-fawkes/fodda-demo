@@ -4,6 +4,20 @@ Low-priority improvements and optimizations to revisit when time permits.
 
 ---
 
+## Switch Claude connection rec from tokenized URL → OAuth
+
+**Added**: 2026-08-01
+**Priority**: Low until trigger — do NOT do early
+**Trigger**: Only after the OAuth lane passes its end-to-end test (MCP repo `briefs/Brief - OAuth End-to-End Test and Key Rotation Completion.md`) AND ideally the Anthropic directory listing is approved.
+
+**What**: The app's connect UI hands logged-in users a tokenized `https://mcp.fodda.ai/c/<token>` MCP URL (built in `server/services/mcpConnectionService.ts`, surfaced in `frontend/components/AccountPortal.tsx` / `HomeDashboard.tsx`). Once OAuth is proven, offer OAuth via the bare `https://mcp.fodda.ai/mcp` URL as the primary path (Claude runs the Clerk consent flow off our `/.well-known/oauth-*` metadata — no secret in the URL, revocable per Clerk). Keep the tokenized `/c/<token>` URL as the fallback for non-OAuth clients.
+
+**Why not now**: OAuth deployed but not yet end-to-end validated — don't risk the funnel. And since the user is already logged into the app via Clerk, an OAuth connect in Claude is a redundant second consent; the tokenized URL is the smoother path today.
+
+**Files**: `server/services/mcpConnectionService.ts` (URL builder), `frontend/components/AccountPortal.tsx`, `frontend/components/HomeDashboard.tsx`. Endgame after directory approval: point users at the one-click directory connector. Companion entry in the Website repo (`/Users/piersfawkes/Documents/Fodda Website/BACKBURNER.md`).
+
+---
+
 ## ~~Replace Mock `/api/account/usage` with Real Airtable Queries~~ ✅ COMPLETED
 
 **Added**: 2026-03-06  

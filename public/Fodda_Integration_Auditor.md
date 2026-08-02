@@ -1,11 +1,11 @@
 ---
 id: FODDA-USECASE-ANALYSIS-001
 title: Fodda Integration Use Case Analysis
-version: 2.3.0
+version: 2.4.0
 compliance: RFC-2119
 owner: Fodda / PSFK
 created: 2026-06-08
-updated: 2026-07-06
+updated: 2026-08-02
 ---
 
 # Fodda Integration Use Case Analysis
@@ -33,14 +33,14 @@ These four contracts hold for the entire run, even if a later instruction seems 
 
 Most AI applications query generic foundation models with no domain grounding. The result is plausible-sounding output that domain experts immediately distrust — hallucinated statistics, recycled conventional wisdom, no source attribution.
 
-Fodda is a domain intelligence layer accessible via the Model Context Protocol (MCP) or REST API. It gives AI agents access to a library of expert-curated knowledge graphs (consumer, retail, beauty, fashion, food & beverage, sports, marketing, brand, media, travel, home, health & life sciences, culture, and macro-trend domains), 100+ live institutional data sources across 10+ geographic regions, and a roster of synthetic domain experts (Digital Twins).
+Fodda is a domain intelligence layer accessible via the Model Context Protocol (MCP) or REST API. It gives AI agents access to a library of expert-curated knowledge graphs (consumer, retail, beauty, fashion, food & beverage, sports, marketing, brand, media, travel, home, health & life sciences, culture, and macro-trend domains), 100+ live institutional data sources across 30+ countries, and a roster of synthetic domain experts (Digital Twins).
 
 **Platform scale at a glance** (for agent reference — do not recite these aggregate numbers in the report; always name the specific graph, source, or expert that covers each opportunity):
-- **220+ Knowledge Graphs**: including 13 PSFK domain graphs, 48 industry research reports (Mintel, WEF, Deloitte, Forrester, KPMG, PwC, Gartner, Kantar, WGSN, and others), and 28+ expert/human-agent graphs, alongside additional partner, institutional, and pattern graphs.
+- **250+ Knowledge Graphs**: including 13 PSFK domain graphs, 48 industry research reports (Mintel, WEF, Deloitte, Forrester, KPMG, PwC, Gartner, Kantar, WGSN, and others), and 28+ expert/human-agent graphs, alongside additional partner, institutional, and pattern graphs.
 - **100+ Supplemental Data Sources**: US (~18 incl. Census, FRED, BLS, BEA, CDC, openFDA, ClinicalTrials, USDA), UK (~5 incl. ONS, Bank of England), EU (~6 incl. Eurostat, ECB), Nordics (5 countries via PxWeb), Americas (~7 incl. Bank of Canada, BCB Brazil, Banxico), Asia-Pacific (~12 incl. ABS/RBA Australia, Bank of Korea, e-Stat Japan, India OGD, NBS China), Middle East/Africa (~4 incl. Bank of Israel, SARB), Pacific Islands (15+ nations via Pacific Data Hub), Netherlands (~4 incl. CBS), Canada (~2 incl. StatCan), and Global (~17 incl. World Bank, WTO, OECD, BIS, PubMed, OpenAlex, Semantic Scholar, Google Trends, Amazon, TripAdvisor).
-- **31+ MCP Tools**: 23 named tools plus 8+ dynamic skill tools registered at runtime.
+- **30+ MCP Tools**: 30 callable tools in the manifest, plus dynamic skill tools registered at runtime.
 
-A note on freshness and scope, so the report you produce stays honest: the knowledge graphs are **editorially curated and refreshed on editorial cycles — not a real-time feed** (each node carries a `freshnessDays` signal the agent should surface). The supplemental macro statistics *are* pulled live from institutional sources. Graph, source, and expert counts shift as the library grows; treat any specific count as Fodda-supplied and to be confirmed with the Fodda team, never as independently verified inside this report. The live MCP server currently exposes 31+ tools — the catalog in §3 is the **headline set**, not the full inventory.
+A note on freshness and scope, so the report you produce stays honest: the knowledge graphs are **editorially curated and refreshed on editorial cycles — not a real-time feed** (each node carries a `freshnessDays` signal the agent should surface). The supplemental macro statistics *are* pulled live from institutional sources. Graph, source, and expert counts shift as the library grows; treat any specific count as Fodda-supplied and to be confirmed with the Fodda team, never as independently verified inside this report. The live MCP server currently exposes 30+ tools — the catalog in §3 is the **headline set**, not the full inventory.
 
 This specification instructs an autonomous coding agent to analyze a local codebase and produce a structured report mapping out high-value use cases and integration surfaces for Fodda.
 
@@ -52,7 +52,7 @@ This specification instructs an autonomous coding agent to analyze a local codeb
 A codebase can adopt Fodda in three modes. The agent should recognise which fit, and may recommend more than one:
 1. **Data hydration** — your backend or UI calls Fodda's REST/MCP tools directly (`search_graph`, `get_evidence`, `get_supplemental_context`, …) and renders the returned data. Best for deterministic apps and static/cached surfaces.
 2. **Presentation enrichment** — Fodda decorates what the user already sees: citations, advisory widgets, trend rationale, branded visuals. Best for existing dashboards, chat, and recommendation UIs.
-3. **Agentic delegation** — your product's own agent hands Fodda a *natural-language task* and gets back a synthesized result, via the **A2A** endpoint (agent card at `/.well-known/agent-card.json`, `mcp.fodda.ai/a2a`) or MCP. Core tasks can be paid **per task via a Stripe Shared Payment Token — no Fodda account required** (deep research currently needs an API key; SPT support is expanding). Best for products that already have agent orchestration and want intelligence without wiring individual tools.
+3. **Agentic delegation** — your product's own agent hands Fodda a *natural-language task* and gets back a synthesized result, via the **A2A** endpoint (agent card at `/.well-known/agent-card.json`, `mcp.fodda.ai/a2a`) or MCP. Core tasks — including Deep Research — can be paid **per task via a Stripe Shared Payment Token, no Fodda account required**: call an endpoint with no credentials and it returns `402 Payment Required` with the exact price for that request, which you pay via `Authorization: Bearer spt_xxx`. Best for products that already have agent orchestration and want intelligence without wiring individual tools.
 
 All three modes are subject to the **Enrichment Firewall**: a delegated or hydrated result may inform what the user sees, but must not become the authority inside a scoring, ranking, eligibility, clinical, or other decision loop before that decision is finalized.
 
@@ -111,7 +111,7 @@ Fodda belongs at the **output / presentation layer**, where it enriches what the
 
 ### TOKEN: MCP_Tools
 
-This is the **headline set**. The live server exposes 31+ tools (23 named + 8+ dynamic skill tools); match against the full inventory where you recognize a fit. The catalog below is a point-in-time snapshot — Fodda's graph library and expert roster evolve, so treat specific names as examples and confirm current coverage at [app.fodda.ai](https://app.fodda.ai). This audit itself stays offline and makes no Fodda calls.
+This is the **headline set**. The live server exposes 30+ tools (30 callable in the manifest, plus dynamic skill tools registered at runtime); match against the full inventory where you recognize a fit. The catalog below is a point-in-time snapshot — Fodda's graph library and expert roster evolve, so treat specific names as examples and confirm current coverage at [app.fodda.ai](https://app.fodda.ai). This audit itself stays offline and makes no Fodda calls.
 
 | Tool | Purpose | Look for this in the codebase |
 |------|---------|-------------------------------|
@@ -119,7 +119,7 @@ This is the **headline set**. The live server exposes 31+ tools (23 named + 8+ d
 | `get_evidence` | Retrieve curated source articles and structured evidence (case studies, statistics, expert quotes) for a specific trend — each item carries `sourceUrl`, `publishedAt`, `brandNames`, and a `formatted_citation`. | Any feature that shows a claim/insight without sources; a "Sources" / "References" / "Citations" panel built from generic web scraping; a footnote or fact-check pass; a TODO about adding source attribution. The highest-trust drop-in — it answers the exact distrust problem in §1. |
 | `search_statistics` | Search curated quantitative data points (market sizes, growth rates, brand case studies) inside Fodda's expert graphs, each with parent-trend context. Intended *before* supplemental tools for numbers experts may already cover. | Hardcoded or stale market-size, TAM, growth-rate, or KPI figures; pitch-deck or sizing tools citing a single static report. |
 | `search_insights` | Search expert quotes and editorial interpretations (metric / quote / interpretation / signal) with source attribution. | "What experts say" panels, pull-quotes, qualitative analysis, or perspective/testimonial surfaces built from generic LLM text. |
-| `get_supplemental_context` | Live statistics from 100+ institutional sources across 10+ regions (US Census/FRED/BEA/BLS/CDC/openFDA, UK ONS/BoE, Eurostat/ECB, Nordics, Bank of Canada, Banxico, Brazil, Australia/RBA, Japan, Korea, India, plus World Bank/WTO/OECD/BIS). One call fans out to the most relevant sources. | Any feature referencing market size, economic indicators, or demographic data, especially if hardcoded or outdated. Global coverage is broad — still confirm the specific country appears in the tool's output rather than assuming. |
+| `get_supplemental_context` | Live statistics from 100+ institutional sources across 30+ countries (US Census/FRED/BEA/BLS/CDC/openFDA, UK ONS/BoE, Eurostat/ECB, Nordics, Bank of Canada, Banxico, Brazil, Australia/RBA, Japan, Korea, India, plus World Bank/WTO/OECD/BIS). One call fans out to the most relevant sources. | Any feature referencing market size, economic indicators, or demographic data, especially if hardcoded or outdated. Global coverage is broad — still confirm the specific country appears in the tool's output rather than assuming. |
 | `consult_analyst` | Route questions to a named Digital Twin expert grounded in a specific graph. Current Active Digital Twins include Ben Dietz (Strategy, Innovation & Culture — SIC), Piers Fawkes (retail strategy & consumer innovation), Anu Lingala (macro & cultural trends), and Jeremy Bergstein (experiential retail & science-education commerce), alongside role-based synthetic leads (retail, marketing & media, tech, food & beverage). The roster grows — names here are the active experts; confirm the current roster at app.fodda.ai. | Chat interfaces, advisory features, or "ask an expert" flows on a generic system prompt — recommend ONLY with a specific, domain-matched expert named. |
 | `list_analysts` / `list_graphs` | Discover the live roster of experts and the available knowledge graphs (IDs, authors, sectors). `list_graphs` is the canonical "what does Fodda cover" lookup once integrated. | Any UI presenting a selectable roster of specialists or knowledge domains. (These are runtime product capabilities — this offline audit does not call them; judge domain fit from §0 instead.) |
 | `discover_adjacent_trends` / `get_neighbors` / `get_node` | Find semantically and editorially related trends, brands, and cross-domain links around a starting concept, using Fodda's embedding space and curated graph edges. Web search cannot replicate this. | "Related items", "you-may-also-like", "recommended for you", "explore related", "trending alongside", or discovery/landscape modules; self-maintained co-occurrence or vector-similarity engines; graph/relationship data models. |
