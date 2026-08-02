@@ -182,10 +182,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, account, onUpdat
   const usagePercent = maxQueries > 0 ? Math.min(100, (currentQueries / maxQueries) * 100) : 0;
 
   // MCP URL
-  const mcpFullUrl = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
-  const sseFullUrl = 'https://mcp.fodda.ai/sse';
+  const mcpToken = mcpConn?.token || (account as any)?.mcpToken;
+  const mcpFullUrl = mcpConn?.mcpUrl || (mcpToken ? `https://mcp.fodda.ai/c/${mcpToken}` : 'https://mcp.fodda.ai/c/:token');
+  const sseFullUrl = mcpConn?.sseUrl || (account?.apiKey && user?.email ? `https://mcp.fodda.ai/sse?api_key=${account.apiKey}&user_id=${encodeURIComponent(user.email)}` : 'https://mcp.fodda.ai/sse');
   // Show base with ellipsis for the masked version
-  const mcpMaskedUrl = mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token.slice(0, 6)}…` : 'https://mcp.fodda.ai/c/••••••••…';
+  const mcpMaskedUrl = mcpToken ? `https://mcp.fodda.ai/c/${mcpToken.slice(0, 6)}…` : 'https://mcp.fodda.ai/c/••••••••…';
 
   const copyMcpUrl = () => {
     navigator.clipboard.writeText(mcpFullUrl);

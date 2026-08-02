@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-02] — MCP Connection Token & Session Header Remediation
+
+### Fixed & Remediated
+- **Automatic Session Authentication in DataService (`shared/dataService.ts`)**: Updated `postJson` to automatically attach the `x-session-token` header from `localStorage` on all API calls, resolving `401 Unauthorized` responses on `/api/account/mcp-connection`.
+- **API Key & Token Auto-Provisioning (`server/services/mcpConnectionService.ts`)**: Enhanced `buildMcpConnection` to auto-provision an active `sk_live_...` API key in `API_KEYS_TABLE` if missing on the account record, guaranteeing every authenticated user receives a valid MCP token (`https://mcp.fodda.ai/c/<token>`) and full SSE endpoint (`https://mcp.fodda.ai/sse?api_key=...&user_id=...`).
+- **Claude & SSE Connection Displays (`frontend/components/ProfilePage.tsx`, `AccountPortal.tsx`, `Dashboard.tsx`)**: Replaced raw template fallbacks (`/c/:token`) across Copy URL buttons, Claude Quick Connect deep links, Claude Code CLI commands, and SSE endpoint displays with live, user-resolved token URLs.
+
 ## [2026-08-02] — Payment & Billing QA Remediation
 
 ### Fixed & Enhanced

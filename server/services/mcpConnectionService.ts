@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { queryAirtable, updateAirtableRecord, escapeAirtableString } from '../db.js';
+import { queryAirtable, updateAirtableRecord, createAirtableRecord, escapeAirtableString } from '../db.js';
 import { USERS_TABLE, ACCOUNTS_TABLE, API_KEYS_TABLE } from '../constants.js';
 
 export interface McpConnection {
@@ -76,25 +76,36 @@ export async function buildMcpConnection(email: string): Promise<McpConnection> 
     };
   }
 
-  // 2. Resolve the active sk_live_ API key
+  // 2. Resolve or auto-provision active sk_live_ API key
   const keysQuery = await getActiveKeysForAccount(accountId);
-  const activeKeyRec = keysQuery.records?.find((r: any) => {
+  let activeKeyRec = keysQuery.records?.find((r: any) => {
     const k = r.fields?.['API Key'];
     return typeof k === 'string' && k.startsWith('sk_live_');
   }) || keysQuery.records?.[0];
 
-  const apiKey = activeKeyRec?.fields?.['API Key'];
+  let apiKey = activeKeyRec?.fields?.['API Key'];
+
   if (!apiKey) {
-    return {
-      ok: true,
-      hasActiveKey: false,
-      alreadyExists: false,
-      mcpUrl: null,
-      sseUrl: null,
-      claudeConnectorUrl: null,
-      token: null,
-      message: `No active API key found for account`
-    };
+    // Check if Account record directly has an API Key
+    const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+    const accountRec = accountQuery.records?.[0];
+    apiKey = accountRec?.fields?.['API Key'] || accountRec?.fields?.apiKey;
+
+    // If still missing, auto-create an active sk_live_ API key
+    if (!apiKey) {
+      apiKey = `sk_live_${randomBytes(24).toString('hex')}`;
+      const accountName = accountRec?.fields?.['Account Name'] || 'Account';
+      try {
+        await createAirtableRecord(API_KEYS_TABLE, {
+          'API Key': apiKey,
+          'Account': [accountId],
+          'API Key Status': 'Active'
+        });
+        await updateAirtableRecord(ACCOUNTS_TABLE, accountId, { 'API Key': apiKey });
+      } catch (err) {
+        console.error('[buildMcpConnection] Error auto-provisioning API key:', err);
+      }
+    }
   }
 
   // 3. Mint-once: read mcpConnectionToken; if absent, token = randomBytes(24).toString('base64url')

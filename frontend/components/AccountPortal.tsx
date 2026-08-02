@@ -475,8 +475,21 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
         }
     };
 
+    const getResolvedMcpToken = () => {
+        return mcpConn?.token || (account as any)?.mcpToken;
+    };
+
+    const getClaudeConnectorUrl = () => {
+        const token = getResolvedMcpToken();
+        return mcpConn?.mcpUrl || (token ? `https://mcp.fodda.ai/c/${token}` : 'https://mcp.fodda.ai/c/:token');
+    };
+
+    const getSseConnectorUrl = () => {
+        return mcpConn?.sseUrl || (account?.apiKey && user?.email ? `https://mcp.fodda.ai/sse?api_key=${account.apiKey}&user_id=${encodeURIComponent(user.email)}` : MCP_SSE_URL);
+    };
+
     const generateVertexConfig = () => {
-        const url = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
+        const url = getClaudeConnectorUrl();
         return JSON.stringify({
             tools: [{
                 type: 'mcp',
@@ -500,14 +513,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
         a.download = 'fodda-mcp-config.json';
         a.click();
         URL.revokeObjectURL(url);
-    };
-
-    const getClaudeConnectorUrl = () => {
-        return mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
-    };
-
-    const getSseConnectorUrl = () => {
-        return MCP_SSE_URL;
     };
 
     const handleCopyClaudeUrl = () => {
@@ -1235,7 +1240,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-3 animate-fade-in-up">
                                             <p className="text-sm text-ink-2">One click to add Fodda to Claude with your API key pre-filled:</p>
                                             <a
-                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token'))}`}
+                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(getClaudeConnectorUrl())}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="w-full px-4 py-3 bg-[#DE7356] hover:bg-[#c9624a] text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#DE7356]/20"
@@ -1253,9 +1258,9 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-3 animate-fade-in-up">
                                             <p className="text-sm text-ink-2">Run this in your terminal to add Fodda to Claude Code:</p>
                                             <div className="relative group">
-                                                <pre className="p-4 bg-ink rounded-xl text-[12px] font-mono text-[#DE7356] border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport http fodda "${mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}"`}</pre>
+                                                <pre className="p-4 bg-ink rounded-xl text-[12px] font-mono text-[#DE7356] border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`}</pre>
                                                 <button
-                                                    onClick={() => handleCopyField(`claude mcp add --transport http fodda "${mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}"`, 'claude-code-cmd')}
+                                                    onClick={() => handleCopyField(`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`, 'claude-code-cmd')}
                                                     className={`absolute top-3 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'claude-code-cmd' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
                                                     title="Copy command"
                                                 >
@@ -2615,7 +2620,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                         <p className="text-[10px] font-bold text-[#b4b1a1] uppercase tracking-widest">Network Access Endpoint</p>
                                                         <div className="flex items-center gap-2">
                                                             <code className="flex-1 p-3 bg-white border border-[#e8e6d9] rounded-xl text-[11px] font-mono break-all text-[#1a1a1a]">
-                                                                {mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}
+                                                                {getClaudeConnectorUrl()}
                                                             </code>
                                                         </div>
                                                     </div>

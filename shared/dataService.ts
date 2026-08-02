@@ -71,9 +71,12 @@ export class ApiError extends Error {
 }
 
 async function postJson<T>(url: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('fodda_session_token') || '' : '';
+  const authHeaders: Record<string, string> = sessionToken ? { 'x-session-token': sessionToken } : {};
+
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { "Content-Type": "application/json", ...authHeaders, ...headers },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
