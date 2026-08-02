@@ -14,6 +14,7 @@
     "@clerk/express": "^2.1.22",
     "@clerk/react": "^6.7.2",
     "@google/genai": "^1.33.0",
+    "@lavapayments/checkout": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.7.0",

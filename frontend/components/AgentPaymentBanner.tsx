@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
+import { useLavaWallet } from '../hooks/useLavaWallet';
 
 interface AgentPaymentBannerProps {
     hasPaymentMethod: boolean;
     onSetupStripe: () => void;
+    userEmail?: string;
+    accountId?: string;
 }
 
-export const AgentPaymentBanner: React.FC<AgentPaymentBannerProps> = ({ hasPaymentMethod, onSetupStripe }) => {
+export const AgentPaymentBanner: React.FC<AgentPaymentBannerProps> = ({ hasPaymentMethod, onSetupStripe, userEmail, accountId }) => {
     const [dismissed, setDismissed] = useState(() => {
         try { return sessionStorage.getItem('fodda_payment_banner_dismissed') === 'true'; } catch { return false; }
     });
+    const { launchLavaWallet, loading: lavaLoading } = useLavaWallet();
 
     if (dismissed) return null;
 
@@ -59,25 +63,24 @@ export const AgentPaymentBanner: React.FC<AgentPaymentBannerProps> = ({ hasPayme
                     Add Credit Card
                 </button>
 
-                {/* Lava — PAYG Wallet */}
-                <a
-                    href="https://lava.so"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2.5 border-2 border-[#ff5a1f] text-[#ff5a1f] hover:bg-[#ff5a1f]/5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all"
+                {/* Lava — PAYG Wallet (embedded checkout overlay) */}
+                <button
+                    onClick={() => launchLavaWallet(userEmail, accountId)}
+                    disabled={lavaLoading}
+                    className="flex items-center gap-2 px-4 py-2.5 border-2 border-[#ff5a1f] text-[#ff5a1f] hover:bg-[#ff5a1f]/5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all disabled:opacity-50 disabled:cursor-wait"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                    Lava PAYG Wallet
-                </a>
+                    {lavaLoading ? 'Opening…' : 'Lava PAYG Wallet'}
+                </button>
 
                 {/* SPT — Learn More */}
                 <a
-                    href="https://www.fodda.ai/pricing"
+                    href="https://www.fodda.ai/pricing#agent-pricing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2.5 text-ink-3 hover:text-ink hover:bg-cream text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-transparent hover:border-line"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 bg-amber-100/60 text-amber-900 font-bold hover:bg-amber-100 hover:border-amber-400 text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     SPT Auth Info
                 </a>
             </div>

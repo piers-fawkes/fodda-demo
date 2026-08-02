@@ -752,9 +752,14 @@ router.get("/profile", async (req: any, res) => {
       id: accountData.id, 
       name: accountData['Account Name'] || 'Unknown', 
       apiKey: extractRealValue(userData['apiKey']) || extractRealValue(accountData['apiKey']) || '', 
-      monthlyQueryLimit: accountData.fetchedMonthlyQueryLimit || 10, 
-      currentQueryCount: accountData.monthlyQueries || 0, 
-      stripeCustomerId: accountData.stripeCustomerId || '', 
+      monthlyQueryLimit: accountData.fetchedMonthlyQueryLimit || 10,
+      // currentQueryCount = usage in the CURRENT billing cycle (resettable), NOT the
+      // lifetime rollup. `monthlyQueries` is an Airtable rollup that accumulates for the
+      // life of the account and can never be reset, so it must not be shown as "this month".
+      // See queriesUsedThisCycle (reset by /cron/monthly-reset + Stripe renewal webhook).
+      currentQueryCount: Number(accountData.queriesUsedThisCycle || 0),
+      totalQueries: Number(accountData.monthlyQueries || accountData.monthlyQuerytotal || 0),
+      stripeCustomerId: accountData.stripeCustomerId || '',
       subscriptionStatus: accountData.subscriptionStatus || 'none', 
       planName: accountData.fetchedPlanName || 'Free', 
       planCode: accountData.fetchedPlanCode || 0, 

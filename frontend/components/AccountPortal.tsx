@@ -657,7 +657,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'overview' && (
                             <div className="space-y-8 max-w-4xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} />
+                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
 
                                 {/* Account Health */}
                                 <section className="p-8 bg-white border border-line rounded-3xl shadow-sm space-y-6">
@@ -1206,7 +1206,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'claude' && (
                             <div className="space-y-10 max-w-3xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} />
+                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
 
                                 {/* Quick Connect Widget */}
                                 <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
@@ -1822,7 +1822,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'mcp' && (
                             <div className="space-y-10 max-w-4xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} />
+                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
 
                                 {/* Endpoints & Auth — Both Transports */}
                                 <section className="p-8 bg-paper border border-line rounded-3xl space-y-8 shadow-sm">
@@ -2130,7 +2130,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                 )}
                                 <div className={`space-y-10 max-w-4xl ${isApiDisabled ? 'opacity-40 pointer-events-none select-none filter grayscale' : ''}`}>
 
-                                    <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} />
+                                    <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
 
 
                                 {/* Authentication */}

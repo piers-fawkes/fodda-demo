@@ -3,6 +3,33 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-02] — Payment & Billing QA Remediation
+
+### Fixed & Enhanced
+- **Team & Access Banner & Navigation (`AgentPaymentBanner.tsx`, `ConnectionsPage.tsx`, `AccountPortal.tsx`)**:
+  - Wired `onSetupPayment` handler through `ConnectionsPage` and `AccountPortal` so clicking "Add Credit Card" in the `Team & Access` banner opens `PaymentSetupModal`.
+  - Added `userEmail` prop to `AgentPaymentBanner` to pre-fill the Lava PAYG wallet URL (`https://www.lava.so/?prefilled_email=...`).
+  - Restyled "SPT Auth Info" into a visible secondary button (`border border-amber-300 bg-amber-100/60 text-amber-900`) linking to `https://www.fodda.ai/pricing#agent-pricing`.
+- **Auto-Checkout & Session Auth (`App.tsx`, `dataService.ts`)**:
+  - Added `x-session-token` header to `/api/account/checkout/subscribe` auto-checkout calls in `App.tsx` and `dataService.ts` to prevent 401 Unauthorized rejections.
+  - Added URL query parameter parsing (`?plan=...`) on app startup for already-authenticated users to save pending plan codes to `localStorage` and launch Stripe checkout automatically.
+- **Payment Setup Modal & Billing Page (`PaymentSetupModal.tsx`, `BillingPage.tsx`, `accountRouter.ts`)**:
+  - Added `x-session-token` headers to `/api/account/setup-payment` and `/api/account/activate-overage` fetch calls (resolving "Unauthorized" error state).
+  - Added "Cardholder Name" input field and expanded `CardElement` container padding (`max-w-lg`) so card number, expiration date, CVC, and ZIP code render without truncation.
+- **Cross-Repo Handoff Brief (`briefs/Brief_Website_Pricing_Page_Payment_Flow_Fixes.md`)**:
+  - Created handoff brief for website repo (`fodda-website`) to resolve Lava Wallet popover escape/dismiss handler and monthly plan CTA parameters on `fodda.ai/pricing`.
+
+### QA Corrections (2026-08-02, follow-up review)
+- **Corrected pricing-page plan codes in the handoff brief**: the first draft mapped the $100/$1,500/$4,600 CTAs to `plan=1/2/3`, which are wrong (planCode 1=Sandpit, 2=Base-Free, 3=Starter/$100). Verified against the live Plans table and corrected to **Starter=3, Team=4, Studio=5, Business=6**; flagged that planCode 8 is duplicated in Airtable and the Agent plan (14) has no Stripe price.
+- **Usage counters now distinguish current-cycle vs lifetime (`authRouter.ts`, `accountRouter.ts`, `UsageMeter.tsx`)**: "Queries used this month" was reading the un-resettable Airtable rollup `monthlyQueries` (a lifetime total), so it equalled "All-Time" and never reset. Switched "this month" / `currentQueryCount` / `remaining` to the resettable `queriesUsedThisCycle`, and surface the rollup as All-Time only.
+- **Query-limit enforcement now uses current-cycle usage (`queryRouter.ts`)**: the soft-cap check compared the lifetime rollup against the monthly limit, permanently locking accounts once their lifetime total crossed the limit. Now enforces on `queriesUsedThisCycle`.
+- **Reverted Top-Up token count to 200 (`accountRouter.ts`)**: the earlier "100 API calls" change contradicted the live product ("Top-Up — 200 API Calls", Airtable Monthly API Limit=200, Stripe checkout shows 200). Backend fallback restored to 200 and `UpgradeModal.tsx` now derives the quantity from the plan record instead of a hardcoded "100".
+- **Open items flagged for the owner** (not code): (1) the `/api/cron/monthly-reset` job is "ready for Cloud Scheduler" but is **not scheduled** — cycle counters for non-subscription accounts never reset until it runs; (2) Airtable planCode 7 `monthlyPriceUSD` (100) is stale vs the live Stripe price ($50) and the 200-vs-100 quantity is a pricing decision; (3) SPT button still deep-links to a marketing page.
+
+### Lava PAYG — real embedded checkout (frontend)
+- Replaced the dead `lava.so` deep-links on the "Lava PAYG Wallet" button (`AgentPaymentBanner.tsx`) and the PAYG card (`UpgradeModal.tsx`) with the real `@lavapayments/checkout` embedded flow via a new `frontend/hooks/useLavaWallet.ts` hook. It mints a session through the Fodda API's `POST /api/checkout/lava-session` (which stamps `metadata.accountId`/email so the Lava webhook credits the right account), then opens the SDK overlay. The SDK's `onCancel` makes the overlay dismissable — fixing Nathan's "inescapable popover." `accountId` is threaded through `AccountPortal` and `App.tsx`; added `@lavapayments/checkout` (installed with `--legacy-peer-deps`, matching the repo's pre-existing lucide-react/React-19 peer setup).
+- Runtime dependencies: the Fodda API `/api/checkout/lava-session` must be deployed (currently blocked by an unrelated, uncommitted `functions/tracking/lava.ts` compile break in the API repo) and CORS must allow `app.fodda.ai`.
+
 ## [2026-08-02] — Auditor v2.4.0 Prompt Specification & Backburner Sync
 
 ### Changed

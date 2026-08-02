@@ -125,10 +125,16 @@ router.get('/usage', async (req, res) => {
     if (!accRec) return res.status(404).json({ ok: false, error: 'Account not found' });
 
     const accFields = accRec.fields || {};
-    const monthlyQueries = Number(accFields.monthlyQueries || 0);
+    // "This month" = usage in the current billing cycle (resettable via /cron/monthly-reset
+    // and the Stripe renewal webhook). The `monthlyQueries` field is an Airtable ROLLUP that
+    // accumulates for the life of the account and can never be reset — it is the lifetime
+    // total, not the monthly figure, so it is surfaced as `totalQueries` (All-Time) only.
+    const cycleQueries = Number(accFields.queriesUsedThisCycle || 0);
+    const lifetimeQueries = Number(accFields.monthlyQueries || accFields.monthlyQuerytotal || 0);
     const monthlyQueryLimit = extractNumericLimit(accFields, 100);
-    const totalQueries = Number(accFields.totalQueries || accFields['Total Queries'] || monthlyQueries);
-    const remainingQueries = Math.max(0, monthlyQueryLimit - monthlyQueries);
+    const monthlyQueries = cycleQueries;
+    const totalQueries = Math.max(lifetimeQueries, cycleQueries);
+    const remainingQueries = Math.max(0, monthlyQueryLimit - cycleQueries);
 
     // Dynamic cost per query calculation (no hardcoded price fallbacks)
     let monthlyPrice: number | null = null;
@@ -2252,8 +2258,12 @@ router.post("/checkout/agent-session", async (req, res) => {
       checkout_url: session.url,
       session_id: session.id,
       mode: 'stripe_checkout',
+      // Canonical top-up = 200 API calls for $100 (plan name "Top-Up — 200 API Calls",
+      // Airtable Monthly API Limit=200, monthlyPriceUSD=200×$0.50=100). Fallbacks match
+      // that rate. NOTE: the live Stripe Price still charges $50 — update it to $100 in the
+      // Stripe Dashboard so the charge matches this rate card.
       tokens: Number(topUpPlan.fields['Monthly API Limit'] || 200),
-      price_usd: Number(topUpPlan.fields.monthlyPriceUSD || topUpPlan.fields['Price (USD)'] || 50),
+      price_usd: Number(topUpPlan.fields.monthlyPriceUSD || topUpPlan.fields['Price (USD)'] || 100),
     });
   } catch (err: any) {
     console.error("[Agent Checkout] Error:", err);

@@ -28,11 +28,16 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
     return () => { isMounted = false; };
   }, [account?.id]);
 
-  // Headline numbers: Account record counters are canonical for Used & Remaining
+  // Headline numbers. "This month" is the CURRENT-CYCLE counter (currentQueryCount /
+  // queriesUsedThisCycle), which resets each billing cycle. "All-time" is the lifetime
+  // rollup (account.totalQueries / monthlyQueries) and is always >= this month.
   const monthlyQueries = usageData?.monthlyQueries ?? (account.currentQueryCount || 0);
   const monthlyQueryLimit = usageData?.monthlyQueryLimit ?? (account.monthlyQueryLimit || 100);
   const remainingQueries = usageData?.remainingQueries ?? Math.max(0, monthlyQueryLimit - monthlyQueries);
-  const totalQueries = usageData?.totalQueries ?? (account as any).totalQueries ?? monthlyQueries;
+  const totalQueries = usageData?.totalQueries
+    ?? (account as any).totalQueries
+    ?? (account as any).monthlyQueries
+    ?? monthlyQueries;
   const costPerQuery = usageData?.costPerQuery || '—';
 
   const usagePercent = monthlyQueryLimit > 0 ? Math.min(100, Math.round((monthlyQueries / monthlyQueryLimit) * 100)) : 0;

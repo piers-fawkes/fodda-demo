@@ -25,6 +25,7 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
     const stripe = useStripe();
     const elements = useElements();
     const [clientSecret, setClientSecret] = useState<string | null>(null);
+    const [nameOnCard, setNameOnCard] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -32,9 +33,13 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
     useEffect(() => {
         const fetchSetupIntent = async () => {
             try {
+                const sessionToken = localStorage.getItem('fodda_session_token') || '';
                 const res = await fetch('/api/account/setup-payment', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                    },
                     body: JSON.stringify({ accountId }),
                 });
                 const data = await res.json();
@@ -69,7 +74,10 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
         const { error: confirmError } = await stripe.confirmCardSetup(clientSecret, {
             payment_method: {
                 card: cardElement,
-                billing_details: { email: userEmail },
+                billing_details: {
+                    name: nameOnCard || undefined,
+                    email: userEmail,
+                },
             },
         });
 
@@ -80,9 +88,13 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
         }
 
         try {
+            const sessionToken = localStorage.getItem('fodda_session_token') || '';
             const activateRes = await fetch('/api/account/activate-overage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                },
                 body: JSON.stringify({ accountId }),
             });
             const activateData = await activateRes.json();
@@ -111,21 +123,39 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="p-4 bg-cream rounded-xl border border-line">
-                <CardElement
-                    options={{
-                        style: {
-                            base: {
-                                fontSize: '15px',
-                                color: '#1a1a1a',
-                                fontFamily: 'inherit',
-                                '::placeholder': { color: '#999' },
-                            },
-                            invalid: { color: '#dc2626' },
-                        },
-                    }}
+        <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+                <label className="block text-xs font-bold text-ink-3 uppercase tracking-wider mb-1.5">
+                    Name on Card
+                </label>
+                <input
+                    type="text"
+                    value={nameOnCard}
+                    onChange={(e) => setNameOnCard(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full px-4 py-2.5 bg-paper border border-line rounded-xl text-sm text-ink focus:outline-none focus:border-brand transition-colors"
                 />
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-ink-3 uppercase tracking-wider mb-1.5">
+                    Card Details
+                </label>
+                <div className="p-4 bg-paper rounded-xl border border-line">
+                    <CardElement
+                        options={{
+                            style: {
+                                base: {
+                                    fontSize: '14px',
+                                    color: '#1a1a1a',
+                                    fontFamily: 'inherit',
+                                    '::placeholder': { color: '#999' },
+                                },
+                                invalid: { color: '#dc2626' },
+                            },
+                        }}
+                    />
+                </div>
             </div>
 
             {error && (
@@ -137,11 +167,11 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
             <button
                 type="submit"
                 disabled={!stripe || submitting || !clientSecret}
-                className="w-full px-6 py-3 bg-brand text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-brand-dark transition-all duration-200 shadow-lg shadow-brand/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-6 py-3.5 bg-brand text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-brand-dark transition-all duration-200 shadow-lg shadow-brand/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
                 {submitting ? (
                     <>
-                        <div className="animate-spin h-3 w-3 border border-white/30 border-t-white rounded-full" />
+                        <div className="animate-spin h-3.5 w-3.5 border border-white/30 border-t-white rounded-full" />
                         Saving…
                     </>
                 ) : (
@@ -161,20 +191,20 @@ export const PaymentSetupModal: React.FC<PaymentSetupModalProps> = ({ isOpen, on
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-ink/40 backdrop-blur-md p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-line flex flex-col max-h-[90vh] overflow-hidden animate-fade-in-up">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-line flex flex-col max-h-[90vh] overflow-hidden animate-fade-in-up">
                 <div className="p-8 border-b border-line flex justify-between items-start bg-cream">
                     <div>
                         <h2 className="font-serif italic text-2xl text-ink mb-2">Add Payment Method</h2>
-                        <p className="text-ink-3 text-sm">
+                        <p className="text-ink-3 text-sm leading-relaxed">
                             Save a card to enable overage billing at $0.50/API call beyond your monthly limit.
                         </p>
                     </div>
-                    <button onClick={onClose} className="text-ink-4 hover:text-ink transition-colors p-2 rounded-lg hover:bg-paper">
+                    <button onClick={onClose} className="text-ink-4 hover:text-ink transition-colors p-2 rounded-lg hover:bg-paper shrink-0">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div className="p-8 bg-white">
+                <div className="p-8 bg-white overflow-y-auto">
                     {stripePromise ? (
                         <Elements stripe={stripePromise} options={{ appearance: { theme: 'stripe' } }}>
                             <CardSetupForm

@@ -125,7 +125,12 @@ router.post("/query", async (req, res) => {
         const monthlyLimit = extractNumericLimit(acc.fields, 100);
         const bonusTokens = Number(acc.fields.bonusTokens || 0);
         const effectiveLimit = monthlyLimit + bonusTokens;
-        const currentUsage = Number(acc.fields.monthlyQueries || 0);
+        // Enforce against CURRENT-CYCLE usage (queriesUsedThisCycle), which resets each
+        // billing cycle. `monthlyQueries` is an un-resettable lifetime rollup — enforcing on
+        // it permanently locks accounts out once their lifetime total crosses the monthly
+        // limit (the "usage never resets" bug). Cycle counter is maintained by incrementUsage
+        // and zeroed by /cron/monthly-reset + the Stripe renewal webhook.
+        const currentUsage = Number(acc.fields.queriesUsedThisCycle || 0);
 
         // Track usage percentage for warning headers
         const usagePercent = effectiveLimit > 0 ? Math.round((currentUsage / effectiveLimit) * 100) : 0;

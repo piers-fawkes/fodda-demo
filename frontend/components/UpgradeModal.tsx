@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { dataService } from '../../shared/dataService';
 import { Plan } from '../../shared/types';
+import { useLavaWallet } from '../hooks/useLavaWallet';
 
 interface UpgradeModalProps {
     isOpen: boolean;
@@ -8,16 +9,18 @@ interface UpgradeModalProps {
     currentPlanCode?: number;
     currentPlanName?: string;
     userEmail?: string;
+    accountId?: string;
     accountVertical?: string; // 'all' or a specific graph slug for referral users
     subscriptionStatus?: string;
 }
 
-export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPlanCode, currentPlanName, userEmail, accountVertical = 'all', subscriptionStatus }) => {
+export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, currentPlanCode, currentPlanName, userEmail, accountId, accountVertical = 'all', subscriptionStatus }) => {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(false);
     const [redirectingPlanId, setRedirectingPlanId] = useState<string | null>(null);
     const [portalLoading, setPortalLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const { launchLavaWallet, loading: lavaLoading } = useLavaWallet({ onSuccess: () => onClose() });
 
     const hasActiveSubscription = subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
 
@@ -127,6 +130,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, cur
                             {(currentPlanCode === 2 || accountVertical !== 'all') && (() => {
                                 const topUpPlan = plans.find(p => p.planCode === 7);
                                 const topUpLink = topUpPlan?.stripeLink || 'https://buy.stripe.com/aFaeVc3PrcZL6Mo1JF6g80a';
+                                // Derive quantity from the plan record (source of truth) rather than
+                                // hardcoding — keeps the copy in sync with the live Stripe product.
+                                const topUpCalls = Number((topUpPlan as any)?.monthlyQueryLimit) || 200;
                                 return (
                                     <div className="mb-8 p-6 rounded-2xl border border-brand/20 bg-brand-soft shadow-sm shadow-brand/5">
                                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -135,7 +141,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, cur
                                                     ⚡ Need more API calls?
                                                 </h3>
                                                 <p className="text-sm text-ink-2 mt-1">
-                                                    Buy <span className="text-ink font-bold">100 extra API calls</span> without changing your monthly subscription. API calls are added to your account instantly.
+                                                    Buy <span className="text-ink font-bold">{topUpCalls} extra API calls</span> without changing your monthly subscription. API calls are added to your account instantly.
                                                 </p>
                                             </div>
                                             <a
@@ -144,7 +150,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, cur
                                                 rel="noopener noreferrer"
                                                 className="shrink-0 px-6 py-3 bg-brand text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-brand-dark transition-all duration-200 whitespace-nowrap shadow-lg shadow-brand/20"
                                             >
-                                                Buy 100 API Calls →
+                                                Buy {topUpCalls} API Calls →
                                             </a>
                                         </div>
                                     </div>
@@ -275,28 +281,41 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, cur
                                                             )}
                                                         </button>
                                                     ) : !isCurrent && (plan.stripeLink || isLavaPayg) ? (
-                                                        <a
-                                                            href={isLavaPayg ? `https://www.lava.so/?prefilled_email=${encodeURIComponent(userEmail || '')}` : `${plan.stripeLink}?prefilled_email=${encodeURIComponent(userEmail || '')}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            onClick={() => setRedirectingPlanId(plan.id)}
-                                                            className={`w-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-200 text-center whitespace-nowrap flex items-center justify-center gap-2 ${
-                                                                isLavaPayg
-                                                                    ? 'bg-[#ff5a1f] text-white hover:bg-[#e54e18] shadow-md shadow-[#ff5a1f]/15'
-                                                                    : isRecommended
+                                                        isLavaPayg ? (
+                                                            <button
+                                                                onClick={() => launchLavaWallet(userEmail, accountId)}
+                                                                disabled={lavaLoading}
+                                                                className="w-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-200 text-center whitespace-nowrap flex items-center justify-center gap-2 bg-[#ff5a1f] text-white hover:bg-[#e54e18] shadow-md shadow-[#ff5a1f]/15 disabled:opacity-60 disabled:cursor-wait"
+                                                            >
+                                                                {lavaLoading ? (
+                                                                    <>
+                                                                        <div className="animate-spin h-3 w-3 border border-white/30 border-t-white rounded-full" />
+                                                                        OPENING…
+                                                                    </>
+                                                                ) : 'SET UP PAYG'}
+                                                            </button>
+                                                        ) : (
+                                                            <a
+                                                                href={`${plan.stripeLink}?prefilled_email=${encodeURIComponent(userEmail || '')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={() => setRedirectingPlanId(plan.id)}
+                                                                className={`w-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-200 text-center whitespace-nowrap flex items-center justify-center gap-2 ${
+                                                                    isRecommended
                                                                         ? 'bg-brand text-white hover:bg-brand-dark shadow-md shadow-brand/10'
                                                                         : 'bg-ink text-white hover:bg-ink-2 shadow-md shadow-ink/10'
-                                                                } ${redirectingPlanId === plan.id ? 'opacity-75 cursor-wait' : ''}`}
-                                                        >
-                                                            {redirectingPlanId === plan.id ? (
-                                                                <>
-                                                                    <div className="animate-spin h-3 w-3 border border-white/30 border-t-white rounded-full" />
-                                                                    WAIT…
-                                                                </>
-                                                            ) : (
-                                                                isLavaPayg ? 'SET UP PAYG' : isRecommended ? 'UPGRADE' : 'SELECT'
-                                                            )}
-                                                        </a>
+                                                                    } ${redirectingPlanId === plan.id ? 'opacity-75 cursor-wait' : ''}`}
+                                                            >
+                                                                {redirectingPlanId === plan.id ? (
+                                                                    <>
+                                                                        <div className="animate-spin h-3 w-3 border border-white/30 border-t-white rounded-full" />
+                                                                        WAIT…
+                                                                    </>
+                                                                ) : (
+                                                                    isRecommended ? 'UPGRADE' : 'SELECT'
+                                                                )}
+                                                            </a>
+                                                        )
                                                     ) : !isCurrent ? (
                                                         plan.planCode === 2 && currentPlanCode === 13 ? (
                                                             <button

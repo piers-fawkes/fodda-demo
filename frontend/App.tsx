@@ -592,19 +592,31 @@ const App: React.FC = () => {
 
     // ─── Auto-checkout: pricing page "Buy Now" → register/login → Stripe ───
     // If the user arrived from fodda.ai/pricing with a plan pre-selected,
-    // AuthGate stored the planCode in localStorage. Whenever authenticated,
-    // we call the checkout/subscribe endpoint and redirect to Stripe.
+    // AuthGate (or direct URL query params) stored the planCode in localStorage.
+    // Whenever authenticated, we call the checkout/subscribe endpoint and redirect to Stripe.
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const planParam = searchParams?.get('plan');
+    if (planParam && !localStorage.getItem('fodda.pendingPlanCode')) {
+      localStorage.setItem('fodda.pendingPlanCode', planParam);
+      if (searchParams?.get('tier')) localStorage.setItem('fodda.pendingTier', searchParams.get('tier')!);
+      if (searchParams?.get('price')) localStorage.setItem('fodda.pendingPrice', searchParams.get('price')!);
+    }
+
     const pendingPlanCode = localStorage.getItem('fodda.pendingPlanCode');
-    const hasRedirectUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('redirect_url');
+    const hasRedirectUrl = searchParams?.has('redirect_url');
     if (pendingPlanCode && auth.user.email && !hasRedirectUrl) {
       const pendingTier = localStorage.getItem('fodda.pendingTier') || '';
       const pendingPrice = localStorage.getItem('fodda.pendingPrice') || '';
+      const sessionToken = localStorage.getItem('fodda_session_token') || '';
 
       console.log(`[App] Auto-checkout: user pending plan checkout (plan=${pendingPlanCode}, tier=${pendingTier}, price=$${pendingPrice}). Redirecting to Stripe...`);
 
       fetch('/api/account/checkout/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+        },
         body: JSON.stringify({
           planCode: Number(pendingPlanCode),
         }),
@@ -1279,6 +1291,7 @@ const App: React.FC = () => {
           }}
           onViewPlans={() => setIsUpgradeModalOpen(true)}
           onViewApiDocs={() => setActiveView('knowledge-api-docs')}
+          onSetupPayment={() => setIsPaymentSetupOpen(true)}
         />
       );
     }
@@ -1925,6 +1938,7 @@ const App: React.FC = () => {
             if (a) setCurrentAccount(a);
           }}
           onNavigateTab={(t) => setActiveView(`connections-${t}` as any)}
+          onSetupPayment={() => setIsPaymentSetupOpen(true)}
           onTryPrompt={(promptText, graphId) => {
             setInputValue(promptText);
             if (graphId) setCurrentVertical(graphId as any);
@@ -2010,6 +2024,7 @@ const App: React.FC = () => {
         currentPlanCode={currentAccount?.planCode}
         subscriptionStatus={currentAccount?.subscriptionStatus}
         userEmail={currentUser?.email}
+        accountId={currentAccount?.id}
         accountVertical={currentAccount?.vertical}
       />
       {currentUser && currentAccount && (

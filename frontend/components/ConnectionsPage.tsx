@@ -11,6 +11,7 @@ interface ConnectionsPageProps {
   onUpdate?: (user?: User, account?: Account) => void;
   onNavigateTab?: (tab: ConnectionTab) => void;
   onTryPrompt?: (promptText: string, graphId?: string) => void;
+  onSetupPayment?: () => void;
 }
 
 const tabLabels: Record<ConnectionTab, { title: string; subtitle: string; icon: string }> = {
@@ -30,7 +31,8 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
   user,
   account,
   onUpdate,
-  onNavigateTab
+  onNavigateTab,
+  onSetupPayment
 }) => {
   const [currentTab, setCurrentTab] = useState<ConnectionTab>(activeTab);
   const { title, subtitle } = tabLabels[currentTab] || tabLabels.claude;
@@ -140,6 +142,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
             user={user}
             account={account}
             onUpdate={(u, a) => onUpdate?.(u, a)}
+            onSetupPayment={onSetupPayment}
             initialTab={currentTab === 'team' ? 'users' : (currentTab as any)}
             inline={true}
           />

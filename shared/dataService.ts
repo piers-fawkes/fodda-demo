@@ -1240,9 +1240,13 @@ class DataService {
    */
   async createSubscriptionCheckout(planCode: number, email: string, trialDays?: number): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
     try {
+      const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('fodda_session_token') || '' : '';
       const res = await fetch('/api/account/checkout/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+        },
         body: JSON.stringify({ email, planCode, trialDays }),
       });
       return await res.json();
@@ -1254,9 +1258,13 @@ class DataService {
 
   async createCustomCheckout(planCode: number, email?: string, trialDays?: number): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
     try {
+      const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('fodda_session_token') || '' : '';
       const res = await fetch('/api/account/checkout/custom', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+        },
         body: JSON.stringify({ planCode, email, trialDays }),
       });
       return await res.json();
@@ -1323,9 +1331,13 @@ class DataService {
    */
   async createAgentCheckout(email: string): Promise<{ ok: boolean; checkout_url?: string; error?: string }> {
     try {
+      const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('fodda_session_token') || '' : '';
       const res = await fetch('/api/account/checkout/agent-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+        },
         body: JSON.stringify({ email, source: 'app_billing_page' }),
       });
       return await res.json();
