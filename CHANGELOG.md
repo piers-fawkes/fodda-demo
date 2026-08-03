@@ -9,6 +9,8 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - **MCP Connection Token Mint Hardening (`server/services/mcpConnectionService.ts`)**:
   - `buildMcpConnection` now catches failures when persisting a newly minted `mcpConnectionToken` to Airtable and returns `{ ok: false, mcpUrl: null }` instead of surfacing an unpersisted token URL that fails with 404.
   - Set `sseUrl: null` to eliminate legacy `?api_key=...&user_id=...` query param URL generation from the service.
+- **GitHub SSO Login & Registration (`AuthGate.tsx`)**:
+  - Added GitHub OAuth button (`oauth_github`) to the AuthGate login and sign-up modal screens, alongside Google and LinkedIn.
 - **Email Template & Route URL Hardening (`emailTemplates.ts`, `authRouter.ts`, `accountRouter.ts`, `webhookRouter.ts`)**:
   - Updated `foddaMcpCard` helper to require tokenized `mcpUrl` (`/c/<token>`) and deleted all `?api_key=` fallback constructions across email templates (`SIGNUP_CONFIRMATION`, `DEVELOPER_ONBOARDING`, `PLAN_UPGRADED`, `PARTNER_WELCOME`).
   - Enforced that when `mcpUrl` is absent (standard signup prior to token minting on app visit), outbound confirmation emails suppress the MCP connection block and direct users to `https://app.fodda.ai`.
