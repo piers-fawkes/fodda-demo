@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-03] — Connections Tab Copy & Dead Link Cleanup (`AccountPortal.tsx` & `AdminPortal.tsx`)
+
+### Fixed & Cleaned Up
+- **Copilot Transport & Setup Update (`AccountPortal.tsx`)**:
+  - Removed deprecated `MCP_SSE_URL` (`https://mcp.fodda.ai/sse`) from Copilot quick-connect.
+  - Updated Copilot instructions to standard `/mcp` HTTP endpoint with OAuth 2.0 dynamic discovery.
+  - Removed fabricated Copilot transcript section containing non-existent `search_trends` tool call.
+  - Replaced marketing terms ("Direct Knowledge Injection", "Live Hash", "Secure Protocol URL") with standard technical descriptions ("M365 Copilot Direct MCP Setup", "API Key", "MCP Endpoint URL").
+- **ChatGPT Setup Instructions (`AccountPortal.tsx`)**:
+  - Replaced placeholder roadmap block with actual ChatGPT developer mode setup steps (Developer mode toggle, custom plugin creation, `/mcp` with OAuth, and `/c/<token>` fallback).
+- **Claude & Notion Connector Copy Alignment (`AccountPortal.tsx`)**:
+  - Updated stale Anthropic URLs from `claude.ai/settings/connectors` to `claude.ai/customize/connectors`.
+  - Reworded 4 occurrences of "Leave OAuth fields blank" to "Claude fills these in automatically, and you'll be asked to sign in to Fodda."
+- **Dead Link Remediation (`AccountPortal.tsx` & `AdminPortal.tsx`)**:
+  - `AdminPortal.tsx`: Replaced 404 URL `https://mcp.fodda.ai/mcp/tools` with `/api/mcp/tools` proxy.
+  - `AccountPortal.tsx`: Fixed 404 endpoint `/copilot/search_insights` to base API URL.
+  - `AccountPortal.tsx`: Removed broken `/Fodda_Claude_Skill.md` download link.
+  - `AccountPortal.tsx`: Replaced broken `#/...` hash route links with canonical `www.fodda.ai/api` and `www.fodda.ai/agents` URLs.
+
 ## [2026-08-03] — MCP Token Mint Hardening & API Key URL Elimination
 
 ### Fixed & Hardened

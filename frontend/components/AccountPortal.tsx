@@ -321,8 +321,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const MCP_ENDPOINT = 'https://mcp.fodda.ai/mcp';
-    const MCP_SSE_URL = 'https://mcp.fodda.ai/sse';
-    const MCP_TOOLS_URL = 'https://mcp.fodda.ai/mcp/tools';
 
     const loadMcpData = async () => {
         if (!account?.apiKey) return;
@@ -538,7 +536,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
         const config = JSON.stringify({
             name: 'Fodda',
             url: getClaudeConnectorUrl(),
-            note: 'Paste the URL into Claude → Settings → Connectors → Add custom connector. Leave OAuth fields blank.'
+            note: 'Paste the URL into Claude → Customize → Connectors → Add custom connector. Claude fills these in automatically, and you will be asked to sign in to Fodda.'
         }, null, 2);
         const blob = new Blob([config], { type: 'application/json' });
         const u = URL.createObjectURL(blob);
@@ -1234,7 +1232,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 Add Fodda to Claude
                                                 <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                             </a>
-                                            <p className="text-[10px] text-ink-3">Opens Claude → Settings → Connectors with your MCP URL pre-populated. Leave OAuth fields blank.</p>
+                                            <p className="text-[10px] text-ink-3">Opens Claude → Customize → Connectors with your MCP URL pre-populated. Claude fills these in automatically, and you'll be asked to sign in to Fodda.</p>
                                         </div>
                                     )}
 
@@ -1269,12 +1267,12 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         </li>
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">2</span>
-                                            <span className="text-sm font-medium text-ink-2">Open <a href="https://claude.ai/settings/connectors?modal=add-custom-connector" target="_blank" rel="noopener noreferrer" className="text-brand font-bold hover:underline">Claude Settings → Add Custom Connector</a> (this link opens the connector dialog directly).</span>
+                                            <span className="text-sm font-medium text-ink-2">Open <a href="https://claude.ai/customize/connectors?modal=add-custom-connector" target="_blank" rel="noopener noreferrer" className="text-brand font-bold hover:underline">Claude Customize → Add Custom Connector</a> (this link opens the connector dialog directly).</span>
                                         </li>
                                         <li className="flex gap-4 items-start">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">3</span>
                                             <div className="flex-1 space-y-3">
-                                                <span className="text-sm font-medium text-ink-2">Input the following Secure Protocol URL:</span>
+                                                <span className="text-sm font-medium text-ink-2">Input the following MCP Endpoint URL:</span>
                                                 <div className="relative group flex-1">
                                                     <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
                                                     <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'claude-tab-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'claude-tab-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
@@ -1285,16 +1283,13 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         </li>
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">4</span>
-                                            <span className="text-sm font-medium text-ink-2">Ensure all <span className="text-ink font-bold">OAuth fields</span> are left intentionally blank.</span>
+                                            <span className="text-sm font-medium text-ink-2">Claude fills these in automatically, and you'll be asked to sign in to Fodda.</span>
                                         </li>
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">5</span>
                                             <span className="text-sm font-medium text-ink-2">Finalize by clicking "Add" — Fodda knowledge is now accessible within the Claude interface.</span>
                                         </li>
                                     </ol>
-                                    <div className="p-4 bg-cream/40 border border-line border-dashed rounded-2xl">
-                                        <p className="text-xs text-ink-3 italic font-medium leading-relaxed">"Try prompting Claude: 'Analyze recent market signals from my Fodda intelligence layer.'"</p>
-                                    </div>
                                 </section>
 
                                 {/* Enterprise (Admin) */}
@@ -1350,22 +1345,8 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     </div>
                                 </section>
 
-                                {/* Claude Skill File */}
-                                <a
-                                    href="/Fodda_Claude_Skill.md"
-                                    download="Fodda_Claude_Skill.md"
-                                    className="flex items-center gap-3 p-4 bg-purple-50 border border-purple-200 rounded-2xl hover:border-purple-300 hover:bg-purple-100/50 transition-all group"
-                                >
-                                    <span className="text-base w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">🔌</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-purple-800 group-hover:text-purple-900 transition-colors">Install Fodda on Claude (MCP)</p>
-                                        <p className="text-[11px] text-ink-3 mt-0.5">Quick setup guide & prompting skill for Claude Connectors</p>
-                                    </div>
-                                    <svg className="w-4 h-4 text-purple-600 group-hover:text-purple-700 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                </a>
-
                                 <div className="p-4 bg-paper border border-line rounded-xl shadow-sm text-center">
-                                    <p className="text-xs text-ink-3 font-medium">Need help? See our <a href="https://www.fodda.ai/#/platform-integration-anthropic-claude" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline font-bold">Claude Setup Guide</a> · <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline font-bold">Anthropic Connectors Guide</a></p>
+                                    <p className="text-xs text-ink-3 font-medium">Need help? See our <a href="https://www.fodda.ai/api" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline font-bold">Claude Setup Guide</a> · <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline font-bold">Anthropic Connectors Guide</a></p>
                                 </div>
                             </div>
                         )}
@@ -1393,11 +1374,8 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             </div>
                                         </li>
                                         <li className="flex gap-4"><span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">5</span><span>Select <span className="text-ink font-bold">"API Key"</span> — enter <code className="px-1.5 py-0.5 bg-cream/80 rounded border border-line text-[10px] font-mono text-ink-2">api_key</code> as the Key and your Fodda API key as the Value.</span></li>
-                                        <li className="flex gap-4"><span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">6</span><span>Execute "Save" — the knowledge bridge is established.</span></li>
+                                        <li className="flex gap-4"><span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">6</span><span>Execute "Save" to finish setup.</span></li>
                                     </ol>
-                                    <div className="p-4 bg-cream/30 border border-line border-dashed rounded-2xl">
-                                        <p className="text-[10px] font-black text-ink-4 uppercase tracking-widest leading-relaxed">🔒 End-to-end encrypted knowledge transfer via secure HTTPS tunnel.</p>
-                                    </div>
                                 </section>
 
                                 {/* Requirements */}
@@ -1580,10 +1558,10 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     <div className="space-y-8 animate-fade-in-up">
                                         <section className="p-8 bg-paper border border-line rounded-3xl space-y-6 shadow-sm">
                                             <div className="flex items-center gap-3">
-                                                <h3 className="eyebrow mb-0">Direct Knowledge Injection</h3>
+                                                <h3 className="eyebrow mb-0">M365 Copilot Direct MCP Setup</h3>
                                                 <span className="px-2 py-0.5 bg-brand text-white text-[8px] font-black uppercase tracking-widest rounded-full">Preferred</span>
                                             </div>
-                                            <p className="text-sm font-medium text-ink-3">MCP Apps are natively integrated into Microsoft 365 Copilot via the Agents Toolkit framework. Establish a direct knowledge link without intermediary plugins.</p>
+                                            <p className="text-sm font-medium text-ink-3">MCP Apps are natively integrated into Microsoft 365 Copilot via the Agents Toolkit framework. Establish a direct MCP connection without intermediary plugins.</p>
                                             <ol className="space-y-5">
                                                 <li className="flex gap-4">
                                                     <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">1</span>
@@ -1596,7 +1574,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 <li className="flex gap-4 items-start">
                                                     <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">3</span>
                                                     <div className="flex-1 space-y-3">
-                                                        <span className="text-sm font-medium text-ink-2">Deploy the following Streamable HTTP Protocol URL:</span>
+                                                        <span className="text-sm font-medium text-ink-2">Deploy the following MCP Server URL:</span>
                                                         <div className="relative group max-w-xl">
                                                             <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
                                                             <button onClick={() => handleCopyField(MCP_ENDPOINT, 'copilot-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'copilot-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
@@ -1620,7 +1598,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5">Live Hash</p>
+                                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1.5">API Key</p>
                                                             <div className="relative group max-w-xl">
                                                                 <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-amber-300 border border-ink-2 break-all pr-24 shadow-sm">
                                                                     {account.apiKey ? (showApiKey ? account.apiKey : account.apiKey.slice(0, 8) + '••••••••••••') : 'FK_LIVE_REDACTED'}
@@ -1667,25 +1645,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 <div className="flex items-start gap-2 text-xs text-ink-2">
                                                     <span className="text-teal-600 shrink-0 mt-0.5">✅</span>
                                                     <span><span className="font-bold text-ink">Inline widgets</span> — results render directly in Teams and Copilot chat</span>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* Aspirational: What it looks like in Copilot */}
-                                        <section className="p-5 bg-paper border border-line rounded-2xl space-y-3 shadow-sm">
-                                            <h3 className="text-xs font-bold text-teal-600 uppercase tracking-widest">What it looks like in Copilot</h3>
-                                            <div className="space-y-2">
-                                                <div className="p-3 bg-cream rounded-xl border border-line">
-                                                    <p className="text-[10px] text-ink-3 mb-1">User asks:</p>
-                                                    <p className="text-sm text-ink font-medium italic">"What e-commerce trends is DHL tracking?"</p>
-                                                </div>
-                                                <div className="flex items-center gap-2 px-3">
-                                                    <div className="w-1 h-6 bg-teal-500/20 rounded-full"></div>
-                                                    <p className="text-[10px] text-teal-600 font-semibold">Copilot calls Fodda <code className="text-teal-700">search_trends</code> tool →</p>
-                                                </div>
-                                                <div className="p-3 bg-cream rounded-xl border border-line">
-                                                    <p className="text-[10px] text-ink-3 mb-1">Copilot responds with Fodda-grounded insights:</p>
-                                                    <p className="text-sm text-ink-2">DHL is tracking <span className="text-teal-600 font-bold">3 key e-commerce trends</span> including cross-border logistics automation, drone last-mile delivery, and AI-powered demand forecasting…</p>
                                                 </div>
                                             </div>
                                         </section>
@@ -1768,14 +1727,39 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         )}
 
                         {activeTab === 'chatgpt' && (
-                            <div className="p-8 bg-paper border border-line rounded-3xl max-w-4xl space-y-4 text-center py-16 shadow-sm">
-                                <span className="text-4xl block mb-2">🤖</span>
-                                <h3 className="text-xl font-serif italic text-ink">ChatGPT Connector</h3>
-                                <p className="text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
-                                    Direct Custom GPT integration is on our roadmap. In the meantime, connect via our standard Streamable HTTP MCP server or API access.
-                                </p>
-                                <div className="inline-block px-3 py-1 bg-brand/10 text-brand text-xs font-mono font-bold uppercase tracking-wider rounded-full">
-                                    On the Roadmap
+                            <div className="p-8 bg-paper border border-line rounded-3xl max-w-4xl space-y-6 shadow-sm">
+                                <div>
+                                    <h3 className="eyebrow mb-2">ChatGPT Connector Setup</h3>
+                                    <p className="text-sm font-medium text-ink-3">Connect Fodda directly to ChatGPT using remote MCP mode (requires ChatGPT Plus, Team, Enterprise, or Edu on web).</p>
+                                </div>
+
+                                <ol className="space-y-4 text-sm font-medium text-ink-2">
+                                    <li className="flex gap-4">
+                                        <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">1</span>
+                                        <span>Open <span className="text-ink font-bold">Settings → Security and login → Developer mode</span> (turn on). Without this, the developer connector dialog is unreachable.</span>
+                                    </li>
+                                    <li className="flex gap-4">
+                                        <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">2</span>
+                                        <span>Go to <span className="text-ink font-bold">Plugins → +</span> to create a developer-mode app for your remote MCP server.</span>
+                                    </li>
+                                    <li className="flex gap-4 items-start">
+                                        <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">3</span>
+                                        <div className="flex-1 space-y-3">
+                                            <span>Paste the MCP Server URL and choose OAuth:</span>
+                                            <div className="relative group max-w-xl">
+                                                <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
+                                                <button onClick={() => handleCopyField(MCP_ENDPOINT, 'chatgpt-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'chatgpt-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
+                                                    {copiedField === 'chatgpt-mcp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ol>
+
+                                <div className="p-4 bg-cream/50 border border-line rounded-2xl">
+                                    <p className="text-xs text-ink-3 leading-relaxed">
+                                        <span className="font-bold text-ink">Alternative (No-Auth):</span> If OAuth is not offered by your plan, choose "No authentication" and paste your tokenized URL: <code className="font-mono text-brand font-bold">{getClaudeConnectorUrl()}</code>.
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -1941,16 +1925,16 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 <p className="text-sm font-bold text-ink">Microsoft 365 Copilot — MCP Direct</p>
                                                 <span className="px-1.5 py-0.5 bg-teal-500/10 text-teal-700 text-[8px] font-bold uppercase tracking-wider rounded">New</span>
                                             </div>
-                                            <p className="text-sm text-ink-3">Use the <a href="https://marketplace.visualstudio.com/items?itemName=TeamsDevApp.ms-teams-vscode-extension" target="_blank" rel="noopener noreferrer" className="text-teal-600 font-bold hover:underline">Microsoft 365 Agents Toolkit</a> in VS Code:</p>
+                                            <p className="text-sm text-ink-3">Add Fodda as a Model Context Protocol tool in Copilot Studio:</p>
                                             <ol className="space-y-2 text-sm text-ink-2 pl-1">
-                                                <li className="flex gap-2"><span className="text-teal-600 font-bold shrink-0">1.</span><span>"Add an Action" → "Start with an MCP Server"</span></li>
+                                                <li className="flex gap-2"><span className="text-teal-600 font-bold shrink-0">1.</span><span>Tools → Add a tool → New tool → Model Context Protocol</span></li>
                                                 <li className="flex gap-2 items-start"><span className="text-teal-600 font-bold shrink-0">2.</span>
                                                     <div className="flex-1 space-y-1">
-                                                        <span>MCP Server URL:</span>
+                                                        <span>Server URL:</span>
                                                         <div className="relative group">
-                                                            <code className="block p-2 bg-ink rounded-lg text-xs font-mono text-teal-400 border border-ink-2 pr-12">{MCP_SSE_URL}</code>
+                                                            <code className="block p-2 bg-ink rounded-lg text-xs font-mono text-teal-400 border border-ink-2 pr-12">{MCP_ENDPOINT}</code>
                                                             <button
-                                                                onClick={() => handleCopyField(MCP_SSE_URL, 'mcp-copilot-url')}
+                                                                onClick={() => handleCopyField(MCP_ENDPOINT, 'mcp-copilot-url')}
                                                                 className={`absolute top-1.5 right-2 p-1 rounded-md transition-all hover:text-white ${copiedField === 'mcp-copilot-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
                                                                 title="Copy MCP URL"
                                                             >
@@ -1959,9 +1943,9 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                         </div>
                                                     </div>
                                                 </li>
-                                                <li className="flex gap-2"><span className="text-teal-600 font-bold shrink-0">3.</span><span>Auth: <code className="text-teal-600 font-mono">X-API-Key</code> → your API key</span></li>
+                                                <li className="flex gap-2"><span className="text-teal-600 font-bold shrink-0">3.</span><span>Authentication: <code className="text-teal-600 font-mono">OAuth 2.0</code> → Dynamic discovery</span></li>
                                             </ol>
-                                            <p className="text-[10px] text-ink-4">Copilot discovers all {mcpToolCount || 25} tools automatically via MCP</p>
+                                            <p className="text-[10px] text-ink-4">Copilot discovers all tools automatically via MCP</p>
                                         </div>
                                     )}
                                 </section>

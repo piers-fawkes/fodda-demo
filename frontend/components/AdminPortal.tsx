@@ -187,7 +187,7 @@ Founder, Fodda`.trim();
   const checkMcpHealth = async () => {
     setMcpHealth({ status: 'checking' });
     try {
-      const res = await fetch('https://mcp.fodda.ai/mcp/tools');
+      const res = await fetch('/api/mcp/tools');
       const data = await res.json();
       setMcpHealth({ status: data.tools ? 'ok' : 'error', data });
     } catch (e: any) {
