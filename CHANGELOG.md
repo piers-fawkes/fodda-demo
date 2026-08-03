@@ -13,9 +13,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
   - Replaced marketing terms ("Direct Knowledge Injection", "Live Hash", "Secure Protocol URL") with standard technical descriptions ("M365 Copilot Direct MCP Setup", "API Key", "MCP Endpoint URL").
 - **ChatGPT Setup Instructions (`AccountPortal.tsx`)**:
   - Replaced placeholder roadmap block with actual ChatGPT developer mode setup steps (Developer mode toggle, custom plugin creation, `/mcp` with OAuth, and `/c/<token>` fallback).
-- **Claude & Notion Connector Copy Alignment (`AccountPortal.tsx`)**:
+- **Claude & Notion Connector Copy Alignment (`AccountPortal.tsx` & `ConnectionsPage.tsx`)**:
   - Updated stale Anthropic URLs from `claude.ai/settings/connectors` to `claude.ai/customize/connectors`.
-  - Reworded 4 occurrences of "Leave OAuth fields blank" to "Claude fills these in automatically, and you'll be asked to sign in to Fodda."
+  - Removed all occurrences of "leave the OAuth fields blank" across `AccountPortal.tsx` and `ConnectionsPage.tsx`, replacing with "Sign in with your Fodda account when prompted." for Claude OAuth and path token URLs for non-OAuth clients.
 - **Dead Link Remediation (`AccountPortal.tsx` & `AdminPortal.tsx`)**:
   - `AdminPortal.tsx`: Replaced 404 URL `https://mcp.fodda.ai/mcp/tools` with `/api/mcp/tools` proxy.
   - `AccountPortal.tsx`: Fixed 404 endpoint `/copilot/search_insights` to base API URL.

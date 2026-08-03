@@ -182,7 +182,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         },
         {
           title: 'Paste your Fodda endpoint',
-          body: 'Enter https://mcp.fodda.ai/mcp. Fodda uses dynamic registration, so you can leave the OAuth Client ID and Secret fields empty.',
+          body: 'Enter https://mcp.fodda.ai/mcp. Fodda configures client credentials automatically via dynamic registration.',
           field: 'endpoint',
         },
         {

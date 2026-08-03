@@ -1223,7 +1223,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-3 animate-fade-in-up">
                                             <p className="text-sm text-ink-2">One click to add Fodda to Claude with your API key pre-filled:</p>
                                             <a
-                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(getClaudeConnectorUrl())}`}
+                                                href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(MCP_ENDPOINT)}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="w-full px-4 py-3 bg-[#DE7356] hover:bg-[#c9624a] text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#DE7356]/20"
@@ -1232,7 +1232,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 Add Fodda to Claude
                                                 <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                             </a>
-                                            <p className="text-[10px] text-ink-3">Opens Claude → Customize → Connectors with your MCP URL pre-populated. Claude fills these in automatically, and you'll be asked to sign in to Fodda.</p>
+                                            <p className="text-[10px] text-ink-3">Opens Claude → Customize → Connectors with your MCP URL pre-populated. Sign in with your Fodda account when prompted.</p>
                                         </div>
                                     )}
 
@@ -1274,8 +1274,8 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             <div className="flex-1 space-y-3">
                                                 <span className="text-sm font-medium text-ink-2">Input the following MCP Endpoint URL:</span>
                                                 <div className="relative group flex-1">
-                                                    <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
-                                                    <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'claude-tab-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'claude-tab-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
+                                                    <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
+                                                    <button onClick={() => handleCopyField(MCP_ENDPOINT, 'claude-tab-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'claude-tab-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
                                                         {copiedField === 'claude-tab-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
                                                     </button>
                                                 </div>
@@ -1283,7 +1283,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         </li>
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">4</span>
-                                            <span className="text-sm font-medium text-ink-2">Claude fills these in automatically, and you'll be asked to sign in to Fodda.</span>
+                                            <span className="text-sm font-medium text-ink-2">Sign in with your Fodda account when prompted.</span>
                                         </li>
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">5</span>
@@ -1969,18 +1969,18 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         {showClaudeConfig && (
                                             <div className="space-y-3 animate-fade-in-up">
                                                 <div className="relative group">
-                                                    <code className="block p-3 bg-ink rounded-xl text-sm font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
-                                                    <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'mcp-claude-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'mcp-claude-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
+                                                    <code className="block p-3 bg-ink rounded-xl text-sm font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
+                                                    <button onClick={() => handleCopyField(MCP_ENDPOINT, 'mcp-claude-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'mcp-claude-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
                                                         {copiedField === 'mcp-claude-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
                                                     </button>
                                                 </div>
-                                                <p className="text-[10px] text-ink-3">Quickly connect your account using the button below, or paste the URL manually in Claude → <a href="https://claude.ai/settings/connectors?modal=add-custom-connector" target="_blank" rel="noopener noreferrer" className="text-purple-600 font-bold hover:underline">Settings → Connectors</a> → Add custom connector. Leave the OAuth fields blank.</p>
+                                                <p className="text-[10px] text-ink-3">Quickly connect your account using the button below, or paste the URL manually in Claude → <a href="https://claude.ai/customize/connectors?modal=add-custom-connector" target="_blank" rel="noopener noreferrer" className="text-purple-600 font-bold hover:underline">Customize → Connectors</a> → Add custom connector. Sign in with your Fodda account when prompted.</p>
                                                 <div className="flex gap-2">
-                                                    <a href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(getClaudeConnectorUrl())}`} target="_blank" rel="noopener noreferrer" className="flex-[1.5] px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-lg border border-purple-500 transition-all uppercase tracking-wider flex items-center justify-center gap-2">
+                                                    <a href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(MCP_ENDPOINT)}`} target="_blank" rel="noopener noreferrer" className="flex-[1.5] px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-lg border border-purple-500 transition-all uppercase tracking-wider flex items-center justify-center gap-2">
                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg> Add to Claude
                                                     </a>
-                                                    <button onClick={handleCopyClaudeUrl} className="flex-1 px-4 py-2.5 bg-paper border border-line text-ink hover:bg-line-soft hover:text-ink-2 shadow-sm font-bold text-xs rounded-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2">
-                                                        {claudeConfigCopied ? <><svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> Copied!</> : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg> Copy URL</>}
+                                                    <button onClick={() => handleCopyField(MCP_ENDPOINT, 'claude-btn-copy')} className="flex-1 px-4 py-2.5 bg-paper border border-line text-ink hover:bg-line-soft hover:text-ink-2 shadow-sm font-bold text-xs rounded-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2">
+                                                        {copiedField === 'claude-btn-copy' ? <><svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> Copied!</> : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg> Copy URL</>}
                                                     </button>
                                                 </div>
                                             </div>
