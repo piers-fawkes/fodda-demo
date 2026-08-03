@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "server",
+    "shared",
+    "constants.ts",
+    "types.ts"
+  ],
+  "exclude": [
+    "frontend",
+    "node_modules",
+    "dist"
+  ]
+}

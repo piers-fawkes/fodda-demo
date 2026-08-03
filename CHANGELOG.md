@@ -3,6 +3,17 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-03] — MCP Token Mint Hardening & API Key URL Elimination
+
+### Fixed & Hardened
+- **MCP Connection Token Mint Hardening (`server/services/mcpConnectionService.ts`)**:
+  - `buildMcpConnection` now catches failures when persisting a newly minted `mcpConnectionToken` to Airtable and returns `{ ok: false, mcpUrl: null }` instead of surfacing an unpersisted token URL that fails with 404.
+  - Set `sseUrl: null` to eliminate legacy `?api_key=...&user_id=...` query param URL generation from the service.
+- **Email Template & Route URL Hardening (`emailTemplates.ts`, `authRouter.ts`, `accountRouter.ts`, `webhookRouter.ts`)**:
+  - Updated `foddaMcpCard` helper to require tokenized `mcpUrl` (`/c/<token>`) and deleted all `?api_key=` fallback constructions across email templates (`SIGNUP_CONFIRMATION`, `DEVELOPER_ONBOARDING`, `PLAN_UPGRADED`, `PARTNER_WELCOME`).
+  - Enforced that when `mcpUrl` is absent (standard signup prior to token minting on app visit), outbound confirmation emails suppress the MCP connection block and direct users to `https://app.fodda.ai`.
+  - Stripped `apiKey` parameters passed to `sendSystemEmail` across `/register`, `/join`, `/trial-convert`, `/convert-to-base`, and Clerk webhook handlers.
+
 ## [2026-08-03] — Access / Connectors Redesign & Connection Reference Alignment (Brief 2 Audit, QA & Strict Refusal Enforcement)
 
 ### Refactored & Fixed

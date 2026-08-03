@@ -188,8 +188,7 @@ async function provisionUserFromClerk(
   sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { 
     name: firstName, 
     confirmationLink, 
-    intent: intent || 'account', 
-    apiKey: apiKeyForEmail 
+    intent: intent || 'account' 
   }).catch(e => console.error("[Clerk Webhook] Welcome email dispatch failed:", e));
 
   // Add user to Streak pipeline — experts go to 'Fodda Experts', everyone else to 'Fodda Sales'

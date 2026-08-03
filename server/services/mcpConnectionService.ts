@@ -119,12 +119,22 @@ export async function buildMcpConnection(email: string): Promise<McpConnection> 
       await updateAirtableRecord(USERS_TABLE, userRec.id, { mcpConnectionToken: token });
     } catch (err) {
       console.error('[buildMcpConnection] Error saving mcpConnectionToken to user record:', err);
+      return {
+        ok: false,
+        hasActiveKey: !!apiKey,
+        alreadyExists: false,
+        mcpUrl: null,
+        sseUrl: null,
+        claudeConnectorUrl: null,
+        token: null,
+        message: 'Failed to save MCP connection token'
+      };
     }
   }
 
   // 4. Build URLs
   const mcpUrl = `https://mcp.fodda.ai/c/${token}`;
-  const sseUrl = `https://mcp.fodda.ai/sse?api_key=${apiKey}&user_id=${encodeURIComponent(normalizedEmail)}`;
+  const sseUrl = null;
   const claudeConnectorUrl = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpUrl)}`;
 
   return {

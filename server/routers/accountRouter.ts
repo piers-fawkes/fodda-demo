@@ -1470,8 +1470,7 @@ router.post("/trial-convert", async (req, res) => {
     sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
       name: displayName,
       confirmationLink,
-      intent: intent || 'account',
-      apiKey: apiKeyString
+      intent: intent || 'account'
     }).catch(e => console.error("[Trial-Convert] Email failed:", e));
 
     // Fire-and-forget: enrich the user
@@ -2698,9 +2697,7 @@ router.post('/trial-provision', async (req, res) => {
         name: displayName,
         confirmationLink,
         intent: intent || 'trial',
-        apiKey: apiKeyString,
         mcpUrl: connection.mcpUrl,
-        sseUrl: connection.sseUrl,
         claudeConnectorUrl: connection.claudeConnectorUrl
       }).catch(e => console.error('[Trial-Provision] Welcome email failed:', e));
     }
@@ -2800,15 +2797,10 @@ router.post('/convert-to-base', async (req, res) => {
       const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
       const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
       
-      // Get API Key to include in confirmation email
-      const keysQuery = await getActiveKeysForAccount(accountId);
-      const apiKey = keysQuery.records?.[0]?.fields?.['API Key'] || '';
-
       sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, {
         name: userRec.fields['First Name'] || normalizedEmail.split('@')[0],
         confirmationLink,
-        intent: 'account',
-        apiKey
+        intent: 'account'
       }).catch(e => console.error('[Convert-to-Base] Email failed:', e));
 
       res.json({ ok: true, alreadyConfirmed: false });

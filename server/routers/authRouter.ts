@@ -28,6 +28,7 @@ import { addToStreakPipeline, STAGE_SELF_DEMO } from "../services/streakService.
 import { enrichUserBuyerType } from "../services/userEnrichmentService.js";
 import { selectPrompts } from "../services/promptSelector.js";
 import { validateAndSelectPrompts } from "../services/promptValidator.js";
+import { buildMcpConnection } from "../services/mcpConnectionService.js";
 import { detectAccountType } from "../services/accountTypeService.js";
 
 const router = Router();
@@ -196,7 +197,7 @@ router.post("/register", async (req, res) => {
 
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
-    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { name: firstName, confirmationLink, intent: intent || 'account', apiKey: apiKeyForEmail }).catch(e => console.error("Failed to send confirmation email:", e));
+    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { name: firstName, confirmationLink, intent: intent || 'account' }).catch(e => console.error("Failed to send confirmation email:", e));
 
     // Add to Streak CRM in 'Email Not Confirmed' stage
     addToStreakPipeline(normalizedEmail, fullName, company, 'Email Not Confirmed', promoTag, { airtableId: userId }).catch(e => console.error("[Streak] Initial sync failed:", e));
@@ -305,17 +306,7 @@ router.post("/join", async (req, res) => {
       }
     }).catch(e => console.error("[Join] Failed to notify admins:", e));
 
-    let apiKeyForEmail = "";
-    try {
-      const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountRecord.id)}', {API Key Status} = 'Active')`);
-      if (keysQuery.records && keysQuery.records.length > 0) {
-        apiKeyForEmail = keysQuery.records[0].fields['API Key'] as string;
-      }
-    } catch (e) {
-      console.error("Failed to fetch API key for joining user:", e);
-    }
-
-    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { name: firstName, confirmationLink, apiKey: apiKeyForEmail }).catch(e => console.error("Failed to send confirmation email:", e));
+    sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { name: firstName, confirmationLink }).catch(e => console.error("Failed to send confirmation email:", e));
 
     res.json({
       ok: true,
@@ -382,23 +373,21 @@ router.get("/confirm", async (req, res) => {
           const fuf = freshUser.records?.[0]?.fields || {};
           const accountIds: string[] = fuf.Account || [];
           let graphSlug = 'default';
-          let apiKeyForEmail = "";
+          let devMcpUrl: string | undefined;
           if (accountIds[0]) {
             const acct = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountIds[0])}'`);
             const acctFields = acct.records?.[0]?.fields || {};
             graphSlug = String(acctFields.vertical || 'default').toLowerCase();
             
             try {
-              const keysQuery = await queryAirtable(API_KEYS_TABLE, `AND({Account} = '${escapeAirtableString(accountIds[0])}', {API Key Status} = 'Active')`);
-              if (keysQuery.records && keysQuery.records.length > 0) {
-                apiKeyForEmail = keysQuery.records[0].fields['API Key'] as string;
-              }
+              const devConn = await buildMcpConnection(normalizedEmail);
+              if (devConn.ok && devConn.mcpUrl) devMcpUrl = devConn.mcpUrl;
             } catch (e) {
-              console.error("Failed to fetch API key for onboarding email:", e);
+              console.error("Failed to build MCP connection for onboarding email:", e);
             }
 
             if (fuf.buyer_type === 'AI Startup/Developer') {
-              await sendSystemEmail('DEVELOPER_ONBOARDING', normalizedEmail, { firstName: uf['First Name'], apiKey: apiKeyForEmail });
+              await sendSystemEmail('DEVELOPER_ONBOARDING', normalizedEmail, { firstName: uf['First Name'], mcpUrl: devMcpUrl });
             } else {
               const candidates = selectPrompts(graphSlug, fuf.buyer_type || 'Unknown', fuf.buyer_industry || '', 10);
               const { prompts } = await validateAndSelectPrompts(candidates, graphSlug, normalizedEmail, sendSystemEmail) as any;
