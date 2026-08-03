@@ -84,6 +84,24 @@ export async function queryAirtable(tableId: string, filterByFormula: string = "
   });
 }
 
+export async function queryAirtableAll(tableId: string, filterByFormula: string = "", extraParams: string = "") {
+  let allRecords: any[] = [];
+  let offset: string | null = null;
+  do {
+    let url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?filterByFormula=${encodeURIComponent(filterByFormula)}`;
+    if (offset) url += `&offset=${offset}`;
+    if (extraParams) url += `&${extraParams}`;
+    const res = await dedupFetch(url, {
+      headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }
+    });
+    if (res.records) {
+      allRecords.push(...res.records);
+    }
+    offset = res.offset || null;
+  } while (offset);
+  return { records: allRecords };
+}
+
 export async function queryAirtableCE(tableId: string, filterByFormula: string = "", extraParams: string = "") {
   let url = `https://api.airtable.com/v0/${CE_BASE_ID}/${tableId}?filterByFormula=${encodeURIComponent(filterByFormula)}`;
   if (extraParams) url += `&${extraParams}`;

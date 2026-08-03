@@ -58,6 +58,8 @@ router.get("/graph-catalog", async (req, res) => {
         ? topicsRaw.split(',').map((t: string) => t.trim()).filter(Boolean)
         : (Array.isArray(topicsRaw) ? topicsRaw : []);
       const exampleQueries = safeJsonParse(f.exampleQueries);
+      const askLine = f.askLine || f.ask_line || f['Ask Line'] || f.Ask || f['Ask'] || (Array.isArray(exampleQueries) && exampleQueries.length > 0 ? exampleQueries[0] : '');
+      const niche = f.niche || f.Niche || f.expertise || f.Expertise || f['Niche Expertise'] || f['Niche'] || f['Expertise'] || (tags.length > 0 ? tags.join(' · ') : '');
       const portraitAttachment = f['Portrait Attachment'] || [];
       const headshotUrl = portraitAttachment.length > 0 ? portraitAttachment[0].url : '';
 
@@ -80,6 +82,10 @@ router.get("/graph-catalog", async (req, res) => {
         topics: tags,
         status,
         example_queries: exampleQueries,
+        askLine,
+        ask_line: askLine,
+        niche,
+        expertise: niche,
         portrait_url: headshotUrl,
         trend_count: f.trendCount || f.trend_count || 0,
         evidence_count: f.evidenceCount || f.evidence_count || 0,
@@ -137,6 +143,14 @@ router.get("/graph-catalog", async (req, res) => {
             graph.expert_slug = matchingAnalyst.id || '';
             if (!graph.graph_sub_type && matchingAnalyst.graphSubType) {
               graph.graph_sub_type = matchingAnalyst.graphSubType;
+            }
+            if (matchingAnalyst.askLine || matchingAnalyst.ask_line) {
+              graph.askLine = matchingAnalyst.askLine || matchingAnalyst.ask_line;
+              graph.ask_line = graph.askLine;
+            }
+            if (matchingAnalyst.niche || matchingAnalyst.expertise || matchingAnalyst.topic) {
+              graph.niche = matchingAnalyst.niche || matchingAnalyst.expertise || (Array.isArray(matchingAnalyst.topic) ? matchingAnalyst.topic.join(' · ') : matchingAnalyst.topic);
+              graph.expertise = graph.niche;
             }
             enrichedCount++;
           }

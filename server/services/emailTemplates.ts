@@ -234,7 +234,7 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
                 const sseUrl = data.sseUrl || (data.apiKey ? `https://mcp.fodda.ai/sse?api_key=${data.apiKey}` : '');
                 const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl
                     ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
-                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector');
+                    : 'https://claude.ai/customize/connectors?modal=add-custom-connector');
 
                 return `
 Hi - I'm an automated agent that helps Piers and the Fodda team get people started quicker.
@@ -281,7 +281,7 @@ Please confirm your email address using the link below so you can keep access to
 👉 Confirm my email
 ${data.confirmationLink}
 
-${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
+${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/customize/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
 Need help getting started? Just reply back to me with questions or check out our quickstart guide:
 👉 https://app.fodda.ai/Fodda_Quickstart.md
 
@@ -311,7 +311,7 @@ ${intentLine}
 👉 Confirm my email
 ${data.confirmationLink}
 
-${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/settings/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
+${(data.apiKey || data.mcpUrl) ? `Your MCP URL will be:\n• Standard (Claude Web/Gemini): ${data.mcpUrl || `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}`}\n• SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}\n\n⚡ Add Fodda to Claude in one click:\nhttps://claude.ai/customize/connectors?modal=add-custom-connector\n(Paste your Standard MCP URL when prompted)\n` : ''}
 Need help getting started? Just reply back to me to get started or check out our quickstart guide:
 👉 https://app.fodda.ai/Fodda_Quickstart.md
 
@@ -327,7 +327,7 @@ Team Fodda
                 const stdUrl = data.mcpUrl || (data.apiKey ? `https://mcp.fodda.ai/mcp?api_key=${data.apiKey}` : '');
                 const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl 
                     ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
-                    : 'https://claude.ai/settings/connectors?modal=add-custom-connector');
+                    : 'https://claude.ai/customize/connectors?modal=add-custom-connector');
 
                 return foddaWrap({
                     statusChip: { text: 'Trial Active', dotColor: T.green },
@@ -375,7 +375,7 @@ Team Fodda
                         `),
                         data.apiKey ? foddaSection('Your MCP URLs', `
                             ${foddaMcpCard(data.apiKey)}
-                            <div style="margin-top:12px;">${foddaButton('Add Fodda to Claude', 'https://claude.ai/settings/connectors?modal=add-custom-connector', 'secondary')}</div>
+                            <div style="margin-top:12px;">${foddaButton('Add Fodda to Claude', 'https://claude.ai/customize/connectors?modal=add-custom-connector', 'secondary')}</div>
                             <p style="font-size:12px;color:${T.textMuted};margin:8px 0 0;font-family:${T.fontSans};">Paste your Standard MCP URL when prompted</p>
                         `) : '',
                         foddaSection('Need Help?', `
@@ -410,7 +410,7 @@ Team Fodda
                     `),
                     data.apiKey ? foddaSection('Your MCP URLs', `
                         ${foddaMcpCard(data.apiKey)}
-                        <div style="margin-top:12px;">${foddaButton('Add Fodda to Claude', 'https://claude.ai/settings/connectors?modal=add-custom-connector', 'secondary')}</div>
+                        <div style="margin-top:12px;">${foddaButton('Add Fodda to Claude', 'https://claude.ai/customize/connectors?modal=add-custom-connector', 'secondary')}</div>
                     `) : '',
                     foddaSection('Get Started', `
                         <p style="font-size:14px;color:${T.textBody};line-height:1.6;margin:0 0 16px;font-family:${T.fontSans};">Just reply back to get started or check out our quickstart guide.</p>
@@ -575,7 +575,7 @@ Here are your MCP connection URLs:
 • SSE (Cursor/Windsurf/Desktop): ${data.sseUrl || (data.apiKey ? `https://mcp.fodda.ai/sse?api_key=${data.apiKey}` : 'YOUR_SSE_URL')}
 
 To add this to your editor:
-• Claude Web: Add in one click → https://claude.ai/settings/connectors?modal=add-custom-connector (paste the Standard URL)
+• Claude Web: Add in one click → https://claude.ai/customize/connectors?modal=add-custom-connector (paste the Standard URL)
 • Cursor: Settings > Features > MCP > + Add New MCP Server > Type: SSE, URL: the SSE URL
 • Windsurf: Preferences > MCP Servers > Add Server > Type: SSE, URL: the SSE URL
 
@@ -607,7 +607,7 @@ Founder, Fodda`.trim();
                     `),
                     foddaSection('Connect Your Editor', `
                         <div style="font-size:14px;color:${T.textBody};line-height:1.8;font-family:${T.fontSans};">
-                            <strong style="color:${T.textDark};">Claude Web:</strong> ${foddaButton('Add to Claude →', 'https://claude.ai/settings/connectors?modal=add-custom-connector', 'secondary')}<br>
+                            <strong style="color:${T.textDark};">Claude Web:</strong> ${foddaButton('Add to Claude →', 'https://claude.ai/customize/connectors?modal=add-custom-connector', 'secondary')}<br>
                             <span style="font-size:12px;color:${T.textMuted};">Paste the Standard URL when prompted</span><br><br>
                             <strong style="color:${T.textDark};">Cursor:</strong> Settings &gt; Features &gt; MCP &gt; + Add New MCP Server &gt; Type: SSE<br>
                             <strong style="color:${T.textDark};">Windsurf:</strong> Preferences &gt; MCP Servers &gt; Add Server &gt; Type: SSE
@@ -1015,7 +1015,7 @@ ${data.apiKey ? `
 • SSE MCP URL (Cursor/Windsurf/Desktop): ${data.sseUrl || `https://mcp.fodda.ai/sse?api_key=${data.apiKey}`}
 
 ⚡ Add Fodda to Claude in one click:
-https://claude.ai/settings/connectors?modal=add-custom-connector
+https://claude.ai/customize/connectors?modal=add-custom-connector
 (Paste the Standard MCP URL above when prompted)
 ` : ''}
 You can manage your plan and see your API call usage anytime in the Account Portal:
@@ -1045,7 +1045,7 @@ Founder, Fodda
                 data.apiKey ? foddaSection('Connect Fodda', `
                     ${foddaMcpCard(data.apiKey)}
                     <div style="margin-top:12px;text-align:center;">
-                        ${foddaButton('Add to Claude →', 'https://claude.ai/settings/connectors?modal=add-custom-connector', 'secondary')}
+                        ${foddaButton('Add to Claude →', 'https://claude.ai/customize/connectors?modal=add-custom-connector', 'secondary')}
                     </div>
                     <p style="font-size:12px;color:${T.textMuted};margin:8px 0 0;text-align:center;font-family:${T.fontSans};">Paste the Standard MCP URL when prompted</p>
                 `) : '',
@@ -1257,7 +1257,7 @@ You can start exploring right away on our Base plan (100 API calls/month). When 
 📖 GETTING STARTED
 1. Log into app.fodda.ai and explore the graph catalog
 2. Try a query in the chat sandbox
-3. Add Fodda to Claude in one click → https://claude.ai/settings/connectors?modal=add-custom-connector (paste the Standard MCP URL)
+3. Add Fodda to Claude in one click → https://claude.ai/customize/connectors?modal=add-custom-connector (paste the Standard MCP URL)
 4. Or call the API directly — docs at https://app.fodda.ai/Fodda_Quickstart.md
 
 🤖 AGENT-FRIENDLY SETUP GUIDE
@@ -1306,7 +1306,7 @@ Founder, Fodda
                     <ol style="margin:0;padding-left:20px;font-size:14px;color:${T.textBody};line-height:1.8;font-family:${T.fontSans};">
                         <li>Log into <a href="https://app.fodda.ai" style="color:${T.primary};">app.fodda.ai</a> and explore the graph catalog</li>
                         <li>Try a query in the chat sandbox</li>
-                        <li><a href="https://claude.ai/settings/connectors?modal=add-custom-connector" style="color:${T.primary};">Add Fodda to Claude in one click →</a> (paste the Standard MCP URL)</li>
+                        <li><a href="https://claude.ai/customize/connectors?modal=add-custom-connector" style="color:${T.primary};">Add Fodda to Claude in one click →</a> (paste the Standard MCP URL)</li>
                         <li>Or call the API directly — docs at <a href="https://app.fodda.ai/Fodda_Quickstart.md" style="color:${T.primary};">Fodda Quickstart</a></li>
                     </ol>
                 `),

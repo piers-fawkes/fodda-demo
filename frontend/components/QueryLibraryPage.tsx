@@ -57,10 +57,10 @@ export const QueryLibraryPage: React.FC<QueryLibraryPageProps> = ({ user, accoun
     <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
       {/* Header */}
       <div className="px-8 pt-8 pb-4">
-        <p className="eyebrow mb-1">Query Library</p>
-        <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Prompt Bank by Job to be Done</h1>
+        <p className="eyebrow mb-1">Sample Prompts & Research Workflows</p>
+        <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Query & Prompt Library</h1>
         <p className="text-sm text-ink-3 mt-1 max-w-2xl">
-          Data-proven prompt patterns designed to trigger specific agent tools and evidence loops. Copy directly or test in the sandbox.
+          Pre-tested research queries organized by work goal. Select a work category below to copy prompt templates or run them directly in the sandbox against your Fodda knowledge graphs.
         </p>
       </div>
 

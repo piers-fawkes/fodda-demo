@@ -435,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Connector URL</label>
                                             <button
                                                 onClick={() => {
-                                                    const url = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token');
+                                                    const url = mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/mcp');
                                                     navigator.clipboard.writeText(url);
                                                     alert("MCP URL copied to clipboard");
                                                 }}
@@ -446,14 +446,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </div>
                                         <input
                                             type="text"
-                                            value={mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}
+                                            value={mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/mcp')}
                                             readOnly
                                             className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[10px] text-ink-3 focus:outline-none font-mono"
                                         />
                                     </div>
                                     <p className="text-[10px] text-ink-4 italic ml-1">No special settings required</p>
                                     <a
-                                        href={mcpConn?.claudeConnectorUrl || "https://claude.ai/settings/connectors?modal=add-custom-connector"}
+                                        href={mcpConn?.claudeConnectorUrl || "https://claude.ai/customize/connectors?modal=add-custom-connector"}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-[10px] font-bold text-brand hover:text-brand-dark uppercase tracking-widest transition-colors ml-1"

@@ -46,26 +46,44 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
     return name.includes(q) || desc.includes(q) || niche.includes(q) || topics.includes(q) || curator.includes(q);
   });
 
-  // Separate Human Expert Twins vs. Synthetic Role Personas
+  // Categorization: Human Expert Twins vs. Synthetic Role Personas vs. Supplemental Data
+  const isExpertPersona = (g: KnowledgeGraph) => {
+    return g.graph_type === 'expert' || !!g.expert_slug || (g as any).isExpert === true;
+  };
+
   const humanExperts = filtered.filter(g => {
-    const isSynthetic = (g as any).isVerifiedRealPerson === false || (g as any).graphSubType === 'synthetic' || g.id.startsWith('synthetic-');
-    return !isSynthetic;
+    if (!isExpertPersona(g)) return false;
+    const subType = (g.graph_sub_type || (g as any).graphSubType || '').toLowerCase().trim();
+    return subType === 'human agent' || subType === 'digital twin' || (g as any).isVerifiedRealPerson === true;
   });
 
   const syntheticPersonas = filtered.filter(g => {
-    const isSynthetic = (g as any).isVerifiedRealPerson === false || (g as any).graphSubType === 'synthetic' || g.id.startsWith('synthetic-');
-    return isSynthetic;
+    if (!isExpertPersona(g)) return false;
+    if (humanExperts.some(h => h.id === g.id)) return false;
+    return true;
+  });
+
+  const supplementalGraphs = filtered.filter(g => {
+    return !isExpertPersona(g);
   });
 
   const renderCard = (g: KnowledgeGraph) => {
     const portraitUrl = (g as any).portrait_url || g.image_url || 'https://ucarecdn.com/6e7893d7-6b14-426b-83bc-574a3f72d6bc/foddaminilogo.png';
     const name = g.name || g.domain || g.verticalName || 'Expert Twin';
     const headline = g.headline || g.description || 'Domain Intelligence & Expert Advice';
-    const niche = (g as any).niche || (g as any).expertise || 'Sector & Strategic Analysis';
-    const priceDisplay = (g as any).monthlyPriceUSD ? `$${(g as any).monthlyPriceUSD} / mo` : (g as any).tokenCost ? `${(g as any).tokenCost} calls` : '5–10 calls';
-    const turnaround = (g as any).turnaroundTime || 'Real-time via MCP';
-    const exampleQuery = g.example_queries?.[0] || `Show me emerging signals in ${name}`;
-    const isSynthetic = (g as any).isVerifiedRealPerson === false || (g as any).graphSubType === 'synthetic' || g.id.startsWith('synthetic-');
+    const niche = (g as any).niche || (g as any).expertise || (g as any)['Niche Expertise'] || (g as any)['Niche']
+      || (Array.isArray(g.topics) && g.topics.length > 0 ? g.topics.join(' · ') : null)
+      || g.domain
+      || g.headline
+      || 'Domain Intelligence';
+
+    const askLine = (g as any).askLine || (g as any).ask_line || (g as any)['Ask Line'] || (g as any)['Ask']
+      || (Array.isArray(g.example_queries) && g.example_queries.length > 0 ? g.example_queries[0] : null)
+      || (g.description ? `What is ${name}'s perspective on ${g.description.slice(0, 45)}?` : `Ask ${name}...`);
+    
+    const isHuman = humanExperts.some(h => h.id === g.id);
+    const isSynthetic = syntheticPersonas.some(s => s.id === g.id);
+    const isSupplemental = supplementalGraphs.some(s => s.id === g.id);
 
     return (
       <div key={g.id} className="p-6 bg-paper border border-line rounded-3xl shadow-sm hover:border-brand/40 transition-all flex flex-col justify-between space-y-5">
@@ -83,13 +101,17 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h3 className="font-serif italic text-xl text-ink font-bold truncate">{name}</h3>
-                {!isSynthetic ? (
+                {isHuman ? (
                   <span className="text-[9px] font-mono font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
                     Verified Human
                   </span>
-                ) : (
+                ) : isSynthetic ? (
                   <span className="text-[9px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full shrink-0">
                     Synthetic Persona
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shrink-0">
+                    Supplemental Data
                   </span>
                 )}
               </div>
@@ -98,73 +120,51 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
           </div>
 
           {/* Niche & Blind Spots */}
-          <div className="p-3.5 bg-white border border-line/60 rounded-xl space-y-1.5 text-xs">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-ink-3 block">Niche Expertise</span>
-              <span className="text-ink-2 font-medium">{niche}</span>
-            </div>
-            {(g as any).blindSpots && (
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Published Blind Spots</span>
-                <span className="text-amber-900 text-[11px]">{(g as any).blindSpots}</span>
-              </div>
-            )}
+          <div className="p-3 bg-white border border-line rounded-xl space-y-1">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-ink-4">Niche Expertise</p>
+            <p className="text-xs font-bold text-ink">{niche}</p>
           </div>
 
-          {/* Deliverables & Pricing */}
-          <div className="flex items-center justify-between text-xs pt-1 font-mono">
-            <div>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-ink-4 block font-sans">Turnaround</span>
-              <span className="text-ink-2 font-bold">{turnaround}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-ink-4 block font-sans">Cost</span>
-              <span className="text-brand font-bold">{priceDisplay}</span>
-            </div>
+          {/* Ask Line */}
+          <div className="p-3 bg-cream/60 rounded-xl border border-line/60">
+            <p className="text-[11px] font-serif italic text-ink-2 truncate">"{askLine}"</p>
           </div>
-
-          {/* Example Query String */}
-          <div className="p-3 bg-cream/60 border border-line/40 rounded-xl text-xs italic font-serif text-ink-2">
-            "{exampleQuery}"
-          </div>
-
-          {/* Plain Cross-Referral Notice */}
-          <p className="text-[10px] text-ink-4 leading-relaxed font-sans border-t border-line/40 pt-2">
-            *If this expert cannot answer, your query is automatically handed to another expert or the underlying domain graphs.
-          </p>
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={() => onAskExpert(g.id, exampleQuery)}
-          className="w-full py-2.5 bg-ink hover:bg-ink-2 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-sm"
-        >
-          Ask This Expert →
-        </button>
+        {/* CTA */}
+        <div>
+          <button
+            onClick={() => onAskExpert(g.id, askLine)}
+            className="w-full px-4 py-3 bg-ink text-white font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-brand transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <span>Ask This Expert</span>
+            <span>→</span>
+          </button>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
-      {/* Header */}
-      <div className="px-8 pt-8 pb-4">
-        <p className="eyebrow mb-1">Expert Roster</p>
-        <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Expert Directory</h1>
-        <p className="text-sm text-ink-3 mt-1 max-w-2xl">
-          Pitch human expert twins or synthetic role personas with domain expertise, turnaround times, and verified deliverables.
-        </p>
-      </div>
+    <div className="flex-1 overflow-y-auto p-8 bg-white custom-scrollbar">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div>
+          <p className="eyebrow mb-1">Expert Roster</p>
+          <h1 className="font-serif italic text-3xl text-ink font-normal">Expert Directory</h1>
+          <p className="text-sm text-ink-3 mt-1">
+            Pitch human expert twins, synthetic role personas, or supplemental data sources with domain expertise, turnaround times, and verified deliverables.
+          </p>
+        </div>
 
-      <div className="px-8 pb-8 space-y-10 max-w-6xl">
-        {/* Topic Search Bar */}
+        {/* Search */}
         <div className="relative max-w-xl">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search experts by topic, niche, or keyword (e.g. cycling, GTM, alc-bev)..."
-            className="w-full bg-paper border border-line rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-brand/40 shadow-sm"
+            className="w-full px-5 py-3.5 bg-paper border border-line rounded-2xl text-sm text-ink focus:outline-none focus:border-brand transition-colors pr-10 shadow-sm"
           />
           {searchQuery && (
             <button
@@ -221,6 +221,22 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
                 </div>
               )}
             </div>
+
+            {/* Supplemental Data & Knowledge Graphs */}
+            {supplementalGraphs.length > 0 && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-line pb-3">
+                  <h2 className="font-serif italic text-2xl text-ink">Supplemental Data & Knowledge Graphs</h2>
+                  <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+                    Data & Benchmark Feeds ({supplementalGraphs.length})
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {supplementalGraphs.map(renderCard)}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

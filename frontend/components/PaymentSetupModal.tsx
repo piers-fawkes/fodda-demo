@@ -38,9 +38,10 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                        ...(sessionToken ? { 'x-session-token': sessionToken } : {}),
+                        ...(userEmail ? { 'x-user-id': userEmail } : {})
                     },
-                    body: JSON.stringify({ accountId }),
+                    body: JSON.stringify({ accountId, email: userEmail }),
                 });
                 const data = await res.json();
                 if (data.clientSecret) {
@@ -55,7 +56,7 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
             }
         };
         fetchSetupIntent();
-    }, [accountId]);
+    }, [accountId, userEmail]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -93,9 +94,10 @@ const CardSetupForm: React.FC<CardSetupFormProps> = ({ accountId, userEmail, onS
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {}),
+                    ...(userEmail ? { 'x-user-id': userEmail } : {})
                 },
-                body: JSON.stringify({ accountId }),
+                body: JSON.stringify({ accountId, email: userEmail }),
             });
             const activateData = await activateRes.json();
             if (!activateRes.ok) {

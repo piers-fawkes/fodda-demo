@@ -327,6 +327,10 @@ class DataService {
           last_updated: g.last_updated || '',
           published_date: g.published_date || '',
           example_queries: Array.isArray(g.example_queries) ? g.example_queries : [],
+          askLine: g.askLine || g.ask_line || g['Ask Line'] || (Array.isArray(g.example_queries) ? g.example_queries[0] : '') || '',
+          ask_line: g.askLine || g.ask_line || g['Ask Line'] || (Array.isArray(g.example_queries) ? g.example_queries[0] : '') || '',
+          niche: g.niche || g.Niche || g.expertise || g.Expertise || g['Niche Expertise'] || (Array.isArray(g.topics) && g.topics.length > 0 ? g.topics.join(' · ') : '') || '',
+          expertise: g.expertise || g.niche || (Array.isArray(g.topics) && g.topics.length > 0 ? g.topics.join(' · ') : '') || '',
           portrait_url: g.portrait_url || '',
           quality_checker_name: g.quality_checker_name || '',
           geography: g.geography || '',
@@ -396,6 +400,10 @@ class DataService {
                     : typeof a.example_queries === 'string'
                       ? (() => { try { return JSON.parse(a.example_queries); } catch { return []; } })()
                       : [],
+                  askLine: a.askLine || a.ask_line || a['Ask Line'] || (Array.isArray(a.example_queries) ? a.example_queries[0] : '') || '',
+                  ask_line: a.askLine || a.ask_line || a['Ask Line'] || (Array.isArray(a.example_queries) ? a.example_queries[0] : '') || '',
+                  niche: a.niche || a.expertise || a['Niche Expertise'] || (Array.isArray(a.topic) ? a.topic.join(' · ') : a.topic) || '',
+                  expertise: a.expertise || a.niche || (Array.isArray(a.topic) ? a.topic.join(' · ') : a.topic) || '',
                   portrait_url: stableImage,
                   quality_checker_name: '',
                   geography: '',
@@ -1248,7 +1256,8 @@ class DataService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+          ...(sessionToken ? { 'x-session-token': sessionToken } : {}),
+          ...(email ? { 'x-user-id': email } : {})
         },
         body: JSON.stringify({ email, planCode, trialDays }),
       });

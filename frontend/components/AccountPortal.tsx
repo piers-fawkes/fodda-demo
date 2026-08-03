@@ -3,7 +3,6 @@ import { OrganizationProfile, useOrganization } from '@clerk/react';
 import { User, Account } from '../../shared/types';
 import { dataService } from '../../shared/dataService';
 import { UsersList } from './UsersList';
-import { AgentPaymentBanner } from './AgentPaymentBanner';
 import { UsageMeter } from './UsageMeter';
 
 interface AccountPortalProps {
@@ -20,7 +19,7 @@ interface AccountPortalProps {
 }
 
 export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, user, account, onUpdate, onViewPlans, onViewApiDocs, onSetupPayment, initialTab, inline }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'usage' | 'claude' | 'chatgpt' | 'notion' | 'copilot' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity'>(initialTab === 'gemini' ? 'mcp' : (initialTab === 'perplexity' ? 'perplexity' : (initialTab || 'overview')));
+    const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'usage' | 'claude' | 'chatgpt' | 'notion' | 'copilot' | 'mcp' | 'api' | 'graphs' | 'settings' | 'perplexity' | 'gemini'>(initialTab || 'overview');
     const [accountUsers, setAccountUsers] = useState<User[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [usersError, setUsersError] = useState<string | null>(null);
@@ -220,10 +219,19 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const [mcpConn, setMcpConn] = useState<any>(null);
+    const [mcpLoading, setMcpLoading] = useState<boolean>(true);
 
     useEffect(() => {
         if (user?.email) {
-            dataService.getMcpConnection(user.email).then(conn => setMcpConn(conn)).catch(() => {});
+            setMcpLoading(true);
+            dataService.getMcpConnection(user.email)
+                .then(conn => {
+                    setMcpConn(conn);
+                    setMcpLoading(false);
+                })
+                .catch(() => setMcpLoading(false));
+        } else {
+            setMcpLoading(false);
         }
     }, [user?.email]);
 
@@ -480,19 +488,24 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
     };
 
     const getClaudeConnectorUrl = () => {
+        if (mcpConn?.mcpUrl) return mcpConn.mcpUrl;
         const token = getResolvedMcpToken();
-        return mcpConn?.mcpUrl || (token ? `https://mcp.fodda.ai/c/${token}` : 'https://mcp.fodda.ai/c/:token');
+        if (token) return `https://mcp.fodda.ai/c/${token}`;
+        if (mcpLoading) return 'Loading connection token...';
+        return 'https://mcp.fodda.ai/mcp';
     };
 
     const getSseConnectorUrl = () => {
-        return mcpConn?.sseUrl || (account?.apiKey && user?.email ? `https://mcp.fodda.ai/sse?api_key=${account.apiKey}&user_id=${encodeURIComponent(user.email)}` : MCP_SSE_URL);
+        const token = getResolvedMcpToken();
+        if (token) return `https://mcp.fodda.ai/c/${token}`;
+        return MCP_ENDPOINT;
     };
 
     const generateVertexConfig = () => {
         const url = getClaudeConnectorUrl();
         return JSON.stringify({
             tools: [{
-                type: 'mcp',
+                type: 'mcp_server',
                 name: 'fodda',
                 url
             }]
@@ -563,9 +576,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
 
     useEffect(() => {
         if (inline && initialTab && initialTab !== activeTab) {
-            // 'gemini' maps to 'mcp' with vertex quickConnect pre-selected
-            const mapped = initialTab === 'gemini' ? 'mcp' : initialTab;
-            if (mapped !== activeTab) setActiveTab(mapped);
+            setActiveTab(initialTab);
         }
     }, [inline, initialTab]);
 
@@ -662,8 +673,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'overview' && (
                             <div className="space-y-8 max-w-4xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
-
                                 {/* Account Health */}
                                 <section className="p-8 bg-white border border-line rounded-3xl shadow-sm space-y-6">
                                     <h3 className="eyebrow mb-2">Account Health</h3>
@@ -707,35 +716,15 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
 
                         {activeTab === 'team' && (
                             <div className="space-y-8">
-                                {!isPaidPlan ? (
-                                    /* Upgrade prompt for non-paid users */
-                                    <section className="bg-paper border border-line rounded-3xl p-12 shadow-sm text-center">
-                                        <div className="mx-auto w-16 h-16 rounded-2xl bg-brand/10 flex items-center justify-center mb-6">
-                                            <svg className="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                {/* Team Stats — Fodda-specific data Clerk doesn't manage */}
+                                <section className="bg-paper border border-line rounded-3xl p-8 shadow-sm">
+                                    <h3 className="eyebrow mb-6">Team Overview</h3>
+                                    <div className="grid grid-cols-3 gap-6">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest">Queries Used</p>
+                                            <p className="font-serif italic text-2xl text-ink">{account.currentQueryCount || 0}</p>
+                                            <p className="text-[9px] font-bold text-ink-4">/ {account.monthlyQueryLimit || '∞'} monthly</p>
                                         </div>
-                                        <h3 className="font-serif italic text-2xl text-ink mb-3">Team Management</h3>
-                                        <p className="text-sm text-ink-3 max-w-md mx-auto mb-8 leading-relaxed">
-                                            Invite colleagues, manage roles, and collaborate across your organization.
-                                            Team features are available on paid plans.
-                                        </p>
-                                        {onViewPlans && (
-                                            <button onClick={onViewPlans} className="px-6 py-3 bg-ink text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-ink-2 transition-all shadow-lg shadow-ink/20">
-                                                View Plans →
-                                            </button>
-                                        )}
-                                    </section>
-                                                                ) : (
-                                    /* Paid Plan Team Management */
-                                    <>
-                                        {/* Team Stats — Fodda-specific data Clerk doesn't manage */}
-                                        <section className="bg-paper border border-line rounded-3xl p-8 shadow-sm">
-                                            <h3 className="eyebrow mb-6">Team Overview</h3>
-                                            <div className="grid grid-cols-3 gap-6">
-                                                <div className="space-y-1">
-                                                    <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest">Queries Used</p>
-                                                    <p className="font-serif italic text-2xl text-ink">{account.currentQueryCount || 0}</p>
-                                                    <p className="text-[9px] font-bold text-ink-4">/ {account.monthlyQueryLimit || '∞'} monthly</p>
-                                                </div>
                                                 <div className="space-y-1">
                                                     <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest">Plan</p>
                                                     <p className="font-serif italic text-2xl text-ink">{account.planName || 'Free'}</p>
@@ -1007,13 +996,11 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 currentUserRole={user.role}
                                                 signupCode={account.signupCode}
                                                 accountApiKey={account.apiKey}
-                                                accountMcpUrl={mcpConn?.mcpUrl || `${MCP_ENDPOINT}?api_key=${account.apiKey || 'YOUR_KEY'}&user_id=${encodeURIComponent(user.email || 'YOUR_EMAIL')}`}
-                                                accountMonthlyQueryLimit={account.monthlyQueryLimit}
+                                                accountMcpUrl={getClaudeConnectorUrl()}
+                                                 accountMonthlyQueryLimit={account.monthlyQueryLimit}
                                                 accountCurrentQueryCount={account.currentQueryCount}
                                             />
                                         )}
-                                    </>
-                                )}
                             </div>
                         )}
 
@@ -1211,8 +1198,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'claude' && (
                             <div className="space-y-10 max-w-3xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
-
                                 {/* Quick Connect Widget */}
                                 <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
                                     <h3 className="eyebrow">Quick Connect</h3>
@@ -1272,50 +1257,11 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     )}
                                 </section>
 
-                                {/* Claude Tag — Slack Integration */}
-                                <section className="p-8 bg-gradient-to-br from-purple-50/50 to-paper border border-purple-100/60 rounded-3xl space-y-5 shadow-sm">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 shadow-sm">
-                                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="text-sm font-bold text-ink mb-1">Claude Tag — Slack Integration</h3>
-                                            <p className="text-xs text-ink-3 leading-relaxed">
-                                                Enable <span className="font-bold text-purple-700">Claude Tag</span> in your Slack workspace to give your entire team access to Fodda intelligence directly in conversations. Tag <code className="text-[10px] bg-purple-100/60 text-purple-700 px-1.5 py-0.5 rounded font-mono">@Claude</code> in any channel to query your Fodda graphs, schedule research, and surface insights — no dashboard visit required.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        <a
-                                            href="https://docs.fodda.ai/integrations/claude-tag"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-purple-600/20"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-                                            Setup Guide
-                                        </a>
-                                        <a
-                                            href="https://www.anthropic.com/news/claude-tag"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-purple-200 text-purple-700 font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-purple-50 transition-all"
-                                        >
-                                            Learn More
-                                            <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                        </a>
-                                    </div>
-                                    <div className="p-3 bg-purple-50/60 border border-purple-100/50 rounded-xl">
-                                        <p className="text-[10px] text-purple-600/80 leading-relaxed">
-                                            <span className="font-bold">Requires:</span> Claude for Work (Team or Enterprise) with MCP connectors enabled by your workspace admin. Your Fodda API key is used for all queries — credits meter against your account.
-                                        </p>
-                                    </div>
-                                </section>
 
                                 {/* Claude Pro/Max/Team Setup */}
                                 <section className="p-8 bg-paper border border-line rounded-3xl space-y-6 shadow-sm">
                                     <h3 className="eyebrow mb-2">Team Enrollment — Claude Web &amp; Notion</h3>
-                                    <p className="text-sm text-ink-3 mb-4">Use this method for browser-based tools like <span className="font-bold">Claude.ai</span> or <span className="font-bold">Notion AI</span>. For Claude Desktop, Cursor, or CLI tools, use the <span className="text-brand font-bold cursor-pointer hover:underline" onClick={() => setActiveTab('mcp')}>SSE transport</span> instead.</p>
+                                    <p className="text-sm text-ink-3 mb-4">Use this method for browser-based tools like <span className="font-bold">Claude.ai</span> or <span className="font-bold">Notion AI</span>. For Claude Desktop, Cursor, or CLI tools, use your <span className="text-brand font-bold cursor-pointer hover:underline" onClick={() => setActiveTab('mcp')}>tokenized MCP URL</span> instead.</p>
                                     <ol className="space-y-4">
                                         <li className="flex gap-4">
                                             <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">1</span>
@@ -1353,20 +1299,14 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
 
                                 {/* Enterprise (Admin) */}
                                 <section className="p-8 bg-white border border-line rounded-3xl space-y-6 shadow-sm">
-                                    <h3 className="eyebrow mb-2">Corporate Registry — Admin Control</h3>
-                                    <p className="text-sm font-medium text-ink-3">Workspace administrators can register the Fodda knowledge layer for the entire organization via <a href="https://claude.ai/admin-settings/connectors" target="_blank" rel="noopener noreferrer" className="text-brand font-bold hover:underline">Admin Settings → Connectors</a>.</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-ink border border-ink-2 rounded-2xl relative group">
-                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Global Endpoint</p>
-                                            <p className="text-xs font-mono font-bold text-purple-300 break-all pr-8">{MCP_ENDPOINT}?api_key=ORG_API_KEY&user_id=ADMIN_EMAIL</p>
-                                            <button onClick={() => handleCopyField(`${MCP_ENDPOINT}?api_key=ORG_API_KEY&user_id=ADMIN_EMAIL`, 'claude-corp-url')} className={`absolute top-3.5 right-3.5 p-1 rounded-md transition-all hover:text-white ${copiedField === 'claude-corp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
-                                                {copiedField === 'claude-corp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
-                                            </button>
-                                        </div>
-                                        <div className="p-4 bg-ink border border-ink-2 rounded-2xl">
-                                            <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Auth Configuration</p>
-                                            <p className="text-xs font-bold text-amber-300 font-mono">Stateless (None)</p>
-                                        </div>
+                                    <h3 className="eyebrow mb-2">Organization Setup — Admin Control</h3>
+                                    <p className="text-sm font-medium text-ink-3">Workspace administrators can register the Fodda knowledge layer for the entire organization via <a href="https://claude.ai/customize/connectors" target="_blank" rel="noopener noreferrer" className="text-brand font-bold hover:underline">Organization Settings → Connectors</a>.</p>
+                                    <div className="p-4 bg-ink border border-ink-2 rounded-2xl relative group max-w-xl">
+                                        <p className="text-[9px] font-black text-ink-4 uppercase tracking-widest mb-1">Organization MCP Endpoint</p>
+                                        <p className="text-xs font-mono font-bold text-purple-300 break-all pr-8">{MCP_ENDPOINT}</p>
+                                        <button onClick={() => handleCopyField(MCP_ENDPOINT, 'claude-corp-url')} className={`absolute top-3.5 right-3.5 p-1 rounded-md transition-all hover:text-white ${copiedField === 'claude-corp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
+                                            {copiedField === 'claude-corp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
+                                        </button>
                                     </div>
                                     <div className="space-y-3">
                                         <div className="flex items-start gap-3">
@@ -1525,71 +1465,87 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                             </div>
                         )}
 
-                        {activeTab === 'perplexity' && (
+                        {activeTab === 'gemini' && (
                             <div className="space-y-10 max-w-3xl">
-                                {/* Perplexity Setup Steps */}
+                                {/* Gemini & Vertex AI MCP Integration */}
                                 <section className="p-8 bg-paper border border-line rounded-3xl space-y-6 shadow-sm animate-fade-in-up">
-                                    <h3 className="eyebrow mb-2">Connect to Perplexity</h3>
-                                    <p className="text-sm text-ink-3 mb-4">You can connect Fodda to Perplexity as an AI search source or use the custom MCP endpoint inside Perplexity-powered workspace clients.</p>
-                                    <ol className="space-y-4 text-sm font-medium text-ink-2">
-                                        <li className="flex gap-4">
-                                            <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">1</span>
-                                            <span>Copy your Fodda API key from the section below.</span>
-                                        </li>
-                                        <li className="flex gap-4">
-                                            <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">2</span>
-                                            <span>To search Fodda graphs directly inside Perplexity, configure Fodda as a Custom Search engine in your browser/workspace with the query URL:</span>
-                                        </li>
-                                        <li className="flex gap-4 items-start pl-10">
-                                            <div className="flex-1 space-y-3">
-                                                <div className="relative group max-w-xl">
-                                                    <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-[#DE7356] border border-ink-2 break-all pr-12">{`https://api.fodda.ai/v1/search?api_key=${account.apiKey || 'YOUR_API_KEY'}&q=%s`}</code>
-                                                    <button onClick={() => handleCopyField(`https://api.fodda.ai/v1/search?api_key=${account.apiKey || 'YOUR_API_KEY'}&q=%s`, 'perplexity-search-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'perplexity-search-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy Search URL">
-                                                        {copiedField === 'perplexity-search-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </li>
-                                        <li className="flex gap-4 items-start">
-                                            <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">3</span>
-                                            <div className="flex-1 space-y-3">
-                                                <span>Alternatively, deploy this MCP Server endpoint in Perplexity-supporting clients:</span>
-                                                <div className="relative group max-w-xl">
-                                                    <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
-                                                    <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'perplexity-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'perplexity-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy MCP URL">
-                                                        {copiedField === 'perplexity-mcp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </li>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="eyebrow">Google Gemini & Vertex AI Connector</h3>
+                                            <span className="px-2.5 py-0.5 bg-brand/10 text-brand text-[9px] font-bold uppercase tracking-wider rounded-full">Official MCP</span>
+                                        </div>
+                                        <span className="text-xl">✨</span>
+                                    </div>
+                                    <p className="text-sm text-ink-3 leading-relaxed">
+                                        Connect Fodda directly to <span className="font-bold text-ink">Google Gemini</span> models, <span className="font-bold text-ink">Google AI Studio</span>, and <span className="font-bold text-ink">Vertex AI Agents</span> via Model Context Protocol (MCP) or OpenAPI extensions.
+                                    </p>
+
+                                    {/* Tokenized MCP URL */}
+                                    <div className="space-y-3 pt-2">
+                                        <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Tokenized MCP Server Connection URL</label>
+                                        <div className="relative group max-w-xl">
+                                            <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
+                                            <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'gemini-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'gemini-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy MCP URL">
+                                                {copiedField === 'gemini-mcp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-ink-4">Token connection URLs handle authentication automatically for Gemini CLI & Vertex AI extensions.</p>
+                                    </div>
+
+                                    {/* Setup Steps */}
+                                    <ol className="space-y-3 text-xs font-medium text-ink-2 pt-2 border-t border-line">
+                                        <li className="flex gap-3"><span className="text-brand font-bold">1.</span><span>Copy your tokenized MCP URL above or generate the Vertex AI JSON config below.</span></li>
+                                        <li className="flex gap-3"><span className="text-brand font-bold">2.</span><span>In Google AI Studio or Vertex AI Agent Builder, add an <strong>MCP Server Tool</strong> or Extension.</span></li>
+                                        <li className="flex gap-3"><span className="text-brand font-bold">3.</span><span>Gemini models will automatically discover all Fodda graph research and synthesis tools.</span></li>
                                     </ol>
                                 </section>
 
-                                {/* API Key */}
+                                {/* Vertex AI Agent JSON Config Generator */}
                                 <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
-                                    <h3 className="eyebrow">Your API Key</h3>
-                                    <div className="flex items-center gap-2">
-                                        <div className="relative flex-1 group">
-                                            <code className="block p-3.5 bg-ink rounded-xl text-sm font-mono border border-ink-2 text-amber-300 break-all pr-24">
-                                                {account.apiKey
-                                                    ? (showApiKey ? account.apiKey : account.apiKey.slice(0, 8) + '••••••••••••')
-                                                    : 'No API key generated yet'}
-                                            </code>
-                                            <div className="absolute top-2.5 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {account.apiKey && (
-                                                    <button onClick={() => setShowApiKey(!showApiKey)} className="p-1.5 bg-ink-2 hover:bg-ink-3 rounded-md transition-all text-cream/70 hover:text-white" title={showApiKey ? 'Hide' : 'Reveal'}>
-                                                        {showApiKey ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-                                                    </button>
-                                                )}
-                                                {account.apiKey && (
-                                                    <button onClick={() => handleCopyField(account.apiKey!, 'perplexity-apikey')} className={`p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'perplexity-apikey' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-cream/70'}`} title="Copy API Key">
-                                                        {copiedField === 'perplexity-apikey' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
+                                    <h3 className="eyebrow">Vertex AI Agent JSON Config Generator</h3>
+                                    <p className="text-xs text-ink-3">Use this configuration payload when creating an MCP tool extension in Google Cloud Vertex AI Agent Builder:</p>
+                                    <pre className="p-4 bg-ink rounded-xl text-xs font-mono text-green-400 border border-ink-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{generateVertexConfig()}</pre>
+                                    <div className="flex gap-2">
+                                        <button onClick={handleCopyConfig} className="flex-1 px-4 py-2.5 bg-paper border border-line text-ink hover:bg-line-soft hover:text-ink-2 shadow-sm font-bold text-xs rounded-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2">
+                                            {configCopied ? <><svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> Copied!</> : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg> Copy to Clipboard</>}
+                                        </button>
+                                        <button onClick={handleDownloadConfig} className="flex-1 px-4 py-2.5 bg-paper border border-line text-ink hover:bg-line-soft hover:text-ink-2 shadow-sm font-bold text-xs rounded-lg transition-all uppercase tracking-wider flex items-center justify-center gap-2">
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Download JSON
+                                        </button>
                                     </div>
                                 </section>
+                            </div>
+                        )}
+
+                        {activeTab === 'perplexity' && (
+                            <div className="space-y-10 max-w-3xl">
+                                {/* MCP Connection to Perplexity */}
+                                <section className="p-8 bg-paper border border-line rounded-3xl space-y-6 shadow-sm animate-fade-in-up">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="eyebrow">Connect Perplexity via MCP</h3>
+                                        <span className="px-2 py-0.5 bg-brand/10 text-brand text-[9px] font-bold uppercase tracking-wider rounded">Recommended</span>
+                                    </div>
+                                    <p className="text-sm text-ink-3">Connect Fodda directly to Perplexity or Perplexity-powered workspace agents using Model Context Protocol (MCP).</p>
+                                    
+                                    <div className="space-y-3 pt-2">
+                                        <label className="block text-[10px] font-bold text-ink-4 uppercase tracking-widest">Your MCP Server Connection URL</label>
+                                        <div className="relative group max-w-xl">
+                                            <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
+                                            <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'perplexity-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'perplexity-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy MCP URL">
+                                                {copiedField === 'perplexity-mcp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-ink-4">Token connection URLs handle authentication automatically. No secret key needed in client config.</p>
+                                    </div>
+
+                                    <ol className="space-y-3 text-xs font-medium text-ink-2 pt-2 border-t border-line">
+                                        <li className="flex gap-3"><span className="text-brand font-bold">1.</span><span>Copy your tokenized MCP URL above.</span></li>
+                                        <li className="flex gap-3"><span className="text-brand font-bold">2.</span><span>In your Perplexity client or desktop agent, add a Custom MCP Server and paste the URL.</span></li>
+                                        <li className="flex gap-3"><span className="text-brand font-bold">3.</span><span>Your agent will automatically discover all Fodda graph discovery and synthesis tools.</span></li>
+                                    </ol>
+                                </section>
+
+
                             </div>
                         )}
 
@@ -1640,10 +1596,10 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                                 <li className="flex gap-4 items-start">
                                                     <span className="w-6 h-6 rounded-full bg-brand text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-sm">3</span>
                                                     <div className="flex-1 space-y-3">
-                                                        <span className="text-sm font-medium text-ink-2">Deploy the following SSE Protocol URL:</span>
+                                                        <span className="text-sm font-medium text-ink-2">Deploy the following Streamable HTTP Protocol URL:</span>
                                                         <div className="relative group max-w-xl">
-                                                            <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-blue-300 border border-ink-2 break-all pr-12">{MCP_SSE_URL}</code>
-                                                            <button onClick={() => handleCopyField(MCP_SSE_URL, 'copilot-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'copilot-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
+                                                            <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
+                                                            <button onClick={() => handleCopyField(MCP_ENDPOINT, 'copilot-mcp-url')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'copilot-mcp-url' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy URL">
                                                                 {copiedField === 'copilot-mcp-url' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
                                                             </button>
                                                         </div>
@@ -1827,8 +1783,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                         {activeTab === 'mcp' && (
                             <div className="space-y-10 max-w-4xl">
 
-                                <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
-
                                 {/* Endpoints & Auth — Both Transports */}
                                 <section className="p-8 bg-paper border border-line rounded-3xl space-y-8 shadow-sm">
                                     <div className="flex justify-between items-start">
@@ -1854,17 +1808,17 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             </div>
                                         </div>
 
-                                        {/* /sse endpoint */}
+                                        {/* Tokenized Endpoint Card */}
                                         <div className="p-6 bg-cream rounded-2xl border border-line space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <label className="block text-[9px] font-black text-ink-4 uppercase tracking-[0.2em]">SSE (Server-Sent Events)</label>
-                                                <span className="px-2 py-0.5 bg-ink-4/10 text-ink-4 text-[8px] font-black uppercase tracking-widest rounded">Best for Desktop/CLI</span>
+                                                <label className="block text-[9px] font-black text-ink-4 uppercase tracking-[0.2em]">Tokenized Endpoint (Path Token)</label>
+                                                <span className="px-2 py-0.5 bg-brand-soft text-brand text-[8px] font-black uppercase tracking-widest rounded border border-brand-line">No-auth / Fallback</span>
                                             </div>
-                                            <p className="text-[11px] text-ink-3 leading-relaxed">For <span className="font-bold text-ink">Claude Desktop, Cursor, and CLIs</span>. This endpoint uses standard SSE transport with Bearer headers for persistent streaming sessions.</p>
+                                            <p className="text-[11px] text-ink-3 leading-relaxed">For clients that do not support OAuth sign-in. Your credential is embedded directly in the path.</p>
                                             <div className="relative group">
-                                                <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-blue-300 border border-ink-2 break-all pr-12">{MCP_SSE_URL}</code>
-                                                <button onClick={() => handleCopyField(MCP_SSE_URL, 'ep-sse')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'ep-sse' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy">
-                                                    {copiedField === 'ep-sse' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
+                                                <code className="block p-3.5 bg-ink rounded-xl text-xs font-mono text-amber-300 border border-ink-2 break-all pr-12">{getClaudeConnectorUrl()}</code>
+                                                <button onClick={() => handleCopyField(getClaudeConnectorUrl(), 'ep-tok')} className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'ep-tok' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`} title="Copy">
+                                                    {copiedField === 'ep-tok' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
                                                 </button>
                                             </div>
                                         </div>
@@ -1875,14 +1829,14 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                             <label className="block text-[9px] font-black text-ink-4 uppercase tracking-[0.2em] mb-4">Authentication Protocols</label>
                                             <div className="space-y-3">
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">Streamable HTTP (<code className="text-brand">/c/:token</code>)</p>
-                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-purple-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{mcpConn?.mcpUrl || (mcpConn?.token ? `https://mcp.fodda.ai/c/${mcpConn.token}` : 'https://mcp.fodda.ai/c/:token')}</pre>
+                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">Streamable HTTP (OAuth Sign-In)</p>
+                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-purple-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{MCP_ENDPOINT}</pre>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">SSE (<code className="text-ink-4">/sse</code> with Authorization Bearer header)</p>
-                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-blue-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{`URL: ${MCP_SSE_URL}\nHeader: Authorization: Bearer ${account.apiKey || 'sk_live_...'}`}</pre>
+                                                    <p className="text-[10px] font-bold text-ink-3 mb-1.5">Tokenized URL (Path Token)</p>
+                                                    <pre className="p-4 bg-ink rounded-2xl text-[11px] font-mono text-amber-300 border border-ink-2 whitespace-pre-wrap leading-relaxed shadow-xl">{getClaudeConnectorUrl()}</pre>
                                                 </div>
-                                                <p className="text-[9px] text-ink-4 mt-1.5">Token connection URLs (/c/:token) handle auth automatically. For SSE (/sse), supply Authorization Bearer header.</p>
+                                                <p className="text-[9px] text-ink-4 mt-1.5">Most clients support OAuth sign-in via https://mcp.fodda.ai/mcp. For clients without OAuth, use your tokenized URL.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1918,7 +1872,7 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     <h3 className="eyebrow">Quick Connect</h3>
                                     <div className="flex gap-1 bg-cream border border-line p-1 rounded-xl max-w-lg">
                                         {([
-                                            { key: 'cli' as const, label: 'CLI (SSE)', platform: 'anthropic' as const },
+                                            { key: 'cli' as const, label: 'Claude Code CLI', platform: 'anthropic' as const },
                                             { key: 'copilot' as const, label: 'M365 Copilot', platform: 'microsoft' as const },
                                             { key: 'vertex' as const, label: 'Streamable HTTP', platform: 'google' as const },
                                         ]).map(tab => (
@@ -1946,20 +1900,20 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                         <div className="space-y-4 animate-fade-in-up">
                                             <div className="flex items-center gap-2">
                                                 <img src="https://ucarecdn.com/c70edb86-e790-4be0-aa73-5f598137fba5/anthropicstar.jpeg" alt="" className="w-5 h-5 rounded-sm" />
-                                                <p className="text-sm font-bold text-ink font-sans">CLI — SSE Transport</p>
+                                                <p className="text-sm font-bold text-ink font-sans">Claude Code CLI — Streamable HTTP</p>
                                             </div>
                                             <p className="text-sm text-ink-3">Run this command to add Fodda to Claude Code:</p>
                                             <div className="relative group max-w-xl">
-                                                <pre className="p-4 bg-ink rounded-xl text-[11px] font-mono text-green-400 border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport sse fodda "${getSseConnectorUrl()}"`}</pre>
+                                                <pre className="p-4 bg-ink rounded-xl text-[11px] font-mono text-green-400 border border-ink-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">{`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`}</pre>
                                                 <button
-                                                    onClick={() => handleCopyField(`claude mcp add --transport sse fodda "${getSseConnectorUrl()}"`, 'cli-command')}
+                                                    onClick={() => handleCopyField(`claude mcp add --transport http fodda "${getClaudeConnectorUrl()}"`, 'cli-command')}
                                                     className={`absolute top-3 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'cli-command' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
                                                     title="Copy command"
                                                 >
                                                     {copiedField === 'cli-command' ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>}
                                                 </button>
                                             </div>
-                                            <p className="text-[10px] text-ink-4">Uses SSE transport with simplified URL parameter authentication</p>
+                                            <p className="text-[10px] text-ink-4">Uses Streamable HTTP transport with tokenized path authentication</p>
                                         </div>
                                     )}
 
@@ -2134,8 +2088,6 @@ export const AccountPortal: React.FC<AccountPortalProps> = ({ isOpen, onClose, u
                                     </div>
                                 )}
                                 <div className={`space-y-10 max-w-4xl ${isApiDisabled ? 'opacity-40 pointer-events-none select-none filter grayscale' : ''}`}>
-
-                                    <AgentPaymentBanner hasPaymentMethod={!!(account as any).hasPaymentMethod} onSetupStripe={() => onSetupPayment?.()} userEmail={user?.email} accountId={(account as any)?.id} />
 
 
                                 {/* Authentication */}

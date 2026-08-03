@@ -3,6 +3,222 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-03] — Access / Connectors Redesign & Connection Reference Alignment (Brief 2 Audit, QA & Strict Refusal Enforcement)
+
+### Refactored & Fixed
+- **Strict Evidence Refusal Enforcement (`mcpChatService.ts`)**:
+  - Removed ungrounded fallback LLM generation. When a query produces no matching evidence in the graph or fails to match a tool handler, Fodda strictly refuses to hallucinate and correctly classifies the outcome (`DIDNT_ROUTE` for unrouted prompts, `NO_COVERAGE` when graph tools return 0 matching nodes).
+  - Preserved the Classified Failure UI state banners (`DIDNT_ROUTE` purple box and `NO_COVERAGE` red box) to guide users on forcing verbs and coverage requests.
+- **Airtable API Key Lookup & Auto-Provisioning (`mcpConnectionService.ts`)**:
+  - **Flag 1**: Fixed API key fallback reading on `ACCOUNTS` table to inspect the formula field `apiKey` (type-checking for `sk_live_...` strings) rather than the linked-record field `'API Key'`, which returned an array of record IDs (`['rec...']`).
+  - **Flag 2**: Removed invalid write to `ACCOUNTS.'API Key'` linked-record field during API key auto-provisioning. `createAirtableRecord` on `API_KEYS` already populates `ACCOUNTS.'API Key'` automatically via Airtable's inverse link.
+  - **Flag 3**: Retained `getActiveKeysForAccount` Account Name resolution to safely filter linked-record fields in Airtable formulas.
+- **Gemini CLI / Vertex Schema Fix (`AccountPortal.tsx` & `ConnectionsPage.tsx`)**:
+  - Replaced stale `"type": "mcp"` schema with canonical `"type": "mcp_server"` across all Gemini / Vertex AI config generators.
+- **Anthropic Connector Deep Link Alignment (`emailTemplates.ts`, `Dashboard.tsx`, `AccountPortal.tsx`, `ConnectionsPage.tsx`)**:
+  - Updated all 16 occurrences of Anthropic connector setup links from `claude.ai/settings/connectors` to `claude.ai/customize/connectors` across the app and onboarding email templates.
+- **Claude Code CLI & Transport Modernization (`AccountPortal.tsx` & `ConnectionsPage.tsx`)**:
+  - Updated Claude Code CLI command snippets to use `--transport http` with tokenized HTTP URLs (`/c/<token>`) instead of deprecated `/sse`.
+  - Replaced legacy `/sse` transport instruction cards with Streamable HTTP and tokenized path endpoints across AccountPortal.
+
+
+## [2026-08-03] — Overage Billing Mechanism Clarification
+
+### Fixed & Remediated
+- **Overage Billing Card (`BillingPage.tsx`)**:
+  - Enhanced the **Payment Method & Overage** tile on the Billing page to clearly explain how overage billing works:
+    - **Card Saved**: Displays `Overage Enabled` with instructions that queries past your monthly allowance automatically continue at $0.50/call (and that removing your card via Stripe Portal pauses overages).
+    - **No Card**: Displays `Overage Paused` with instructions to click **"Add Credit Card"** to enable metered overages.
+
+## [2026-08-03] — Coverage Page Blank Screen & Deep Link Resolution
+
+### Fixed & Remediated
+- **Coverage Map Filtering (`CoverageMapPage.tsx`)**:
+  - Fixed bug where `validGraphs` filter stripped out active graphs with 0 or missing `evidence_count`, causing `verticalGroups` to evaluate to `[]` and rendering a blank page body.
+  - Added clean loading/empty fallbacks when domain catalog is fetching.
+- **Coverage Deep Linking (`App.tsx`)**:
+  - Added `'/coverage': 'coverage'` to `deepLinkMap` and `'coverage': '/coverage'` to `viewToPath` so direct link navigation and browser back/forward buttons work seamlessly.
+
+## [2026-08-03] — Lava Wallet Integration, Danger Zone Offboarding & Usage Card Deduplication
+
+### Fixed & Remediated
+- **Lava PAYG Wallet Button (`BillingPage.tsx`)**:
+  - Integrated `useLavaWallet` hook into top-right actions on `BillingPage.tsx`. Added a prominent **`"🔥 Lava Wallet"`** button allowing users to launch the embedded Lava PAYG wallet overlay.
+- **Danger Zone / Account Offboarding (`ConnectionsPage.tsx`)**:
+  - Restored account deletion flow in a discreet **"Danger Zone"** section at the bottom of the Access page (`ConnectionsPage.tsx`). Clicking **"Delete Account"** opens a confirmation modal requiring users to type `"DELETE"` before calling `/api/account/delete` and clearing sessions.
+- **Billing Page Usage Card Deduplication (`UsageMeter.tsx` & `BillingPage.tsx`)**:
+  - Added `hideStatTiles={true}` prop to `UsageMeter.tsx`.
+  - Updated `BillingPage.tsx` to render daily query volume charts and domain breakdowns without duplicating the 3 top stat tiles (`QUERIES USED`, `QUERIES REMAINING`, `ALL-TIME QUERIES`).
+
+## [2026-08-03] — Coverage Explanation, "Access" Sidebar, Credit Card Action & Plan Naming
+
+### Fixed & Remediated
+- **Coverage Map (`CoverageMapPage.tsx`)**:
+  - Replaced ambiguous header text with plain-English explanation of Coverage (directory of active graphs, research depth node counts, and update frequency).
+  - Made all **Supplemental Data Source** cards interactive with explicit **`Ask →`** buttons so every card links directly into the Test Bench.
+- **Sidebar Navigation (`Sidebar.tsx`)**:
+  - Renamed nav item from `"Team & Access"` to **`"Access"`**.
+- **Billing & Usage (`BillingPage.tsx`)**:
+  - Added an explicit **`"Add Credit Card"`** / **`"Update Payment Method"`** button in the Payment Method tile.
+  - Formatted plan names to explicitly include **`" Plan"`** (e.g. `"Team Plan"`, `"Base - Free Plan"`, `"Scale Plan"`).
+
+## [2026-08-03] — Airtable `niche` & `askLine` Field Resolution on Expert Cards
+
+### Fixed & Remediated
+- **Airtable Field Extraction (`server/routers/catalogRouter.ts` & `shared/dataService.ts`)**:
+  - Mapped `niche`, `expertise`, `askLine`, and `ask_line` directly from Airtable graph & analyst records (`Niche Expertise`, `Niche`, `Ask Line`, `Ask`).
+- **Expert Card Display (`ExpertDirectoryPage.tsx`)**:
+  - Removed generic hardcoded fallback string ("Sector & Strategic Analysis").
+  - Dynamically renders real Airtable niche expertise / topic tags (`g.topics.join(' · ')`) and specific ask prompts (`askLine` / `example_queries[0]`) for every expert twin.
+
+## [2026-08-03] — Claude Design System Integration & Home Dashboard Routing
+
+### Fixed & Enhanced
+- **Home Dashboard Reachability & Routing (`App.tsx` & `Sidebar.tsx`)**:
+  - Resolved Home routing bug where `Sidebar.tsx` navigated to `'account-overview'` and `<AccountPortal />` masked `HomeDashboard.tsx`.
+  - Added `'home'` to `AppView` union, mapped `/` & `/home` deep-links to `'home'`, and set default landing view to `'home'`.
+- **Unified Page Layout System (`PageShell.tsx`)**:
+  - Created reusable `<PageShell>` container (`max-w-[1000px]`, centered, `px-[26px] pt-6 pb-8`) enforcing consistent typography, rhythm, and headers across `HomeDashboard`, `BillingPage`, and `ProfilePage`.
+- **Home Dashboard (`HomeDashboard.tsx`)**:
+  - Added System Status Strip (live graphs, Human Agents, categories, 120-day evidence discipline, MCP token status).
+  - Built 3 headline stat tiles (Queries Used, Queries Remaining, All-Time Queries).
+  - Added MCP Connector card, Domain Coverage card, and dense "What to Ask" prompt bank teasers.
+- **Billing & Usage (`BillingPage.tsx`)**:
+  - Upgraded to `<PageShell>` layout with plan status, query counts, overage alerts, and Stripe subscription portal management.
+- **Profile Page (`ProfilePage.tsx`)**:
+  - Upgraded to `<PageShell>` layout focusing strictly on user persona, interest tags, sharing toggles, API key, and MCP URL configuration.
+
+## [2026-08-02] — Expert Cards `askLine` Field Integration
+
+### Fixed & Remediated
+- **Expert Card `askLine` Field (`ExpertDirectoryPage.tsx`, `shared/types.ts`, `shared/dataService.ts`)**:
+  - Added `askLine` field to `KnowledgeGraph` interface and dataService catalog/analyst fetch mappers.
+  - Updated the sample query container on Expert Cards to render `askLine` directly (with fallback to `example_queries[0]`).
+  - Attached `askLine` to the **Ask This Expert →** CTA click handler.
+
+## [2026-08-02] — Expert Cards Design Cleanup
+
+### Fixed & Remediated
+- **Expert Card UI Cleanup (`ExpertDirectoryPage.tsx`)**:
+  - Removed the `Turnaround` ("Real-time via MCP") and `Cost` ("5-10 calls") row from all expert cards.
+  - Removed the automatic fallback disclaimer footnote from the bottom of expert cards.
+
+## [2026-08-02] — Lifetime Queries Account Field Mapping
+
+### Fixed & Remediated
+- **Lifetime Queries Account Field (`UsageMeter.tsx` & `server/routers/authRouter.ts`)**:
+  - Added `lifetimeQueries?: number` to `Account` interface (`shared/types.ts`).
+  - Mapped `lifetimeQueries` explicitly in `authRouter.ts` and `accountRouter.ts` from Airtable account fields (`accFields.lifetimeQueries` / `accFields.monthlyQueries` / `accFields.monthlyQuerytotal`).
+  - Updated `UsageMeter.tsx` so the "ALL-TIME QUERIES" box queries `account.lifetimeQueries` directly as its primary value.
+
+## [2026-08-02] — Top-Up Checkout Stripe Price Target Alignment
+
+### Fixed & Remediated
+- **Top-Up Stripe Price Target (`server/routers/accountRouter.ts`)**:
+  - Updated `POST /api/account/checkout/agent-session` endpoint to target Stripe Price ID `price_1TLaiOAYuoIyU8CG2rjxhylB` for "+ BUY MORE API CALLS" top-up purchases.
+
+## [2026-08-02] — Sidebar Navigation Casing Alignment
+
+### Fixed & Remediated
+- **Sidebar Casing Uniformity (`Sidebar.tsx`)**:
+  - Removed hardcoded `uppercase` styling from `SectionHeader` in `Sidebar.tsx`.
+  - Updated **Ask** to render in sentence case (**Ask**), matching **Home**, **Experts**, **Coverage**, **Team & Access**, **Billing & Usage**, and **Profile**.
+
+## [2026-08-02] — Query Library Plain-English Taxonomy & Slack `@Claude` Copy
+
+### Fixed & Enhanced
+- **Query & Prompt Library Clarity (`QueryLibraryPage.tsx` & `server/routers/accountRouter.ts`)**:
+  - Replaced internal terminology ("Prompt Bank by Job to be Done") with clear, plain-English heading (`Query & Prompt Library`) and eyebrow (`Sample Prompts & Research Workflows`).
+  - Renamed job taxonomy tabs to intuitive work goals: `Pitch & Deck Prep`, `Trend Scanning`, `Market Research`, `Slide Validation`, `Competitor Audit`, and `Executive Insights`.
+  - Added robust candidate path resolution for `prompt-bank.json` and rich fallback prompts to ensure the Query Library is never empty (`ALL JOBS (0)`).
+- **Slack Integration Copy (`AccountPortal.tsx`)**:
+  - Updated card headline to **Access Fodda via Slack (via `@Claude` Tag)** and refined body text to explicitly describe querying connected Fodda knowledge graphs directly inside Slack channels.
+
+## [2026-08-02] — Coverage Tab Purpose & Interactive Graph Cards
+
+### Fixed & Remediated
+- **Coverage Tab Header Clarity (`CoverageMapPage.tsx`)**:
+  - Replaced internal jargon ("Job J1 · Proof of Coverage") with clear eyebrow (`Domain Intelligence & Knowledge Index`) and title (`Coverage Map & Knowledge Index`).
+  - Added plain-English subtitle explaining that the Coverage tab is for verifying research depth across Fodda's active knowledge graphs and supplemental data feeds.
+- **Interactive Graph Cards (`CoverageMapPage.tsx` & `App.tsx`)**:
+  - Fixed "Dead Link" behavior where graph cards were non-interactive.
+  - Added click handlers to graph cards and added an explicit **Ask →** button on each graph card that instantly navigates to the ASK query interface focused on that specific domain graph.
+
+## [2026-08-02] — Team & Access Tab Information Rendering Fix
+
+### Fixed & Remediated
+- **Team & Access Tab Mapping (`ConnectionsPage.tsx` & `AccountPortal.tsx`)**:
+  - Fixed tab ID mismatch in `ConnectionsPage.tsx` where selecting **Team Members & Access** passed `initialTab='users'` instead of `initialTab='team'`.
+  - Removed restrictive `isPaidPlan` gate in `AccountPortal.tsx` for team management so Team Overview (queries used, plan level, API key), team member lists, invitations, domain auto-provisioning settings, and user roles render for all active accounts.
+
+## [2026-08-02] — Expert Directory Categorization & Supplemental Data Separation
+
+### Fixed & Remediated
+- **Expert Directory Categorization (`ExpertDirectoryPage.tsx`)**:
+  - Reconciled Expert Directory filters so non-persona domain graphs (e.g. `NIQ Beauty Graph`, `Pacific Island CPI`, `OpenAlex Academic`) are no longer misclassified under "Human Expert Twins".
+  - Created 3 distinct, accurate catalog sections: **Human Expert Twins** (Verified Real Persons / Digital Twins), **Synthetic Role Personas** (AI Domain Personas), and **Supplemental Data & Knowledge Graphs** (Data & Benchmark Feeds).
+
+## [2026-08-02] — Gemini / Vertex AI Tab Redesign
+
+### Fixed & Enhanced
+- **Bespoke Gemini & Vertex AI Connector View (`AccountPortal.tsx`)**:
+  - Replaced legacy Claude text mapping when opening the **Gemini / Vertex AI** tab with a dedicated, bespoke Google Gemini integration section.
+  - Added copyable tokenized MCP URL (`https://mcp.fodda.ai/c/<token>`) for Gemini CLI, Google AI Studio, and Vertex AI Agent Builder.
+  - Built interactive **Vertex AI Agent JSON Config Generator** with 1-click *Copy to Clipboard* and *Download JSON* (`fodda-mcp-config.json`) functionality.
+
+## [2026-08-02] — Account & User Usage Log Formula Filtering Fix
+
+### Fixed & Remediated
+- **Targeted Log Retrieval & Pagination (`server/db.ts`, `server/routers/accountRouter.ts`)**:
+  - Fixed empty *Daily Query Volume* and *Usage by Knowledge Domain* charts on the Usage & Consumption page.
+  - Added `queryAirtableAll` pagination helper in `server/db.ts` to retrieve all pages of matching Airtable records.
+  - Updated `GET /api/account/usage` in `accountRouter.ts` to include user emails (`piers.fawkes@psfk.com` and team members) and account ID directly in the Airtable `filterByFormula` parameter, ensuring user query logs are retrieved instead of getting lost in global unpaginated table slices.
+
+## [2026-08-02] — Remove "Cost Per Query" Card
+
+### Removed
+- **Usage & Consumption Section (`UsageMeter.tsx`)**: Removed the "COST PER QUERY" ("Derived plan unit rate") stat card from the Usage & Consumption dashboard, adjusting the grid to 3 columns ("Queries Used", "Queries Remaining", "All-Time Queries").
+
+## [2026-08-02] — Remove "What Each Query Costs" Section
+
+### Removed
+- **Billing Page (`BillingPage.tsx`)**: Removed the "WHAT EACH QUERY COSTS" card section from the Billing & Account management page.
+
+## [2026-08-02] — Top-Up Checkout Quantity ($100 for 200 API Calls) Reconciled
+
+### Fixed & Remediated
+- **Top-Up Checkout Quantity (`server/routers/accountRouter.ts`)**:
+  - Updated `POST /api/account/checkout/agent-session` line items quantity from `1` to `2` (2 × $50 = $100).
+  - Clicking "+ BUY MORE API CALLS" in the web UI (and MCP token top-up flows) now opens a Stripe Checkout session for **$100 for 200 API calls**.
+
+## [2026-08-02] — Subscription Checkout "Unauthorized" Alert Fix
+
+### Fixed & Remediated
+- **Resilient Auth for Subscription Checkout (`UpgradeModal.tsx`, `dataService.ts`, `server/routers/accountRouter.ts`)**:
+  - Fixed `401 Unauthorized` alert when clicking "SUBSCRIBE" buttons on the `Plans & Pricing` modal.
+  - Updated `createSubscriptionCheckout` in `shared/dataService.ts` to attach `x-user-id: email` in request headers alongside `email` in body.
+  - Updated `POST /api/account/checkout/subscribe` in `accountRouter.ts` to resolve `email` from `user?.email || req.body?.email || req.body?.userEmail || req.headers['x-user-id']`, ensuring subscription checkout URLs generate seamlessly for all active sessions.
+
+## [2026-08-02] — Payment Setup "Unauthorized" Fix
+
+### Fixed & Remediated
+- **Resilient Auth for Payment Setup (`PaymentSetupModal.tsx`, `server/helpers.ts`, `server/routers/accountRouter.ts`)**:
+  - Fixed `401 Unauthorized` errors on `/api/account/setup-payment` and `/api/account/activate-overage` when `localStorage` `sessionToken` is empty or using Clerk session auth.
+  - Updated `PaymentSetupModal.tsx` to explicitly pass `email: userEmail` in body and `x-user-id` header on fetch calls.
+  - Enhanced `authenticateSession(req)` in `server/helpers.ts` to check `x-user-id` header and body/query email as an identity fallback.
+  - Added request body `accountId` and `email` fallbacks on `/api/account/setup-payment` and `/api/account/activate-overage` endpoints in `accountRouter.ts` so the Add Payment Method form initializes seamlessly for all logged-in accounts.
+
+## [2026-08-02] — Perplexity MCP Tab Redesign & Token Fallback Elimination
+
+### Fixed & Enhanced
+- **Perplexity Connection Tab (`AccountPortal.tsx`)**: Re-architected the Perplexity page to make **Model Context Protocol (MCP)** connection the primary, prominent setup flow with a copyable tokenized URL (`https://mcp.fodda.ai/c/<token>`), demoting REST browser search to a secondary alternative.
+- **Eliminated Raw `:token` Fallbacks (`AccountPortal.tsx`, `ProfilePage.tsx`, `Dashboard.tsx`)**: Replaced all hardcoded fallback strings returning `https://mcp.fodda.ai/c/:token` during async connection loading with real token resolution or active state fallbacks (`Loading connection token...`, authenticated SSE, or base URL).
+
+## [2026-08-02] — Remove Agent Payment Yellow Banners
+
+### Changed
+- **Team & Access / Connections Pages (`AccountPortal.tsx`)**: Removed `AgentPaymentBanner` yellow box ("Have you set up payment options for your agent?") from Developer API & MCP Keys, Gemini / Vertex AI, Claude Connector, and Overview pages per user request.
+
 ## [2026-08-02] — MCP Connection Token & Session Header Remediation
 
 ### Fixed & Remediated

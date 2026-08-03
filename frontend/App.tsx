@@ -175,6 +175,8 @@ const App: React.FC = () => {
   const [pendingTopUpModal, setPendingTopUpModal] = useState(false);
 
   const deepLinkMap: Record<string, AppView> = useMemo(() => ({
+    '/': 'home',
+    '/home': 'home',
     '/account/settings': 'account-overview',
     '/account/overview': 'account-overview',
     '/account/team': 'account-team',
@@ -184,11 +186,17 @@ const App: React.FC = () => {
     '/profile': 'profile',
     '/profile/context': 'profile-context',
     '/profile/usage': 'profile-usage',
+    '/connections': 'connections',
     '/connections/claude': 'connections-claude',
     '/connections/chatgpt': 'connections-chatgpt',
     '/connections/gemini': 'connections-gemini',
-    '/connections/api': 'connections-api',
+    '/connections/perplexity': 'connections-perplexity',
+    '/connections/notion': 'connections-notion',
+    '/connections/copilot': 'connections-copilot',
     '/connections/mcp': 'connections-mcp',
+    '/connections/api': 'connections-api',
+    '/connections/a2a': 'connections-a2a',
+    '/coverage': 'coverage',
     '/graphs': 'my-graphs',
     '/sandbox': 'sandbox',
     '/research': 'sandbox',
@@ -215,7 +223,7 @@ const App: React.FC = () => {
         return 'account-billing' as AppView;
       }
     }
-    return 'profile';
+    return 'home';
   });
 
   // Sync activeView changes with browser URL
@@ -223,6 +231,8 @@ const App: React.FC = () => {
     setActiveView(view);
     if (typeof window !== 'undefined') {
       const viewToPath: Partial<Record<AppView, string>> = {
+        'home': '/',
+        'coverage': '/coverage',
         'account-overview': '/account/overview',
         'account-team': '/account/team',
         'account-usage': '/account/usage',
@@ -232,11 +242,16 @@ const App: React.FC = () => {
         'profile': '/profile',
         'profile-context': '/profile/context',
         'profile-usage': '/profile/usage',
+        'connections': '/connections',
         'connections-claude': '/connections/claude',
         'connections-chatgpt': '/connections/chatgpt',
         'connections-gemini': '/connections/gemini',
-        'connections-api': '/connections/api',
+        'connections-perplexity': '/connections/perplexity',
+        'connections-notion': '/connections/notion',
+        'connections-copilot': '/connections/copilot',
         'connections-mcp': '/connections/mcp',
+        'connections-api': '/connections/api',
+        'connections-a2a': '/connections/a2a',
         'my-graphs': '/graphs',
         'sandbox': '/sandbox',
         'expert-chat': '/expert',
@@ -1048,6 +1063,7 @@ const App: React.FC = () => {
 
   // ─── Helper: map activeView → connection tab ───
   const connectionTabMap: Record<string, import('./components/ConnectionsPage').ConnectionTab> = {
+    'connections': 'index',
     'connections-claude': 'claude',
     'connections-chatgpt': 'chatgpt',
     'connections-notion': 'notion',
@@ -1056,6 +1072,7 @@ const App: React.FC = () => {
     'connections-mcp': 'mcp',
     'connections-api': 'api',
     'connections-perplexity': 'perplexity',
+    'connections-a2a': 'a2a',
   };
   const knowledgeTabMap: Record<string, 'api-docs' | 'reliability' | 'security'> = {
     'knowledge-api-docs': 'api-docs',
@@ -1066,6 +1083,26 @@ const App: React.FC = () => {
   // ─── Render the active view content ───
   const renderActiveView = () => {
     if (!currentUser || !currentAccount) return null;
+
+    // Home Dashboard (Landing View)
+    if (activeView === 'home') {
+      return (
+        <HomeDashboard
+          user={currentUser}
+          account={currentAccount}
+          onNavigate={(view: string) => handleNavigate(view as any)}
+          onTryPrompt={(promptText, graphId) => {
+            setInputValue(promptText);
+            if (graphId) setCurrentVertical(graphId as any);
+            handleNavigate('sandbox');
+          }}
+          onOpenReceipt={(receiptId) => {
+            setSelectedReceiptId(receiptId);
+            setIsReceiptOpen(true);
+          }}
+        />
+      );
+    }
 
     // Account views (Admin/Owner only)
     if (activeView === 'account-overview' || activeView === 'account-team' || activeView === 'account-usage') {
@@ -1152,131 +1189,7 @@ const App: React.FC = () => {
       );
     }
 
-    // Gemini / Vertex — standalone page (not routed through AccountPortal)
-    if (activeView === 'connections-gemini') {
-      const MCP_ENDPOINT = 'https://mcp.fodda.ai/mcp';
-      const MCP_SSE_URL = 'https://mcp.fodda.ai/sse';
-      const apiKey = currentAccount.apiKey || 'YOUR_API_KEY';
-      const userEmail = currentUser?.email || 'YOUR_EMAIL';
-      const vertexConfig = JSON.stringify({
-        tools: [{
-          type: 'mcp',
-          name: 'fodda',
-          url: `${MCP_ENDPOINT}?api_key=${apiKey}&user_id=${encodeURIComponent(userEmail)}`
-        }]
-      }, null, 2);
 
-      return (
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="px-8 pt-8 pb-4">
-            <p className="eyebrow mb-1">Connections</p>
-            <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Gemini / Vertex AI</h1>
-            <p className="text-sm text-ink-3 mt-1">Connect Fodda knowledge graphs to Google Gemini and Vertex AI agents.</p>
-          </div>
-          <div className="px-8 pb-8 max-w-4xl space-y-6">
-
-            {/* Vertex AI JSON Config */}
-            <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
-              <h3 className="eyebrow">Vertex AI / Gemini Configuration</h3>
-              <p className="text-sm text-ink-3">Add this configuration to your Vertex AI or Gemini project to connect Fodda as an MCP tool:</p>
-              <div className="relative group">
-                <pre className="p-4 bg-ink rounded-xl text-sm font-mono text-green-400 border border-ink-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{vertexConfig}</pre>
-                <button
-                  onClick={() => handleCopyField(vertexConfig, 'vertex-json')}
-                  className={`absolute top-3 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'vertex-json' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
-                  title="Copy"
-                >
-                  {copiedField === 'vertex-json' ? (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
-                  )}
-                </button>
-              </div>
-            </section>
-
-            {/* Endpoints */}
-            <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
-              <h3 className="eyebrow">Endpoints</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block eyebrow mb-1">Streamable HTTP <span className="text-brand font-normal">(recommended)</span></label>
-                  <div className="relative group">
-                    <code className="block p-3.5 bg-ink rounded-xl text-sm font-mono text-purple-300 border border-ink-2 break-all pr-12">{MCP_ENDPOINT}</code>
-                    <button
-                      onClick={() => handleCopyField(MCP_ENDPOINT, 'vertex-endpoint-http')}
-                      className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'vertex-endpoint-http' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
-                      title="Copy"
-                    >
-                      {copiedField === 'vertex-endpoint-http' ? (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block eyebrow mb-1">SSE Transport <span className="text-ink-4 font-normal">(legacy)</span></label>
-                  <div className="relative group">
-                    <code className="block p-3.5 bg-ink rounded-xl text-sm font-mono text-blue-300 border border-ink-2 break-all pr-12">{MCP_SSE_URL}</code>
-                    <button
-                      onClick={() => handleCopyField(MCP_SSE_URL, 'vertex-endpoint-sse')}
-                      className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'vertex-endpoint-sse' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
-                      title="Copy"
-                    >
-                      {copiedField === 'vertex-endpoint-sse' ? (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* API Key */}
-            <section className="p-6 bg-paper border border-line rounded-2xl space-y-4 shadow-sm">
-              <h3 className="eyebrow">Authentication</h3>
-              <div>
-                <label className="block eyebrow mb-1">Your API Key</label>
-                <div className="relative group">
-                  <code className="block p-3.5 bg-ink rounded-xl text-sm font-mono text-amber-300 border border-ink-2 break-all pr-12">{apiKey}</code>
-                  <button
-                    onClick={() => handleCopyField(apiKey, 'vertex-apikey')}
-                    className={`absolute top-2.5 right-3 p-1.5 rounded-md transition-all hover:text-white ${copiedField === 'vertex-apikey' ? 'bg-green-500/20 text-green-400 opacity-100' : 'bg-ink-2 text-ink-4 opacity-0 group-hover:opacity-100'}`}
-                    title="Copy"
-                  >
-                    {copiedField === 'vertex-apikey' ? (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-              <p className="text-[10px] text-ink-4">Your API key is embedded in the configuration URL above. For SSE transport, pass as a Bearer token in the Authorization header.</p>
-            </section>
-
-            {/* Agentic Prompting Tip */}
-            <section className="p-6 bg-brand/5 border border-brand/20 rounded-2xl space-y-3 shadow-sm">
-              <div className="flex items-center gap-2">
-                <h3 className="eyebrow text-brand mb-0">Agentic Prompting Tip</h3>
-              </div>
-              <p className="text-sm text-ink-2 leading-relaxed">
-                Fodda's MCP tools are fully self-describing. When prompting your connected agent, you don't need to write rigid, step-by-step tool execution scripts. Simply provide a high-level <strong className="text-ink">Goal</strong> (e.g., "Analyze checkout friction trends") and the agent will autonomously orchestrate the right tools.
-              </p>
-            </section>
-
-            {/* Help Link */}
-            <div className="text-center pt-2">
-              <p className="text-xs text-ink-3">Need help? See the <a href="https://www.fodda.ai/#/vertex-ai-setup-guide" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline font-bold">Gemini/Vertex Setup Guide →</a></p>
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     // Connections views (Claude, Notion, Copilot, MCP, API)
     if (connectionTabMap[activeView]) {
@@ -1310,6 +1223,11 @@ const App: React.FC = () => {
           disabledGraphs={currentUser?.disabledGraphs ? currentUser.disabledGraphs.split(',') : []}
           onToggleGraph={toggleGraph}
           onNavigate={handleNavigate}
+          onAskGraph={(graphId, defaultQuery) => {
+            setCurrentVertical(graphId as any);
+            if (defaultQuery) setInputValue(defaultQuery);
+            setActiveView('sandbox');
+          }}
           user={currentUser}
           account={currentAccount}
         />

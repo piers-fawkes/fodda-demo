@@ -38,6 +38,8 @@ export interface KnowledgeGraph {
   last_updated?: string;
   published_date?: string;
   example_queries?: string[];
+  askLine?: string;
+  ask_line?: string;
   portrait_url?: string;
   quality_checker_name?: string;
   geography?: string;
@@ -253,6 +255,8 @@ export interface Account {
   accountContext?: string; // Persisted context
   monthlyQueryLimit?: number;
   currentQueryCount?: number;
+  lifetimeQueries?: number;
+  totalQueries?: number;
   signupCode?: string; // Team invite code
   authPolicy?: 'STRICT' | 'RELAXED'; // STRICT = Login every time, RELAXED = 24h session
   vertical?: string; // 'all', 'retail', 'beauty', 'fashion', 'design', etc.

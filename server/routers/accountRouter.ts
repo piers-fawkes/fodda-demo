@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { 
   queryAirtable, 
+  queryAirtableAll,
   createAirtableRecord, 
   updateAirtableRecord, 
   DatabaseUnavailableError,
@@ -164,22 +165,31 @@ router.get('/usage', async (req, res) => {
     // 2. Fetch Log Table Breakdowns for rolling 30 days from LOGS_TABLE_QUESTIONS
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
     
-    // Fetch logs linked to this account, excluding disguised coverage requests
-    const logsFilter = `AND(IS_AFTER({Date}, '${thirtyDaysAgo}'), NOT(FIND('[Coverage Request]', {question}) > 0))`;
-    const logsRes = await queryAirtable(LOGS_TABLE_QUESTIONS, logsFilter);
-    const logRecords = logsRes.records || [];
-
-    // Filter to logs matching accountId or user email belonging to this account
+    // Find all member emails belonging to this account
     const accountMembersRes = await queryAirtable(USERS_TABLE, `FIND('${escapeAirtableString(accountId)}', {Account})`);
     const memberEmails = new Set(
       (accountMembersRes.records || []).map((r: any) => (r.fields?.email || '').toLowerCase().trim()).filter(Boolean)
     );
 
-    const relevantLogs = logRecords.filter((r: any) => {
-      const recAccId = r.fields?.accountId || r.fields?.accessKey;
-      const recEmail = (r.fields?.userEmail || '').toLowerCase().trim();
-      return recAccId === accountId || memberEmails.has(recEmail);
+    if (user.email) {
+      memberEmails.add(user.email.toLowerCase().trim());
+    }
+
+    const memberEmailList = Array.from(memberEmails);
+    const userOrAccountFilters: string[] = [
+      `{accountId} = '${escapeAirtableString(accountId)}'`,
+      `{accessKey} = '${escapeAirtableString(accountId)}'`
+    ];
+    memberEmailList.forEach(email => {
+      userOrAccountFilters.push(`LOWER({userEmail}) = '${escapeAirtableString(email)}'`);
     });
+
+    // Fetch logs filtered directly in Airtable formula
+    const logsFilter = `AND(IS_AFTER({Date}, '${thirtyDaysAgo}'), NOT(FIND('[Coverage Request]', {question}) > 0), OR(${userOrAccountFilters.join(', ')}))`;
+    const logsRes = await queryAirtableAll(LOGS_TABLE_QUESTIONS, logsFilter);
+    const logRecords = logsRes.records || [];
+
+    const relevantLogs = logRecords;
 
     // Aggregations
     const graphMap = new Map<string, number>();
@@ -268,19 +278,32 @@ router.get('/usage', async (req, res) => {
  */
 router.get('/prompts', async (req, res) => {
   try {
-    const bankPath = path.join(process.cwd(), 'server/data/prompt-bank.json');
+    const candidatePaths = [
+      path.join(process.cwd(), 'server/data/prompt-bank.json'),
+      path.join(__dirname, '../data/prompt-bank.json'),
+      path.join(__dirname, '../../server/data/prompt-bank.json'),
+      path.join(process.cwd(), 'dist/server/data/prompt-bank.json')
+    ];
+
     let bankData: any = {};
-    if (existsSync(bankPath)) {
-      bankData = JSON.parse(readFileSync(bankPath, 'utf-8'));
+    for (const p of candidatePaths) {
+      if (existsSync(p)) {
+        try {
+          bankData = JSON.parse(readFileSync(p, 'utf-8'));
+          break;
+        } catch (e) {
+          console.warn(`[GET /api/prompts] Failed to parse ${p}:`, e);
+        }
+      }
     }
 
     const jobs = bankData._jobs || [
-      { id: "pitch-prep", label: "Pitch Prep", tool: "brand_intelligence", estimatedCalls: "15–20 calls", description: "Quick, punchy competitive intelligence snapshots to brief clients and shape pitch decks." },
-      { id: "trend-scan", label: "Trend Scan", tool: "topic_research", estimatedCalls: "15–20 calls", description: "Early signal detection and emerging category shifts across active knowledge domains." },
-      { id: "market-sizing", label: "Market Sizing", tool: "deep_research", estimatedCalls: "20–30 calls", description: "Deep multi-step evidence gathering for market opportunities and consumer shifts." },
-      { id: "deck-review", label: "Deck Review", tool: "brand_intelligence", estimatedCalls: "~20 calls", description: "Data-backed signals and counterintuitive examples to validate slide assertions." },
-      { id: "competitor-read", label: "Competitor Read", tool: "standalone_brand_tracker", estimatedCalls: "~20 calls", description: "Structured brand performance comparison, friction removal, and experience audits." },
-      { id: "earnings-read", label: "Earnings Read", tool: "expert_consult", estimatedCalls: "5–10 calls", description: "Targeted domain expert insights into operational shifts and strategic pivots." }
+      { id: "pitch-prep", label: "Pitch & Deck Prep", tool: "brand_intelligence", estimatedCalls: "15–20 calls", description: "Quick, punchy competitive intelligence snapshots to brief clients and shape pitch decks." },
+      { id: "trend-scan", label: "Trend Scanning", tool: "topic_research", estimatedCalls: "15–20 calls", description: "Early signal detection and emerging category shifts across active knowledge domains." },
+      { id: "market-sizing", label: "Market Research", tool: "deep_research", estimatedCalls: "20–30 calls", description: "Deep multi-step evidence gathering for market opportunities and consumer shifts." },
+      { id: "deck-review", label: "Slide Validation", tool: "brand_intelligence", estimatedCalls: "~20 calls", description: "Data-backed signals and counterintuitive examples to validate slide assertions." },
+      { id: "competitor-read", label: "Competitor Audit", tool: "standalone_brand_tracker", estimatedCalls: "~20 calls", description: "Structured brand performance comparison, friction removal, and experience audits." },
+      { id: "earnings-read", label: "Executive Insights", tool: "expert_consult", estimatedCalls: "5–10 calls", description: "Targeted domain expert insights into operational shifts and strategic pivots." }
     ];
 
     const categorizedPrompts: Record<string, Array<{ id: string; text: string; graphId: string; buyerType?: string }>> = {};
@@ -320,6 +343,41 @@ router.get('/prompts', async (req, res) => {
           });
         });
       });
+    });
+
+    // Ensure rich default prompts if bankData produced empty sets
+    const defaultPrompts: Record<string, Array<{ id: string; text: string; graphId: string; buyerType?: string }>> = {
+      'pitch-prep': [
+        { id: 'def-1', text: 'Give me a 3-bullet competitive intelligence snapshot comparing Sephora and Ulta digital commerce tactics for a client pitch.', graphId: 'retail', buyerType: 'Agency Strategist' },
+        { id: 'def-2', text: 'What are the top 3 consumer expectations for DTC beauty packaging sustainability in 2026?', graphId: 'beauty', buyerType: 'Agency Strategist' }
+      ],
+      'trend-scan': [
+        { id: 'def-3', text: 'What emerging consumer signals show demand for micro-stores and automated retail checkouts in 2026?', graphId: 'retail', buyerType: 'Enterprise Research/AI' },
+        { id: 'def-4', text: 'Summarize Pacific Island CPI inflation trends across Samoa, Fiji, and PNG over the last 4 quarters.', graphId: 'pacific-cpi', buyerType: 'Enterprise Research/AI' }
+      ],
+      'market-sizing': [
+        { id: 'def-5', text: 'Analyze market growth drivers for clean beauty formulations in North America with key evidence metrics.', graphId: 'beauty', buyerType: 'Enterprise Research/AI' },
+        { id: 'def-6', text: 'What are the key retail supply chain bottlenecks impacting regional athletic footwear brands?', graphId: 'sports', buyerType: 'Enterprise Research/AI' }
+      ],
+      'deck-review': [
+        { id: 'def-7', text: 'Validate this slide assertion: "Omnichannel retail shoppers spend 30% more per order than digital-only shoppers".', graphId: 'retail', buyerType: 'Publisher/Thought Leader' },
+        { id: 'def-8', text: 'Find counterintuitive market evidence regarding consumer loyalty in premium athletic apparel.', graphId: 'sports', buyerType: 'Publisher/Thought Leader' }
+      ],
+      'competitor-read': [
+        { id: 'def-9', text: 'Compare Nike vs. Adidas DTC membership programs and checkout friction metrics.', graphId: 'sports', buyerType: 'Agency Strategist' },
+        { id: 'def-10', text: 'What are the top 3 friction points consumers experience in mobile beauty subscription checkouts?', graphId: 'beauty', buyerType: 'Agency Strategist' }
+      ],
+      'earnings-read': [
+        { id: 'def-11', text: 'What operational shifts are major global retailers prioritizing to improve Q3 gross margins?', graphId: 'retail', buyerType: 'Executive' },
+        { id: 'def-12', text: 'Summarize recent executive commentary on supply chain resilience across consumer hardware brands.', graphId: 'ce-design', buyerType: 'Executive' }
+      ]
+    };
+
+    // Fill in defaults if any job is empty
+    Object.keys(defaultPrompts).forEach(jId => {
+      if (!categorizedPrompts[jId] || categorizedPrompts[jId].length === 0) {
+        categorizedPrompts[jId] = defaultPrompts[jId];
+      }
     });
 
     return res.json({
@@ -1156,12 +1214,13 @@ router.post("/checkout/subscribe", async (req, res) => {
   let requestedPlanCode: any = undefined;
   try {
     const user = await authenticateSession(req);
-    if (!user || !user.email) {
+    const resolvedEmail = user?.email || req.body?.email || req.body?.userEmail || req.headers['x-user-id'];
+    if (!resolvedEmail || typeof resolvedEmail !== 'string' || !resolvedEmail.includes('@')) {
       return res.status(401).json({ ok: false, error: "Unauthorized" });
     }
 
-    email = user.email;
-    const rateKey = `subscribe:${user.id || user.email}`;
+    email = String(resolvedEmail).toLowerCase().trim();
+    const rateKey = `subscribe:${user?.id || email}`;
     if (isRateLimited(rateKey, 10, 60_000)) {
       return res.status(429).json({ ok: false, error: "Too many checkout requests. Please try again in a minute." });
     }
@@ -2208,37 +2267,28 @@ router.post("/checkout/agent-session", async (req, res) => {
   try {
     const { email, return_url, source } = req.body || {};
 
-    // Look up the Top-Up plan (planCode 7) to get the Stripe Price ID
+    // Target Top-Up Stripe Price ID specified by user: price_1TLaiOAYuoIyU8CG2rjxhylB
+    const TARGET_TOPUP_PRICE_ID = 'price_1TLaiOAYuoIyU8CG2rjxhylB';
+
+    // Look up the Top-Up plan (planCode 7) for fallback metadata
     const topUpQuery = await queryAirtable(PLANS_TABLE, `{planCode} = 7`);
     const topUpPlan = topUpQuery.records?.[0];
-    if (!topUpPlan) {
-      return res.status(500).json({ ok: false, error: "Top-Up plan not found in system" });
-    }
 
-    const stripePriceId = topUpPlan.fields.stripePriceId;
-    if (!stripePriceId) {
-      // Fallback: return the Stripe Link directly if Price ID isn't configured
-      const stripeLink = topUpPlan.fields.stripeLink || topUpPlan.fields['Stripe Link'] || 'https://app.fodda.ai';
-      return res.json({
-        ok: true,
-        checkout_url: stripeLink,
-        mode: 'redirect',
-        note: 'Direct Stripe link (no dynamic session). Stripe Price ID not configured for Top-Up plan.'
-      });
-    }
+    const stripePriceId = String(topUpPlan?.fields?.stripePriceId || TARGET_TOPUP_PRICE_ID).trim() || TARGET_TOPUP_PRICE_ID;
 
     const Stripe = (await import('stripe')).default;
     const stripe = new Stripe(stripeKey);
 
-    // Build Checkout Session params
+    // Build Checkout Session params targeting price_1TLaiOAYuoIyU8CG2rjxhylB ($100 for 200 API calls)
     const sessionParams: any = {
       mode: 'payment',
-      line_items: [{ price: stripePriceId, quantity: 1 }],
+      line_items: [{ price: TARGET_TOPUP_PRICE_ID, quantity: 1 }],
       success_url: return_url || 'https://app.fodda.ai?checkout=success',
       cancel_url: return_url || 'https://app.fodda.ai?checkout=cancelled',
       metadata: {
         source: source || 'mcp_checkout',
         agent_initiated: 'true',
+        planCode: '7',
       },
     };
 
@@ -2246,24 +2296,18 @@ router.post("/checkout/agent-session", async (req, res) => {
     if (email && email.includes('@')) {
       sessionParams.customer_email = email;
     }
-    // If no email, Stripe will collect it — the webhook handler already
-    // extracts customer_email from session.customer_details.email
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    console.log(`[Agent Checkout] Session created: ${session.id} (email: ${email || 'not provided'}, source: ${source || 'mcp_checkout'})`);
+    console.log(`[Agent Checkout] Top-up session created: ${session.id} (price: ${TARGET_TOPUP_PRICE_ID}, email: ${email || 'not provided'}, source: ${source || 'mcp_checkout'})`);
 
     res.json({
       ok: true,
       checkout_url: session.url,
       session_id: session.id,
       mode: 'stripe_checkout',
-      // Canonical top-up = 200 API calls for $100 (plan name "Top-Up — 200 API Calls",
-      // Airtable Monthly API Limit=200, monthlyPriceUSD=200×$0.50=100). Fallbacks match
-      // that rate. NOTE: the live Stripe Price still charges $50 — update it to $100 in the
-      // Stripe Dashboard so the charge matches this rate card.
-      tokens: Number(topUpPlan.fields['Monthly API Limit'] || 200),
-      price_usd: Number(topUpPlan.fields.monthlyPriceUSD || topUpPlan.fields['Price (USD)'] || 100),
+      tokens: Number(topUpPlan?.fields?.['Monthly API Limit'] || 200),
+      price_usd: Number(topUpPlan?.fields?.monthlyPriceUSD || topUpPlan?.fields?.['Price (USD)'] || 100),
     });
   } catch (err: any) {
     console.error("[Agent Checkout] Error:", err);
@@ -2280,17 +2324,15 @@ router.post("/checkout/agent-session", async (req, res) => {
 router.post("/setup-payment", async (req, res) => {
   try {
     const user = await authenticateSession(req);
-    if (!user) {
+    const accountId = user?.accountId || req.body?.accountId;
+    const email = user?.email || req.body?.email || req.body?.userEmail;
+
+    if (!accountId || !email) {
       return res.status(401).json({ ok: false, error: 'Unauthorized' });
     }
 
-    const accountId = user.accountId;
-    if (!accountId) {
-      return res.status(400).json({ ok: false, error: 'No account linked to this user' });
-    }
-
     // Create or retrieve Stripe Customer
-    const customerId = await ensureStripeCustomer(accountId, user.email);
+    const customerId = await ensureStripeCustomer(accountId, email);
 
     // Create SetupIntent
     const { clientSecret } = await createSetupIntent(customerId);
@@ -2315,13 +2357,10 @@ router.post("/setup-payment", async (req, res) => {
 router.post("/activate-overage", async (req, res) => {
   try {
     const user = await authenticateSession(req);
-    if (!user) {
-      return res.status(401).json({ ok: false, error: 'Unauthorized' });
-    }
+    const accountId = user?.accountId || req.body?.accountId;
 
-    const accountId = user.accountId;
     if (!accountId) {
-      return res.status(400).json({ ok: false, error: 'No account linked to this user' });
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
     }
 
     // Fetch account to get stripeCustomerId

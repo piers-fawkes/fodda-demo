@@ -758,7 +758,8 @@ router.get("/profile", async (req: any, res) => {
       // life of the account and can never be reset, so it must not be shown as "this month".
       // See queriesUsedThisCycle (reset by /cron/monthly-reset + Stripe renewal webhook).
       currentQueryCount: Number(accountData.queriesUsedThisCycle || 0),
-      totalQueries: Number(accountData.monthlyQueries || accountData.monthlyQuerytotal || 0),
+      lifetimeQueries: Number(accountData.lifetimeQueries || accountData.monthlyQueries || accountData.monthlyQuerytotal || accountData.totalQueries || 0),
+      totalQueries: Math.max(Number(accountData.lifetimeQueries || accountData.monthlyQueries || accountData.monthlyQuerytotal || accountData.totalQueries || 0), Number(accountData.queriesUsedThisCycle || 0)),
       stripeCustomerId: accountData.stripeCustomerId || '',
       subscriptionStatus: accountData.subscriptionStatus || 'none', 
       planName: accountData.fetchedPlanName || 'Free', 

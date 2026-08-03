@@ -54,7 +54,7 @@ export const UsersList: React.FC<UsersListProps> = ({
         ? accountApiKey.slice(0, 10) + '••••••••'
         : null;
     const maskedMcpUrl = accountMcpUrl
-        ? accountMcpUrl.replace(/api_key=[^&]+/, 'api_key=••••••••…')
+        ? (accountMcpUrl.includes('/c/') ? accountMcpUrl.replace(/\/c\/([a-zA-Z0-9-]+)/, '/c/$1…') : accountMcpUrl)
         : null;
 
     return (

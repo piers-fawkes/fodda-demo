@@ -259,7 +259,6 @@ Optimized for Microsoft Copilot Studio and M365 RAG workflows.
 
 | Endpoint | Method | Description |
 |:---|:---|:---|
-| \`/copilot/search_insights\` | POST | Flattened narrative insights with embedded evidence |
 | \`/copilot/get_evidence\` | POST | Trend-level supporting articles |
 | \`/copilot/get_statistics\` | POST | Quantitative search for metrics, quotes, signals |
 
@@ -601,13 +600,6 @@ Canonical graph registry stored in Airtable. PSFK and expert pipelines auto-upda
             <h4 className="eyebrow mb-4">Copilot Adapter Endpoints</h4>
             <p className="text-xs text-ink-3 mb-3">Optimized for Microsoft Copilot Studio and M365 RAG workflows.</p>
             <div className="space-y-3">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <MethodBadge method="POST" />
-                  <h5 className="font-bold text-ink">/copilot/search_insights</h5>
-                </div>
-                <p className="text-ink-3 text-xs">Flattened narrative insights with embedded evidence.</p>
-              </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <MethodBadge method="POST" />

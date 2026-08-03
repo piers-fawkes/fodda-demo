@@ -7,9 +7,10 @@ interface UsageMeterProps {
   account: Account;
   className?: string;
   onOpenReceipt?: (receiptId: string) => void;
+  hideStatTiles?: boolean;
 }
 
-export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className = '', onOpenReceipt }) => {
+export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className = '', onOpenReceipt, hideStatTiles = false }) => {
   const [usageData, setUsageData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,9 +35,11 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
   const monthlyQueries = usageData?.monthlyQueries ?? (account.currentQueryCount || 0);
   const monthlyQueryLimit = usageData?.monthlyQueryLimit ?? (account.monthlyQueryLimit || 100);
   const remainingQueries = usageData?.remainingQueries ?? Math.max(0, monthlyQueryLimit - monthlyQueries);
-  const totalQueries = usageData?.totalQueries
-    ?? (account as any).totalQueries
-    ?? (account as any).monthlyQueries
+  const totalQueries = (account as any)?.lifetimeQueries
+    ?? usageData?.lifetimeQueries
+    ?? (account as any)?.totalQueries
+    ?? usageData?.totalQueries
+    ?? (account as any)?.monthlyQueries
     ?? monthlyQueries;
   const costPerQuery = usageData?.costPerQuery || '—';
 
@@ -51,46 +54,41 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
 
   return (
     <div className={`space-y-8 ${className}`}>
-      {/* ─── Headline Cards (4 Stat Columns) ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Queries Used This Month */}
-        <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-ink-3">Queries Used</p>
-          <p className="font-serif italic text-3xl text-ink leading-tight">{monthlyQueries.toLocaleString()}</p>
-          <p className="text-xs font-medium text-ink-3">This month ({usagePercent}% of plan limit)</p>
-          {monthlyQueryLimit > 0 && (
-            <div className="mt-3 h-1.5 bg-cream rounded-full overflow-hidden border border-line/40">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-amber-500' : 'bg-brand'}`}
-                style={{ width: `${usagePercent}%` }}
-              ></div>
-            </div>
-          )}
-        </div>
+      {/* ─── Headline Cards (3 Stat Columns) ─── */}
+      {!hideStatTiles && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* Queries Used This Month */}
+          <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink-3">Queries Used</p>
+            <p className="font-serif italic text-3xl text-ink leading-tight">{monthlyQueries.toLocaleString()}</p>
+            <p className="text-xs font-medium text-ink-3">This month ({usagePercent}% of plan limit)</p>
+            {monthlyQueryLimit > 0 && (
+              <div className="mt-3 h-1.5 bg-cream rounded-full overflow-hidden border border-line/40">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-amber-500' : 'bg-brand'}`}
+                  style={{ width: `${usagePercent}%` }}
+                ></div>
+              </div>
+            )}
+          </div>
 
-        {/* Queries Remaining */}
-        <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-ink-3">Queries Remaining</p>
-          <p className="font-serif italic text-3xl text-ink leading-tight">
-            {monthlyQueryLimit ? remainingQueries.toLocaleString() : '∞'}
-          </p>
-          <p className="text-xs font-medium text-ink-3">Available until cycle renewal</p>
-        </div>
+          {/* Queries Remaining */}
+          <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink-3">Queries Remaining</p>
+            <p className="font-serif italic text-3xl text-ink leading-tight">
+              {monthlyQueryLimit ? remainingQueries.toLocaleString() : '∞'}
+            </p>
+            <p className="text-xs font-medium text-ink-3">Available until cycle renewal</p>
+          </div>
 
-        {/* Cost per Query */}
-        <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-ink-3">Cost per Query</p>
-          <p className="font-serif italic text-3xl text-ink leading-tight">{costPerQuery}</p>
-          <p className="text-xs font-medium text-ink-3">Derived plan unit rate</p>
+          {/* All Time Queries */}
+          <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink-3">All-Time Queries</p>
+            <p className="font-serif italic text-3xl text-ink leading-tight">{totalQueries.toLocaleString()}</p>
+            <p className="text-xs font-medium text-ink-3">Lifetime account volume</p>
+          </div>
         </div>
-
-        {/* All Time Queries */}
-        <div className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-ink-3">All-Time Queries</p>
-          <p className="font-serif italic text-3xl text-ink leading-tight">{totalQueries.toLocaleString()}</p>
-          <p className="text-xs font-medium text-ink-3">Lifetime account volume</p>
-        </div>
-      </div>
+      )}
 
       {/* ─── Charts Section: Daily Trend & Domain Breakdown ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

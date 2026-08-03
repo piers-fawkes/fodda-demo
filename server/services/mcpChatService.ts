@@ -370,27 +370,6 @@ Format your final answer as rich markdown with ## headers for trends.`;
       }
     }
 
-    // ── Last-resort: no final answer AND no tool calls — generate without tools ──
-    if (!finalAnswer) {
-      console.warn('[McpChat] No answer produced — last-resort generation without tools');
-      try {
-        const lastResort = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Answer the following query as a research analyst. Be comprehensive and use markdown formatting.\n\nQuery: "${query}"${vertical && vertical !== 'all' ? `\nContext: This query is about the expert/topic "${vertical}".` : ''}`,
-          config: {
-            temperature: 0.3,
-            maxOutputTokens: 8192,
-          },
-        });
-        finalAnswer = lastResort.text || '';
-        if (finalAnswer) {
-          console.log('[McpChat] Last-resort generation succeeded');
-        }
-      } catch (lastErr: any) {
-        console.error('[McpChat] Last-resort generation failed:', lastErr.message);
-      }
-    }
-
     // Clean up MCP connection
     try { await mcpClient.close(); } catch { /* ignore */ }
 

@@ -7,6 +7,7 @@ interface CoverageMapPageProps {
   disabledGraphs?: string[];
   onToggleGraph?: (graphId: string) => void;
   onNavigate?: (view: string) => void;
+  onAskGraph?: (graphId: string, query?: string) => void;
   user?: User | null;
   account?: Account | null;
 }
@@ -17,6 +18,7 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
   disabledGraphs = [],
   onToggleGraph,
   onNavigate,
+  onAskGraph,
   user,
   account
 }) => {
@@ -35,17 +37,12 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Generic Placeholder Filtering:
-  // Hide graphs if status === 'coming_soon' OR (status === 'live' && evidence_count === 0)
-  // (Self-hides zero-content placeholder records without hardcoding slug lists)
+  // Filter active graphs from catalog (include all live/active graphs)
   const validGraphs = useMemo(() => {
+    if (!graphs || !Array.isArray(graphs)) return [];
     return graphs.filter(g => {
-      const isSkill = (g.graph_type || '').toLowerCase().trim() === 'skill';
-      if (isSkill) return true; // Skills bypass
       const status = (g.status || 'live').toLowerCase().trim();
-      if (status === 'coming_soon' || status === 'coming-soon') return false;
-      const evidence = g.evidence_count || (g as any).evidenceCount || 0;
-      if (status === 'live' && evidence === 0) return false;
+      if (status === 'coming_soon' || status === 'coming-soon' || status === 'disabled' || status === 'archived') return false;
       return true;
     });
   }, [graphs]);
@@ -215,13 +212,13 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-line">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="eyebrow text-brand">Job J1 · Proof of Coverage</span>
+            <span className="eyebrow text-brand">Domain Intelligence & Knowledge Index</span>
             <span className="text-xs text-ink-4">•</span>
-            <span className="text-xs text-ink-3 font-mono">{validGraphs.length} Total Graphs</span>
+            <span className="text-xs text-ink-3 font-mono">{validGraphs.length} Knowledge Graphs</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-serif italic text-ink">Coverage Map</h1>
-          <p className="text-xs text-ink-3 mt-1 max-w-xl leading-relaxed">
-            Verify research depth before burning queries. Explore live trend graphs, depth badges, and connected supplemental data sources.
+          <h1 className="text-2xl md:text-3xl font-serif italic text-ink">Coverage Map & Knowledge Index</h1>
+          <p className="text-xs text-ink-3 mt-1 max-w-2xl leading-relaxed">
+            <strong>What is Coverage?</strong> The Coverage Map is your complete directory of all active knowledge graphs, trend feeds, expert digital twins, and supplemental data sources connected to your account. It shows research depth (node counts) and update frequency for every domain. Click any graph card below to launch queries directly in the Test Bench.
           </p>
         </div>
 
@@ -334,15 +331,16 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
                     return (
                       <div
                         key={g.id}
-                        className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 ${
+                        onClick={() => onAskGraph?.(g.id)}
+                        className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 group cursor-pointer ${
                           disabled
                             ? 'bg-paper/40 border-line/60 opacity-60'
-                            : 'bg-white border-line hover:border-brand/40 shadow-sm'
+                            : 'bg-white border-line hover:border-brand hover:shadow-md'
                         }`}
                       >
                         <div className="space-y-2">
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-sm font-bold text-ink truncate flex-1">{g.name}</h3>
+                            <h3 className="text-sm font-bold text-ink truncate flex-1 group-hover:text-brand transition-colors">{g.name}</h3>
                             {fresh && (
                               <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8px] font-bold uppercase tracking-wider shrink-0">
                                 Updated this week
@@ -356,25 +354,35 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
                           )}
                         </div>
 
-                        <div className="pt-3 border-t border-line-soft flex items-center justify-between">
-                          <div className="flex items-center gap-3 text-[10px] font-mono text-ink-3">
+                        <div className="pt-3 border-t border-line-soft flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-ink-3">
                             <span><strong className="text-ink">{evCount}</strong> nodes</span>
                             <span>•</span>
                             <span><strong className="text-ink">{trCount}</strong> trends</span>
                           </div>
 
-                          {onToggleGraph && (
-                            <button
-                              onClick={() => onToggleGraph(g.id)}
-                              className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${
-                                disabled
-                                  ? 'bg-paper text-ink-4 border-line hover:text-ink'
-                                  : 'bg-brand-soft text-brand border-brand/20 hover:bg-brand-softer'
-                              }`}
-                            >
-                              {disabled ? 'Disabled' : 'Enabled'}
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                            {onAskGraph && (
+                              <button
+                                onClick={() => onAskGraph(g.id)}
+                                className="px-2.5 py-1 bg-ink hover:bg-brand text-white rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all shadow-sm"
+                              >
+                                Ask →
+                              </button>
+                            )}
+                            {onToggleGraph && (
+                              <button
+                                onClick={() => onToggleGraph(g.id)}
+                                className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                                  disabled
+                                    ? 'bg-paper text-ink-4 border-line hover:text-ink'
+                                    : 'bg-brand-soft text-brand border-brand/20 hover:bg-brand-softer'
+                                }`}
+                              >
+                                {disabled ? 'Disabled' : 'Enabled'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -401,11 +409,27 @@ export const CoverageMapPage: React.FC<CoverageMapPageProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {supplementalSources.map(s => (
-              <div key={s.id} className="p-4 bg-paper/60 border border-line rounded-xl space-y-1">
-                <h4 className="text-xs font-bold text-ink truncate">{s.name}</h4>
-                {s.curator && <p className="text-[10px] text-ink-4 font-mono">Curator: {s.curator}</p>}
-                {(s.headline || s.description) && (
-                  <p className="text-[11px] text-ink-3 line-clamp-1 italic font-serif">{s.headline || s.description}</p>
+              <div
+                key={s.id}
+                onClick={() => onAskGraph?.(s.id)}
+                className="p-4 bg-paper/60 border border-line rounded-xl space-y-2 hover:border-brand hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+              >
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-ink truncate group-hover:text-brand transition-colors">{s.name}</h4>
+                  {s.curator && <p className="text-[10px] text-ink-4 font-mono">Curator: {s.curator}</p>}
+                  {(s.headline || s.description) && (
+                    <p className="text-[11px] text-ink-3 line-clamp-1 italic font-serif">{s.headline || s.description}</p>
+                  )}
+                </div>
+                {onAskGraph && (
+                  <div className="pt-2 border-t border-line-soft flex justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onAskGraph(s.id); }}
+                      className="px-2.5 py-1 bg-ink hover:bg-brand text-white rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all shadow-sm"
+                    >
+                      Ask →
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

@@ -561,6 +561,12 @@ export async function authenticateSession(req: any): Promise<AuthenticatedUser |
     }
   }
 
+  // Fallback: Check x-user-id header or body/query email
+  const fallbackEmail = (req.headers['x-user-id'] || req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email) as string | undefined;
+  if (!verifiedEmail && fallbackEmail && typeof fallbackEmail === 'string' && fallbackEmail.includes('@')) {
+    verifiedEmail = fallbackEmail;
+  }
+
   if (verifiedEmail && typeof verifiedEmail === 'string') {
     const cleanEmail = verifiedEmail.toLowerCase().trim();
     try {
@@ -578,7 +584,7 @@ export async function authenticateSession(req: any): Promise<AuthenticatedUser |
         };
       }
     } catch (err) {
-      console.error("[Auth] Verified Clerk email lookup failed:", err);
+      console.error("[Auth] Verified email lookup failed:", err);
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 export type AppView =
+  | 'home'
   | 'profile'
   | 'profile-context'
   | 'profile-usage'
@@ -11,6 +12,7 @@ export type AppView =
   | 'account-usage'
   | 'account-context'
   | 'account-governance'
+  | 'connections'
   | 'connections-claude'
   | 'connections-chatgpt'
   | 'connections-perplexity'
@@ -19,6 +21,7 @@ export type AppView =
   | 'connections-gemini'
   | 'connections-mcp'
   | 'connections-api'
+  | 'connections-a2a'
   | 'my-graphs'
   | 'team-graphs'
   | 'skills'
@@ -50,14 +53,14 @@ const SectionHeader: React.FC<{
 }> = ({ label, isExpanded, onToggle, icon }) => (
   <button
     onClick={onToggle}
-    className="w-full flex items-center justify-between px-3 py-2 mb-0.5 mt-2 rounded-lg hover:bg-brand-soft/50 transition-all group cursor-pointer"
+    className="w-full flex items-center justify-between px-3 py-2 mb-0.5 mt-0.5 rounded-lg hover:bg-line-soft transition-all group cursor-pointer"
   >
     <div className="flex items-center gap-2.5">
       {icon && <div className="w-4 h-4 flex items-center justify-center text-ink-4 group-hover:text-ink-2 transition-colors">{icon}</div>}
-      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-ink-3 group-hover:text-ink-2 transition-colors">{label}</span>
+      <span className="text-sm font-medium text-ink-2 group-hover:text-ink transition-colors">{label}</span>
     </div>
     <svg
-      className={`w-3 h-3 text-ink-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
+      className={`w-3.5 h-3.5 text-ink-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
       fill="none" stroke="currentColor" viewBox="0 0 24 24"
     >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -180,8 +183,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* 1. HOME */}
           <NavItem
             label="Home"
-            onClick={() => { onNavigate('account-overview' as any); onClose(); }}
-            isActive={isActive('account-overview')}
+            onClick={() => { onNavigate('home'); onClose(); }}
+            isActive={isActive('home')}
             icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
           />
 
@@ -215,11 +218,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>}
           />
 
-          {/* 5. TEAM & ACCESS */}
+          {/* 5. ACCESS */}
           <NavItem
-            label="Team & Access"
-            onClick={() => { onNavigate('connections-claude'); onClose(); }}
-            isActive={isActive('connections-claude') || isActive('connections-chatgpt') || isActive('connections-api') || isActive('account-team')}
+            label="Access"
+            onClick={() => { onNavigate('connections'); onClose(); }}
+            isActive={isActive('connections') || isInGroup('connections-') || isActive('account-team')}
             icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>}
           />
 

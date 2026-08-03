@@ -86,22 +86,21 @@ export async function buildMcpConnection(email: string): Promise<McpConnection> 
   let apiKey = activeKeyRec?.fields?.['API Key'];
 
   if (!apiKey) {
-    // Check if Account record directly has an API Key
+    // Check if Account record directly has an API Key formula field
     const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
     const accountRec = accountQuery.records?.[0];
-    apiKey = accountRec?.fields?.['API Key'] || accountRec?.fields?.apiKey;
+    const rawKey = accountRec?.fields?.apiKey;
+    apiKey = (typeof rawKey === 'string' && rawKey.startsWith('sk_live_')) ? rawKey : undefined;
 
     // If still missing, auto-create an active sk_live_ API key
     if (!apiKey) {
       apiKey = `sk_live_${randomBytes(24).toString('hex')}`;
-      const accountName = accountRec?.fields?.['Account Name'] || 'Account';
       try {
         await createAirtableRecord(API_KEYS_TABLE, {
           'API Key': apiKey,
           'Account': [accountId],
           'API Key Status': 'Active'
         });
-        await updateAirtableRecord(ACCOUNTS_TABLE, accountId, { 'API Key': apiKey });
       } catch (err) {
         console.error('[buildMcpConnection] Error auto-provisioning API key:', err);
       }
