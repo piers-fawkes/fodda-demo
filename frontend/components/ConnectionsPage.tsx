@@ -659,104 +659,171 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         </button>
       }
     >
-      {/* 1. Your Credential Block */}
-      <section className="bg-paper border border-line rounded-[14px] p-4 sm:p-5 space-y-4 shadow-2xs">
-        <div className="flex items-center justify-between border-b border-line-soft pb-3">
-          <div>
-            <h2 className="text-[13.5px] font-bold text-ink">Your credential</h2>
-            <p className="text-[11.5px] text-ink-3">Same credential for every client</p>
+      {/* 1. Fireflies-style MCP & Developer Settings Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Card A: MCP (Fireflies Style) */}
+        <section className="bg-paper border border-line rounded-[16px] p-5 space-y-4 shadow-2xs flex flex-col justify-between">
+          <div className="space-y-3">
+            {/* App Icons Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-cream border border-line flex items-center justify-center text-sm shadow-2xs" title="ChatGPT">
+                  🤖
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-[#DE7356]/10 border border-[#DE7356]/20 flex items-center justify-center text-xs font-bold text-[#DE7356] shadow-2xs" title="Claude">
+                  ✳
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-600 shadow-2xs" title="Gemini">
+                  ✦
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-line-soft border border-line flex items-center justify-center text-xs font-bold text-ink-3 shadow-2xs">
+                  +
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                Active Protocol
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-base font-bold text-ink">MCP</h2>
+              <p className="text-xs text-ink-3">Connect your meeting &amp; AI assistants with Fodda</p>
+            </div>
+
+            {/* URL Input Box */}
+            <div className="space-y-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={stdEndpoint}
+                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-20 focus:outline-none"
+                />
+                <button
+                  onClick={() => handleCopy(stdEndpoint, 'idx-std-ep')}
+                  className="absolute top-1.5 right-1.5 px-3 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs flex items-center gap-1"
+                >
+                  {copiedField === 'idx-std-ep' ? 'Copied!' : (
+                    <>
+                      <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 1-2-3 Simple Instructions */}
+            <ol className="space-y-2 pt-1 text-xs text-ink-2">
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Copy the URL above and paste it into your app.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Authenticate via browser OAuth (or tokenized path).</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Pull Fodda graph intelligence, evidence, and research anywhere.</span>
+              </li>
+            </ol>
           </div>
-          <span className="text-[10px] font-mono font-bold bg-brand-soft border border-brand-line text-brand px-2.5 py-0.5 rounded-full">
-            Token issued
-          </span>
+
+          <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3 flex items-center justify-between">
+            <span>No-auth client? Use tokenized URL:</span>
+            <button
+              onClick={() => handleCopy(tokenEndpoint, 'idx-tok-ep-link')}
+              className="font-mono text-brand font-bold hover:underline"
+            >
+              {copiedField === 'idx-tok-ep-link' ? 'Token Copied!' : 'Copy Token URL'}
+            </button>
+          </div>
+        </section>
+
+        {/* Card B: Developer Settings / API Key (Fireflies Style) */}
+        <section className="bg-paper border border-line rounded-[16px] p-5 space-y-4 shadow-2xs flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-cream border border-line flex items-center justify-center text-xs font-mono font-bold text-ink shadow-2xs">
+                  &lt;&gt;
+                </div>
+                <span className="text-xs font-bold text-ink-3 uppercase tracking-wider">Developer Settings</span>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-brand-soft text-brand border border-brand-line px-2 py-0.5 rounded-full">
+                REST API
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-base font-bold text-ink">API Key</h2>
+              <p className="text-xs text-ink-3">Easily integrate Fodda with your serverless functions, custom agents, or data pipelines.</p>
+            </div>
+
+            {/* API Key Input Box */}
+            <div className="space-y-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={showApiKey ? account.apiKey : `${account.apiKey.slice(0, 7)}••••••••••••••••••••`}
+                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-28 focus:outline-none"
+                />
+                <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                  <button
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="px-2 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
+                  >
+                    {showApiKey ? 'Hide' : 'Reveal'}
+                  </button>
+                  <button
+                    onClick={() => handleCopy(account.apiKey, 'idx-apikey')}
+                    className="px-3 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs flex items-center gap-1"
+                  >
+                    {copiedField === 'idx-apikey' ? 'Copied!' : (
+                      <>
+                        <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 1-2-3 REST API Steps */}
+            <ol className="space-y-2 pt-1 text-xs text-ink-2">
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Pass key in request header <code className="font-mono bg-cream px-1 rounded text-[11px]">X-API-Key: {account.apiKey.slice(0, 7)}...</code></span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Call Fodda REST endpoints <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/search</code> or <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/graph</code>.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Receive structured graph JSON responses with ground-truth citations.</span>
+              </li>
+            </ol>
+          </div>
+
+          <div className="pt-2 border-t border-line-soft text-[11px] flex items-center justify-between">
+            <span className="text-ink-3">REST base: <code className="font-mono text-ink-2">https://api.fodda.ai</code></span>
+            <button onClick={() => handleNavigate('api')} className="text-brand font-bold hover:underline">API Reference →</button>
+          </div>
+        </section>
+      </div>
+
+      {/* 2. Detailed Instructions / How to install Fodda as a tool inside an assistant */}
+      <section className="space-y-3 pt-2">
+        <div>
+          <h2 className="text-[15px] font-bold text-ink">Detailed Setup Guides</h2>
+          <p className="text-xs text-ink-3">How to install Fodda as a tool inside an assistant</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* MCP Endpoint (OAuth) */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">MCP endpoint (OAuth)</label>
-            <div className="relative">
-              <input
-                type="text"
-                readOnly
-                value={stdEndpoint}
-                className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[11.5px] font-mono text-ink pr-14 focus:outline-none"
-              />
-              <button
-                onClick={() => handleCopy(stdEndpoint, 'idx-std-ep')}
-                className="absolute top-1.5 right-1.5 px-2 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
-              >
-                {copiedField === 'idx-std-ep' ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          </div>
-
-          {/* Tokenized URL */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Tokenized URL (Path Token)</label>
-            <div className="relative">
-              <input
-                type="text"
-                readOnly
-                value={showToken ? tokenEndpoint : maskedTokenEndpoint}
-                className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[11.5px] font-mono text-ink pr-24 focus:outline-none"
-              />
-              <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-                <button
-                  onClick={() => setShowToken(!showToken)}
-                  className="px-1.5 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
-                >
-                  {showToken ? 'Hide' : 'Reveal'}
-                </button>
-                <button
-                  onClick={() => handleCopy(tokenEndpoint, 'idx-tok-ep')}
-                  className="px-2 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
-                >
-                  {copiedField === 'idx-tok-ep' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* API Key */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">API Key (REST API)</label>
-            <div className="relative">
-              <input
-                type="text"
-                readOnly
-                value={showApiKey ? account.apiKey : `${account.apiKey.slice(0, 7)}••••••••••••••••••••`}
-                className="w-full bg-cream border border-line rounded-lg px-3 py-2 text-[11.5px] font-mono text-ink pr-24 focus:outline-none"
-              />
-              <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-                <button
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="px-1.5 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
-                >
-                  {showApiKey ? 'Hide' : 'Reveal'}
-                </button>
-                <button
-                  onClick={() => handleCopy(account.apiKey, 'idx-apikey')}
-                  className="px-2 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
-                >
-                  {copiedField === 'idx-apikey' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. AI Apps Section */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[13.5px] font-bold text-ink">AI apps</h2>
-            <p className="text-[11.5px] text-ink-3">Install Fodda as a tool inside an assistant</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
           {(['claude', 'chatgpt', 'gemini', 'perplexity', 'notion', 'copilot'] as ConnectionTab[]).map(cKey => {
             const cfg = clientConfigs[cKey];
             if (!cfg) return null;
@@ -764,28 +831,28 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
               <button
                 key={cKey}
                 onClick={() => handleNavigate(cKey)}
-                className="p-3.5 bg-paper border border-line hover:border-brand-line hover:shadow-sm rounded-[14px] text-left transition-all group flex flex-col justify-between h-[118px]"
+                className="p-4 bg-paper border border-line hover:border-brand-line hover:shadow-md rounded-[16px] text-left transition-all group flex flex-col justify-between h-[126px]"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-brand-soft border border-brand-line text-brand font-bold text-xs flex items-center justify-center font-mono">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-brand-soft border border-brand-line text-brand font-bold text-xs flex items-center justify-center font-mono shadow-2xs">
                       {cfg.mark}
                     </div>
-                    <span className="text-[13.5px] font-bold text-ink group-hover:text-brand transition-colors">
+                    <span className="text-sm font-bold text-ink group-hover:text-brand transition-colors">
                       {cfg.name}
                     </span>
                   </div>
-                  <span className="text-[9px] font-mono text-ink-3 bg-cream px-1.5 py-0.5 rounded border border-line-soft">
+                  <span className="text-[9.5px] font-mono text-ink-3 bg-cream px-2 py-0.5 rounded-md border border-line-soft">
                     {cfg.tag}
                   </span>
                 </div>
 
-                <p className="text-[11.5px] text-ink-3 line-clamp-2 mt-1 leading-snug">
+                <p className="text-xs text-ink-3 line-clamp-2 mt-1 leading-relaxed">
                   {cfg.oneLiner}
                 </p>
 
-                <div className="flex items-center justify-end text-[11.5px] font-bold text-brand group-hover:translate-x-0.5 transition-transform mt-auto pt-1">
-                  <span>Set up →</span>
+                <div className="flex items-center justify-end text-xs font-bold text-brand group-hover:translate-x-0.5 transition-transform mt-auto pt-1">
+                  <span>Setup guide →</span>
                 </div>
               </button>
             );
@@ -793,16 +860,14 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         </div>
       </section>
 
-      {/* 3. Developer Section */}
-      <section className="space-y-2.5 pt-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[13.5px] font-bold text-ink">Developer</h2>
-            <p className="text-[11.5px] text-ink-3">Call Fodda directly from your own systems</p>
-          </div>
+      {/* 3. Developer Protocols Section */}
+      <section className="space-y-3 pt-2">
+        <div>
+          <h2 className="text-[15px] font-bold text-ink">Developer Protocols</h2>
+          <p className="text-xs text-ink-3">Direct API and protocol integrations for codebases</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {(['mcp', 'api', 'a2a'] as ConnectionTab[]).map(cKey => {
             const cfg = clientConfigs[cKey];
             if (!cfg) return null;
@@ -810,43 +875,43 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
               <button
                 key={cKey}
                 onClick={() => handleNavigate(cKey)}
-                className="p-3.5 bg-paper border border-line hover:border-brand-line hover:shadow-sm rounded-[14px] text-left transition-all group flex flex-col justify-between h-[118px]"
+                className="p-4 bg-paper border border-line hover:border-brand-line hover:shadow-md rounded-[16px] text-left transition-all group flex flex-col justify-between h-[126px]"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100/70 border border-purple-200 text-purple-700 font-bold text-xs flex items-center justify-center font-mono">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100/70 border border-purple-200 text-purple-700 font-bold text-xs flex items-center justify-center font-mono shadow-2xs">
                       {cfg.mark}
                     </div>
-                    <span className="text-[13.5px] font-bold text-ink group-hover:text-brand transition-colors">
+                    <span className="text-sm font-bold text-ink group-hover:text-brand transition-colors">
                       {cfg.name}
                     </span>
                   </div>
-                  <span className="text-[9px] font-mono text-ink-3 bg-cream px-1.5 py-0.5 rounded border border-line-soft">
+                  <span className="text-[9.5px] font-mono text-ink-3 bg-cream px-2 py-0.5 rounded-md border border-line-soft">
                     {cfg.tag}
                   </span>
                 </div>
 
-                <p className="text-[11.5px] text-ink-3 line-clamp-2 mt-1 leading-snug">
+                <p className="text-xs text-ink-3 line-clamp-2 mt-1 leading-relaxed">
                   {cfg.oneLiner}
                 </p>
 
-                <div className="flex items-center justify-end text-[11.5px] font-bold text-brand group-hover:translate-x-0.5 transition-transform mt-auto pt-1">
-                  <span>Set up →</span>
+                <div className="flex items-center justify-end text-xs font-bold text-brand group-hover:translate-x-0.5 transition-transform mt-auto pt-1">
+                  <span>Setup guide →</span>
                 </div>
               </button>
             );
           })}
 
-          {/* Another client placeholder card */}
-          <div className="p-3.5 bg-cream/50 border border-dashed border-line rounded-[14px] text-left flex flex-col justify-between h-[118px]">
+          {/* Generic MCP fallback card */}
+          <div className="p-4 bg-cream/50 border border-dashed border-line rounded-[16px] text-left flex flex-col justify-between h-[126px]">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-line-soft text-ink-4 font-bold text-xs flex items-center justify-center font-mono">
+              <div className="w-8 h-8 rounded-xl bg-line-soft text-ink-4 font-bold text-xs flex items-center justify-center font-mono">
                 ...
               </div>
-              <span className="text-[13.5px] font-bold text-ink-3">Another client</span>
+              <span className="text-sm font-bold text-ink-3">Any MCP Client</span>
             </div>
-            <p className="text-[11.5px] text-ink-4 leading-snug">
-              If it speaks MCP, the endpoint above is all it needs.
+            <p className="text-xs text-ink-4 leading-relaxed">
+              If it speaks MCP, standard <code className="font-mono text-ink-3">https://mcp.fodda.ai/mcp</code> is all it needs.
             </p>
             <div className="text-[10px] font-mono text-ink-4 text-right">
               Streamable HTTP

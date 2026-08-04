@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-04] — Connections Page Top Section & Setup Guides Redesign (Fireflies UI Alignment)
+
+### Refactored & Enhanced
+- **Fireflies-style Top Cards (`ConnectionsPage.tsx`)**:
+  - Redesigned top section on `/connections` with two clean cards:
+    - **MCP Box**: Displaying client icon badges (ChatGPT, Claude, Gemini, +), clear URL input box (`https://mcp.fodda.ai/mcp`), Copy button, and simple 1-2-3 bulleted steps.
+    - **Developer Settings / API Key Box**: Displaying code icon `<>`, API key field with Reveal/Hide toggle and Copy button, plus simple REST API steps.
+- **Section Heading Restructure (`ConnectionsPage.tsx`)**:
+  - Renamed client tiles section heading from "AI apps / Install Fodda as a tool inside an assistant" to **"Detailed Setup Guides"** with subtitle **"How to install Fodda as a tool inside an assistant"**.
+
 ## [2026-08-03] — Connections Tab Copy & Dead Link Cleanup (`AccountPortal.tsx` & `AdminPortal.tsx`)
 
 ### Fixed & Cleaned Up
