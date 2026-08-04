@@ -6,10 +6,10 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ## [2026-08-04] — Connections Page Top Section & Setup Guides Redesign (Fireflies UI Alignment)
 
 ### Refactored & Enhanced
-- **Fireflies-style Top Cards (`ConnectionsPage.tsx`)**:
-  - Redesigned top section on `/connections` with two clean cards:
-    - **MCP Box**: Displaying client icon badges (ChatGPT, Claude, Gemini, +), clear URL input box (`https://mcp.fodda.ai/mcp`), Copy button, and simple 1-2-3 bulleted steps.
-    - **Developer Settings / API Key Box**: Displaying code icon `<>`, API key field with Reveal/Hide toggle and Copy button, plus simple REST API steps.
+- **Fireflies-style 3-Card Top Section (`ConnectionsPage.tsx`)**:
+  - **Card 1 — MCP (OAuth)**: Displaying endpoint `https://mcp.fodda.ai/mcp`, OAuth 2.0 badge, and Google / LinkedIn / GitHub sign-in steps for Claude.ai, ChatGPT, and Copilot.
+  - **Card 2 — MCP (Token)**: Displaying tokenized URL `https://mcp.fodda.ai/c/<token>`, Reveal/Hide toggle, and no-auth steps for Cursor, Gemini CLI, and Perplexity.
+  - **Card 3 — Developer Settings / API Key**: Displaying `<>` code icon, REST API key `sk_live_...` with Reveal/Hide toggle, and header authorization steps.
 - **Section Heading Restructure (`ConnectionsPage.tsx`)**:
   - Renamed client tiles section heading from "AI apps / Install Fodda as a tool inside an assistant" to **"Detailed Setup Guides"** with subtitle **"How to install Fodda as a tool inside an assistant"**.
 

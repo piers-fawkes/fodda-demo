@@ -659,35 +659,29 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         </button>
       }
     >
-      {/* 1. Fireflies-style MCP & Developer Settings Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Card A: MCP (Fireflies Style) */}
+      {/* 1. Fireflies-style Top Cards: 3 Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Card 1: MCP Card (OAuth) */}
         <section className="bg-paper border border-line rounded-[16px] p-5 space-y-4 shadow-2xs flex flex-col justify-between">
           <div className="space-y-3">
-            {/* App Icons Row */}
+            {/* Header / Badges */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-cream border border-line flex items-center justify-center text-sm shadow-2xs" title="ChatGPT">
+                <div className="w-8 h-8 rounded-lg bg-cream border border-line flex items-center justify-center text-sm shadow-2xs" title="ChatGPT &amp; Claude">
                   🤖
                 </div>
                 <div className="w-8 h-8 rounded-lg bg-[#DE7356]/10 border border-[#DE7356]/20 flex items-center justify-center text-xs font-bold text-[#DE7356] shadow-2xs" title="Claude">
                   ✳
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-600 shadow-2xs" title="Gemini">
-                  ✦
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-line-soft border border-line flex items-center justify-center text-xs font-bold text-ink-3 shadow-2xs">
-                  +
-                </div>
               </div>
               <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                Active Protocol
+                OAuth 2.0
               </span>
             </div>
 
             <div>
-              <h2 className="text-base font-bold text-ink">MCP</h2>
-              <p className="text-xs text-ink-3">Connect your meeting &amp; AI assistants with Fodda</p>
+              <h2 className="text-base font-bold text-ink">MCP (OAuth)</h2>
+              <p className="text-xs text-ink-3">Browser OAuth sign-in (Google, LinkedIn, or GitHub)</p>
             </div>
 
             {/* URL Input Box */}
@@ -697,11 +691,11 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
                   type="text"
                   readOnly
                   value={stdEndpoint}
-                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-20 focus:outline-none"
+                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-16 focus:outline-none"
                 />
                 <button
                   onClick={() => handleCopy(stdEndpoint, 'idx-std-ep')}
-                  className="absolute top-1.5 right-1.5 px-3 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs flex items-center gap-1"
+                  className="absolute top-1.5 right-1.5 px-2.5 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs flex items-center gap-1"
                 >
                   {copiedField === 'idx-std-ep' ? 'Copied!' : (
                     <>
@@ -715,33 +709,98 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
 
             {/* 1-2-3 Simple Instructions */}
             <ol className="space-y-2 pt-1 text-xs text-ink-2">
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
-                <span>Copy the URL above and paste it into your app.</span>
+                <span>Copy URL above and paste into app (Claude, ChatGPT, Copilot).</span>
               </li>
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
-                <span>Authenticate via browser OAuth (or tokenized path).</span>
+                <span>Sign in with Google, LinkedIn, or GitHub when prompted.</span>
               </li>
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
-                <span>Pull Fodda graph intelligence, evidence, and research anywhere.</span>
+                <span>Pull Fodda graph intelligence &amp; research anywhere.</span>
               </li>
             </ol>
           </div>
 
-          <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3 flex items-center justify-between">
-            <span>No-auth client? Use tokenized URL:</span>
-            <button
-              onClick={() => handleCopy(tokenEndpoint, 'idx-tok-ep-link')}
-              className="font-mono text-brand font-bold hover:underline"
-            >
-              {copiedField === 'idx-tok-ep-link' ? 'Token Copied!' : 'Copy Token URL'}
-            </button>
+          <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3">
+            Supported on <span className="font-bold text-ink-2">Claude.ai</span>, <span className="font-bold text-ink-2">ChatGPT</span>, <span className="font-bold text-ink-2">Copilot</span>.
           </div>
         </section>
 
-        {/* Card B: Developer Settings / API Key (Fireflies Style) */}
+        {/* Card 2: MCP Card with Token */}
+        <section className="bg-paper border border-line rounded-[16px] p-5 space-y-4 shadow-2xs flex flex-col justify-between">
+          <div className="space-y-3">
+            {/* Header / Badges */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-600 shadow-2xs" title="Gemini">
+                  ✦
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-xs font-bold text-purple-600 shadow-2xs" title="Cursor &amp; CLI">
+                  ⚡
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-purple-500/10 text-purple-700 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                Tokenized Path
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-base font-bold text-ink">MCP (Token)</h2>
+              <p className="text-xs text-ink-3">No-auth clients &amp; background agents</p>
+            </div>
+
+            {/* Tokenized URL Input Box */}
+            <div className="space-y-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={showToken ? tokenEndpoint : maskedTokenEndpoint}
+                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-24 focus:outline-none"
+                />
+                <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                  <button
+                    onClick={() => setShowToken(!showToken)}
+                    className="px-1.5 py-1 bg-paper border border-line rounded-md text-[10px] font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
+                  >
+                    {showToken ? 'Hide' : 'Reveal'}
+                  </button>
+                  <button
+                    onClick={() => handleCopy(tokenEndpoint, 'idx-tok-ep')}
+                    className="px-2 py-1 bg-paper border border-line rounded-md text-[10px] font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
+                  >
+                    {copiedField === 'idx-tok-ep' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 1-2-3 Simple Instructions */}
+            <ol className="space-y-2 pt-1 text-xs text-ink-2">
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Copy your tokenized URL above.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Paste into clients without OAuth (Cursor, Gemini CLI, Perplexity).</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Token embedded directly — no login prompt required.</span>
+              </li>
+            </ol>
+          </div>
+
+          <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3">
+            Supported on <span className="font-bold text-ink-2">Cursor</span>, <span className="font-bold text-ink-2">Gemini</span>, <span className="font-bold text-ink-2">Perplexity</span>, <span className="font-bold text-ink-2">Notion</span>.
+          </div>
+        </section>
+
+        {/* Card 3: Developer Settings / API Key */}
         <section className="bg-paper border border-line rounded-[16px] p-5 space-y-4 shadow-2xs flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -758,7 +817,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
 
             <div>
               <h2 className="text-base font-bold text-ink">API Key</h2>
-              <p className="text-xs text-ink-3">Easily integrate Fodda with your serverless functions, custom agents, or data pipelines.</p>
+              <p className="text-xs text-ink-3">Serverless functions &amp; custom pipelines</p>
             </div>
 
             {/* API Key Input Box */}
@@ -768,25 +827,20 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
                   type="text"
                   readOnly
                   value={showApiKey ? account.apiKey : `${account.apiKey.slice(0, 7)}••••••••••••••••••••`}
-                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-28 focus:outline-none"
+                  className="w-full bg-cream border border-line rounded-xl px-3.5 py-2.5 text-xs font-mono text-ink pr-24 focus:outline-none"
                 />
                 <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
                   <button
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="px-2 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
+                    className="px-1.5 py-1 bg-paper border border-line rounded-md text-[10px] font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
                   >
                     {showApiKey ? 'Hide' : 'Reveal'}
                   </button>
                   <button
                     onClick={() => handleCopy(account.apiKey, 'idx-apikey')}
-                    className="px-3 py-1.5 bg-paper border border-line rounded-lg text-xs font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs flex items-center gap-1"
+                    className="px-2 py-1 bg-paper border border-line rounded-md text-[10px] font-bold text-ink-3 hover:text-ink hover:bg-cream transition-colors shadow-2xs"
                   >
-                    {copiedField === 'idx-apikey' ? 'Copied!' : (
-                      <>
-                        <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth={2} /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} /></svg>
-                        <span>Copy</span>
-                      </>
-                    )}
+                    {copiedField === 'idx-apikey' ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
               </div>
@@ -794,17 +848,17 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
 
             {/* 1-2-3 REST API Steps */}
             <ol className="space-y-2 pt-1 text-xs text-ink-2">
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
-                <span>Pass key in request header <code className="font-mono bg-cream px-1 rounded text-[11px]">X-API-Key: {account.apiKey.slice(0, 7)}...</code></span>
+                <span>Header: <code className="font-mono bg-cream px-1 rounded text-[11px]">X-API-Key: {account.apiKey.slice(0, 7)}...</code></span>
               </li>
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
-                <span>Call Fodda REST endpoints <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/search</code> or <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/graph</code>.</span>
+                <span>Call endpoints <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/search</code> or <code className="font-mono bg-cream px-1 rounded text-[11px]">/api/graph</code>.</span>
               </li>
-              <li className="flex items-start gap-2.5">
+              <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md bg-brand-soft border border-brand-line text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
-                <span>Receive structured graph JSON responses with ground-truth citations.</span>
+                <span>Receive graph JSON with citations.</span>
               </li>
             </ol>
           </div>
