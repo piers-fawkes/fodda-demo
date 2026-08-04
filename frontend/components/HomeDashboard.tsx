@@ -65,20 +65,21 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       title={`Welcome back, ${firstName}`}
       subtitle={`${account?.name || 'Your Org'} · ${account?.planName || 'Free plan'} · ${remainingQueries.toLocaleString()} queries remaining`}
       actions={
-        <>
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => onNavigate('coverage')}
-            className="px-3.5 py-2 bg-white border border-line text-ink font-bold text-xs rounded-xl hover:bg-cream transition-colors shadow-sm"
+            onClick={() => onTryPrompt("What are the key market signals and emerging trends across retail, beauty, and consumer electronics?", "global")}
+            className="px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl hover:bg-brand-dark transition-all shadow-sm flex items-center gap-1.5"
           >
-            Coverage map
+            <span>Ask Fodda Assistant</span>
+            <span>💬</span>
           </button>
           <button
             onClick={() => onNavigate('sandbox')}
-            className="px-3.5 py-2 bg-brand text-white font-bold text-xs rounded-xl hover:bg-brand-dark transition-colors shadow-sm"
+            className="px-3.5 py-2 bg-cream border border-line text-ink font-bold text-xs rounded-xl hover:bg-paper transition-colors shadow-2xs"
           >
             Open Test Bench
           </button>
-        </>
+        </div>
       }
     >
       {/* ── System Status Strip ── */}
@@ -131,7 +132,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
       </div>
 
-      {/* ── MCP URL Card & Domain Coverage Card ── */}
+      {/* ── MCP URL Card & Get Started Card ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* MCP Connector */}
         <div className="p-5 bg-paper border border-line rounded-2xl space-y-3 shadow-sm flex flex-col justify-between">
@@ -161,28 +162,29 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
 
-        {/* Domain Coverage Card */}
+        {/* Get Started / Query Knowledge Index Card */}
         <div className="p-5 bg-paper border border-line rounded-2xl space-y-3 shadow-sm flex flex-col justify-between">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Domain Coverage</span>
-              <span className="text-[10px] font-mono font-bold bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
-                {activeGraphCount} Verticals Active
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand">Get Started</span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                120-Day Evidence Discipline
               </span>
             </div>
-            <h3 className="font-serif italic text-xl text-ink font-bold">Knowledge Index & Human Agents</h3>
+            <h3 className="font-serif italic text-xl text-ink font-bold">Query Knowledge Index & Human Agents</h3>
             <p className="text-xs text-ink-3 leading-relaxed">
-              Comprehensive signal coverage across retail, beauty, consumer electronics, macro trends, and human expert twins.
+              Find ideas & signals across retail, beauty, consumer electronics, macro trends, and directly from human expert twins.
             </p>
           </div>
 
-          <div className="pt-2 border-t border-line/60 flex items-center justify-between">
-            <span className="text-[11px] font-medium text-ink-3">120-Day Evidence Discipline</span>
+          <div className="pt-3 border-t border-line/60 flex items-center justify-between gap-3">
+            <span className="text-[11px] font-medium text-ink-3">Interactive Assistant</span>
             <button
-              onClick={() => onNavigate('coverage')}
-              className="px-3.5 py-1.5 bg-ink text-white font-bold text-xs rounded-xl hover:bg-ink-2 transition-colors shadow-sm"
+              onClick={() => onTryPrompt("What are the key market signals and emerging trends across retail, beauty, and consumer electronics?", "global")}
+              className="px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl hover:bg-brand-dark transition-all shadow-sm flex items-center gap-1.5 shrink-0"
             >
-              View Map →
+              <span>Launch Assistant Chat</span>
+              <span>→</span>
             </button>
           </div>
         </div>
