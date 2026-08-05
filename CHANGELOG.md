@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-05] — Billing Deep-Links & PAYG Handlers (`AuthGate.tsx` & `App.tsx`)
+
+### Added & Enhanced
+- **Post-Auth Parameter Preservation (`AuthGate.tsx`)**:
+  - Persisted marketing site query parameters (`view`, `action`, `tab`, `plan`, `tier`) into `localStorage` upon gate entry so strangers completing sign-up / sign-in land directly on their intended checkout action.
+- **Deep-Link Billing Action Handlers (`App.tsx`)**:
+  - Implemented auto-execution handlers for marketing site CTAs (`www.fodda.ai/pricing`):
+    - `?view=billing&action=lava` -> Routes to billing view and auto-triggers Lava PAYG wallet checkout overlay bound to `accountId`.
+    - `?view=billing&action=stripe` -> Routes to billing view and opens Stripe payment deposit modal.
+    - `?view=billing&tab=spt` -> Routes to billing view and SPT API keys.
+    - `?plan={planCode}&tier={tierName}` -> Auto-opens UpgradeModal for that specific subscription plan.
+
 ## [2026-08-04] — Connections Page Top Section & Setup Guides Redesign (Fireflies UI Alignment)
 
 ### Refactored & Enhanced

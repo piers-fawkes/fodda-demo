@@ -39,6 +39,7 @@ import { useDiscovery } from './hooks/useDiscovery';
 import { useAuth, useOrganizationList } from '@clerk/react';
 import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/WelcomeContextPopup';
 import { BASELINE_QUESTIONS } from '../shared/constants';
+import { useLavaWallet } from './hooks/useLavaWallet';
 
 // Global fetch interceptor to inject Clerk JWT Bearer Token
 const originalFetch = window.fetch;
@@ -72,6 +73,7 @@ function generateUUID() {
 const App: React.FC = () => {
   const { userId: clerkUserId, getToken, signOut, isLoaded: isAuthLoaded } = useAuth();
   const { setActive } = useOrganizationList();
+  const { launchLavaWallet, loading: lavaLoading } = useLavaWallet();
 
   // Set globalGetToken during render so API calls can include the Clerk JWT
   globalGetToken = getToken;
@@ -491,16 +493,72 @@ const App: React.FC = () => {
     }
   }, [checkoutResult]);
 
-  // Enforce Auth Policy Dynamically
+  // ─── Billing Deep-Links & PAYG Handlers (marketing site links) ───
+  // Handles:
+  //  1. ?view=billing&action=lava   -> opens Lava checkout modal for currentAccount.id
+  //  2. ?view=billing&action=stripe -> opens Stripe payment setup modal
+  //  3. ?view=billing&tab=spt       -> routes to billing / SPT API keys
+  //  4. ?plan={planCode}&tier={tierName} -> opens UpgradeModal for specific plan
   useEffect(() => {
-    if (currentAccount?.authPolicy === 'STRICT') {
-      const existing = localStorage.getItem('fodda_session_token');
-      if (existing) {
-        console.log("[App] Auth Policy changed to STRICT. Removing persistent session token.");
-        localStorage.removeItem('fodda_session_token');
+    if (!isUnlocked || !currentUser || !currentAccount) return;
+
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+    const view = searchParams.get('view') || localStorage.getItem('fodda.pendingView');
+    const action = searchParams.get('action') || localStorage.getItem('fodda.pendingBillingAction');
+    const tab = searchParams.get('tab') || localStorage.getItem('fodda.pendingBillingTab');
+    const plan = searchParams.get('plan') || localStorage.getItem('fodda.pendingPlanCode');
+    const tier = searchParams.get('tier') || localStorage.getItem('fodda.pendingTier');
+
+    if (view === 'billing' || action || tab === 'spt' || plan) {
+      console.log('[App] Executing billing deep-link handler:', { view, action, tab, plan, tier });
+
+      // 1. Ensure view routes to billing tab
+      if (view === 'billing' || action || tab === 'spt') {
+        setActiveView('account-billing');
+        localStorage.removeItem('fodda.pendingView');
+      }
+
+      // 2. Action handling: Lava PAYG Checkout Overlay
+      if (action === 'lava') {
+        localStorage.removeItem('fodda.pendingBillingAction');
+        console.log('[App] Deep-link action=lava: launching Lava wallet for account:', currentAccount.id);
+        setTimeout(() => {
+          launchLavaWallet(currentUser.email, currentAccount.id);
+        }, 300);
+      }
+
+      // 3. Action handling: Stripe Deposit / Payment Setup Modal
+      if (action === 'stripe') {
+        localStorage.removeItem('fodda.pendingBillingAction');
+        console.log('[App] Deep-link action=stripe: opening Stripe deposit modal for account:', currentAccount.id);
+        setTimeout(() => {
+          setIsPaymentSetupOpen(true);
+        }, 300);
+      }
+
+      // 4. Tab handling: SPT Agentic Keys
+      if (tab === 'spt') {
+        localStorage.removeItem('fodda.pendingBillingTab');
+      }
+
+      // 5. Subscription Plan Upgrade: plan / tier
+      if (plan) {
+        localStorage.removeItem('fodda.pendingPlanCode');
+        localStorage.removeItem('fodda.pendingTier');
+        console.log('[App] Deep-link plan upgrade: opening UpgradeModal for plan:', plan, tier);
+        setTimeout(() => {
+          setIsUpgradeModalOpen(true);
+        }, 300);
+      }
+
+      // Clean search parameters from URL if present
+      if (typeof window !== 'undefined' && window.location.search) {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
       }
     }
-  }, [currentAccount?.authPolicy]);
+  }, [isUnlocked, currentUser?.email, currentAccount?.id]);
 
 
 

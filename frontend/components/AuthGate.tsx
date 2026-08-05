@@ -224,10 +224,18 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
       const intentParam = params.get('intent');
       const hasPlanParam = !!params.get('plan');
 
-      // Persist ?view= param for post-login routing (e.g. ?view=api → API settings)
+      // Persist marketing site deep-link params for post-auth execution
       const viewParam = params.get('view');
       if (viewParam) {
         localStorage.setItem('fodda.pendingView', viewParam);
+      }
+      const actionParam = params.get('action');
+      if (actionParam) {
+        localStorage.setItem('fodda.pendingBillingAction', actionParam);
+      }
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        localStorage.setItem('fodda.pendingBillingTab', tabParam);
       }
 
       // Persist expert context for post-auth routing
@@ -250,7 +258,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         if (emailParam) {
           setEmail(emailParam);
         }
-        // Persist plan selection to localStorage so it survives the email verification reload
+        // Persist plan selection to localStorage so it survives authentication reloads
         if (hasPlanParam) {
           const planCode = params.get('plan') || '';
           const tier = params.get('tier') || '';
