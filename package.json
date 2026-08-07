@@ -31,6 +31,7 @@
     "react-markdown": "^9.0.0",
     "stripe": "^20.3.1",
     "svix": "^1.95.1",
+    "thinking-orbs": "^0.2.0",
     "ts-node": "^10.9.1",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"

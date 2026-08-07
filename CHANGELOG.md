@@ -3,7 +3,33 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-06] — Thinking Orbs in Auth & Onboarding (`frontend/components/AuthGate.tsx`)
+
+### Changed
+- **Extended `thinking-orbs` to all loading/waiting states in the auth flow**:
+  - **SCREEN 00 — Verifying** (`isVerifying`): Added 64px `connecting` orb beside the "Confirming your identity…" heading, running alongside the existing progress bar.
+  - **SCREEN 05 — Link Sent** (`isWaitingForConfirmation`): Added 64px `listening` orb beside "A link is in the mail." — waiting/listening for the user's email click.
+  - **Submit buttons** (`isLoading`): All four brand buttons (Sign in, Create account ×2, Join team) now show a 20px `working` orb inline with the loading label.
+- **Contrast**: 64px full-screen orbs → `theme="light"` (dark dots on white `GateFrame`). 20px button orbs → `theme="dark"` (light dots on `#663399` purple button).
+- **File changed**: `frontend/components/AuthGate.tsx`
+- **Manual verification**: `tsc --noEmit` passes with zero errors.
+
+## [2026-08-06] — Thinking Orbs in Chat Loading State (`frontend/components/ChatInterface.tsx`)
+
+### Changed
+- **Replaced generic loading indicator with `thinking-orbs`**:
+  - Removed the `animate-pulse` brand-soft pill + `animate-spin` border spinner.
+  - Installed `thinking-orbs` (zero-dependency, canvas-based, SSR-safe React component).
+  - Chat stream now shows a 64px orb in the avatar column while `isProcessing` is true, cycling every 6 seconds through `searching` → `solving` → `composing` to reflect the actual MCP pipeline phases.
+  - Submit button now shows a 20px inline orb instead of the border-spinner.
+  - Both orbs are pinned to `theme="light"` (dark dots on light backgrounds) to match Fodda's `#fafafa` / `#f1eafa` palette — independent of OS dark-mode preference.
+  - A fade-in status label updates alongside the orb state (`SEARCHING_GRAPH` / `SOLVING_QUERY` / `COMPOSING_ANSWER`), with a secondary subline showing the active graph name.
+- **File changed**: `frontend/components/ChatInterface.tsx`
+- **Package added**: `thinking-orbs` (1 package, `--legacy-peer-deps`)
+- **Manual verification**: TypeScript compile (`tsc --noEmit`) passes with zero errors.
+
 ## [2026-08-05] — Billing Deep-Links & PAYG Handlers (`AuthGate.tsx` & `App.tsx`)
+
 
 ### Added & Enhanced
 - **Post-Auth Parameter Preservation (`AuthGate.tsx`)**:

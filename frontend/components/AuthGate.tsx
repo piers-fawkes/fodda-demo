@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSignIn, useSignUp, useClerk, useAuth } from '@clerk/react';
+import { ThinkingOrb } from 'thinking-orbs';
 import { Eyebrow, Masthead, FieldRule, Margin, GateFrame, Btn, StepBar, WaxSeal, GateFooter } from './AuthGateAtoms';
 
 const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: string; portrait_url?: string }> = {
@@ -429,11 +430,19 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         <Eyebrow style={{ marginBottom: 18 }}>Verifying</Eyebrow>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
           <div>
-            <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 18px', lineHeight: 1.02, letterSpacing: '-0.015em' }}>Confirming your identity…</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+              <ThinkingOrb
+                state="connecting"
+                size={64}
+                theme="light"
+                aria-label="Confirming identity…"
+              />
+              <h2 className="font-serif italic" style={{ fontSize: 46, fontWeight: 400, margin: 0, lineHeight: 1.06, letterSpacing: '-0.015em' }}>Confirming your identity…</h2>
+            </div>
             <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
               Processing your sign-in link. This should only take a moment.
             </p>
-            <div style={{ marginTop: 30, height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ marginTop: 24, height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{ height: '100%', background: 'var(--brand)', borderRadius: 2, width: `${verifyProgress}%`, transition: 'width 0.6s ease' }} />
             </div>
           </div>
@@ -482,7 +491,15 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         <Eyebrow style={{ marginBottom: 18 }}>Confirmation</Eyebrow>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
           <div>
-            <h2 className="font-serif italic" style={{ fontSize: 56, fontWeight: 400, margin: '0 0 18px', lineHeight: 1.02, letterSpacing: '-0.015em' }}>A link is in the mail.</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18 }}>
+              <ThinkingOrb
+                state="listening"
+                size={64}
+                theme="light"
+                aria-label="Waiting for email confirmation…"
+              />
+              <h2 className="font-serif italic" style={{ fontSize: 46, fontWeight: 400, margin: 0, lineHeight: 1.06, letterSpacing: '-0.015em' }}>A link is in the mail.</h2>
+            </div>
             <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
               We've sent a one-time sign-in link to&nbsp;
               <span style={{ color: 'var(--ink)', borderBottom: '1px solid var(--ink)', fontStyle: 'normal' }}>{email}</span>. Open it in any browser to enter the desk.
@@ -545,7 +562,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           <div className="flex items-center gap-3.5" style={{ marginTop: 32, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>no card needed · 30-day reader pass</span>
             <span style={{ flex: 1 }} />
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Creating Account…' : 'Add this graph to my desk →'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Creating account…" />Creating Account…</span> : 'Add this graph to my desk →'}</Btn>
           </div>
         </form>
       </GateFrame>
@@ -578,7 +595,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           <div className="flex items-center gap-3.5" style={{ marginTop: 32, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
             <a onClick={() => { resetState(); }} className="cursor-pointer" style={{ fontSize: 12, color: 'var(--ink-2)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}>← back to entrance</a>
             <span style={{ flex: 1 }} />
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Joining Team…' : 'Join team'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Joining team…" />Joining Team…</span> : 'Join team'}</Btn>
           </div>
         </form>
       </GateFrame>
@@ -704,7 +721,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             <Btn ghost onClick={() => setStep(1)}>← Back</Btn>
             <span style={{ flex: 1 }} />
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>Step 2 / 2</span>
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Creating Account…' : 'Create account'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Creating account…" />Creating Account…</span> : 'Create account'}</Btn>
           </div>
         </form>
       </GateFrame>
@@ -740,7 +757,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 22 }}>
           <FieldRule label="Your email" hint="single-use · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
           <div className="flex items-center gap-3.5" style={{ marginTop: 8 }}>
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? 'Sending…' : 'Send sign-in link'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending…" />Sending…</span> : 'Send sign-in link'}</Btn>
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
           </div>
         </div>

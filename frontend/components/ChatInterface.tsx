@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
+import { ThinkingOrb, type OrbState } from 'thinking-orbs';
 import ReactMarkdown from 'react-markdown';
 import { LayoutDashboard, Search, Building2, Briefcase } from 'lucide-react';
 import { Message, Vertical, KnowledgeGraph } from '../../shared/types';
@@ -160,6 +161,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Cycle orb state through the MCP pipeline phases while processing
+  const ORB_CYCLE: OrbState[] = ['searching', 'solving', 'composing'];
+  const ORB_LABELS: Record<OrbState, string> = {
+    searching:  'SEARCHING_GRAPH',
+    solving:    'SOLVING_QUERY',
+    composing:  'COMPOSING_ANSWER',
+    working:    'WORKING',
+    listening:  'LISTENING',
+    connecting: 'CONNECTING',
+    weaving:    'WEAVING',
+    breathing:  'BREATHING',
+    shaping:    'SHAPING',
+  };
+  const [orbStateIdx, setOrbStateIdx] = useState(0);
+  const orbState = ORB_CYCLE[orbStateIdx % ORB_CYCLE.length]!;
+
+  useEffect(() => {
+    if (!isProcessing) {
+      setOrbStateIdx(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setOrbStateIdx(prev => (prev + 1) % ORB_CYCLE.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [isProcessing]);
 
   const isBaseline = vertical === Vertical.Baseline;
   const isSIC = vertical === Vertical.SIC;
@@ -384,11 +412,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         ))}
 
         {isProcessing && (
-          <div className="flex justify-start w-full max-w-3xl mx-auto px-4 md:px-8 mt-4">
-            <div className="bg-brand-soft px-4 py-3 rounded-md border border-brand/10 flex items-center space-x-3 animate-pulse">
-              <VerticalIcon className="w-4 h-4 text-brand" />
-              <span className="text-[10px] font-mono text-brand font-bold uppercase tracking-widest">
-                {isBaseline ? 'PROCESSING_DATA' : 'ANALYZING_GRAPH'}
+          <div className="flex items-start gap-3 w-full max-w-3xl mx-auto px-4 md:px-8 mt-4 animate-fade-in">
+            {/* Orb sits in the same avatar slot as assistant messages */}
+            <div className="shrink-0 w-16 h-16 -ml-1 -mt-1 flex items-center justify-center">
+              <ThinkingOrb
+                state={orbState}
+                size={64}
+                theme="light"
+                aria-label={`Fodda is ${orbState}…`}
+              />
+            </div>
+            <div className="flex flex-col justify-center pt-3 min-h-[40px]">
+              <span
+                key={orbState}
+                className="text-[10px] font-mono text-brand font-bold uppercase tracking-widest opacity-0 animate-fade-in-up"
+                style={{ animationDuration: '0.4s', animationFillMode: 'forwards' }}
+              >
+                {ORB_LABELS[orbState]}
+              </span>
+              <span className="text-[9px] font-mono text-ink-4 uppercase tracking-widest mt-0.5">
+                {isBaseline ? 'via Pew Data Graph' : `via ${headerLabel}`}
               </span>
             </div>
           </div>
@@ -468,7 +511,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           />
           <button type="submit" disabled={!inputValue.trim() || isProcessing} className="p-2 mr-1 text-ink-4 hover:text-brand disabled:opacity-20 transition-all shrink-0 rounded hover:bg-brand-soft">
             {isProcessing ? (
-              <div className="w-5 h-5 border-2 border-ink-4 border-t-brand rounded-full animate-spin" />
+              <ThinkingOrb
+                state={orbState}
+                size={20}
+                theme="light"
+                aria-label="Processing…"
+                className="block"
+              />
             ) : (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
             )}
