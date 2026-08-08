@@ -3,6 +3,23 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-08] — Dedicated OAuth Welcome Email Template (`server/services/emailTemplates.ts`, `server/routers/webhookRouter.ts`)
+
+### Added
+- **Dedicated OAuth Welcome Email (`OAUTH_WELCOME`)**: Added a streamlined welcome email template for OAuth / Clerk SSO users that omits the redundant "Confirm your email" link since OAuth identity providers already verify email addresses.
+- **Hyperlinked Onboarding Prompts**: Prompt cards in HTML onboarding emails now render as clickable links pointing to `https://claude.ai/new?q=<encoded_prompt>`, pre-populating the exact prompt into Claude Web when clicked.
+- **Base Plan Offering-Aligned Prompts**: Updated default fallback prompt bank (`prompt-bank.json` & `promptSelector.ts`) to use queries targeting Fodda's 5 core Offerings and Human Agents (Brand Intelligence, Topic Research, Deep Research, Earnings Intelligence, Expert Consult) so Base plan users never hit permission blocks on restricted core graphs.
+
+### Files Changed
+- `server/services/emailTemplates.ts`
+- `server/services/emailService.ts`
+- `server/routers/webhookRouter.ts`
+- `server/data/prompt-bank.json`
+- `server/services/promptSelector.ts`
+
+### Manual Verification
+- `npx tsc --noEmit` verified cleanly with zero errors.
+
 ## [2026-08-06] — Thinking Orbs in Auth & Onboarding (`frontend/components/AuthGate.tsx`)
 
 ### Changed

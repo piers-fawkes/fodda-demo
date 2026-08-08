@@ -9,7 +9,7 @@ import {
   createAirtableRecord,
   escapeAirtableString
 } from './db.js';
-import { sendSystemEmail } from "./services/emailService.js";
+import { sendSystemEmail, sendDirectEmail } from "./services/emailService.js";
 import { enrichUserBuyerType } from "./services/userEnrichmentService.js";
 import { selectPrompts } from "./services/promptSelector.js";
 import { validateAndSelectPrompts } from "./services/promptValidator.js";
@@ -240,9 +240,9 @@ export async function autoProvisionUser(userId: string | undefined, accountId: s
             `New team member ${email} joined ${acctFields['Account Name'] || 'your account'}`,
             `Hello,\n\nA new team member (${email}) has automatically joined your Fodda account (${acctFields['Account Name'] || ''}) via corporate domain auto-provisioning.\n\nYou can manage team members and access roles in your Fodda Account Portal at https://app.fodda.ai.\n\nBest,\nThe Fodda Team`,
             'internal'
-          ).catch(err => console.error('[Auto-Provision] Admin notification email failed:', err));
+          ).catch((err: any) => console.error('[Auto-Provision] Admin notification email failed:', err));
         }
-      }).catch(err => console.error('[Auto-Provision] Owner lookup failed:', err));
+      }).catch((err: any) => console.error('[Auto-Provision] Owner lookup failed:', err));
     }
 
     enrichUserBuyerType(email, inviteFirstName, '', '', updateAirtableRecord, USERS_TABLE, newUserId).catch(e => console.error('[Enrichment] Failed:', e));

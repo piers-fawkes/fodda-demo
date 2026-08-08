@@ -264,7 +264,7 @@ Format your final answer as rich markdown with ## headers for trends.`;
       // Add the model's response (with function calls) to conversation
       contents.push({ role: 'model', parts });
 
-      const functionResponsePromises = functionCalls.map(async (fc) => {
+      const functionResponsePromises = functionCalls.map(async (fc: any) => {
         const fnCall = (fc as any).functionCall;
         const name: string = fnCall.name;
         const args: Record<string, any> = fnCall.args || {};
@@ -459,7 +459,7 @@ Format your final answer as rich markdown with ## headers for trends.`;
       vertical,
       totalDurationMs: totalDuration,
       toolCalls: toolCallLog,
-      evidenceDateRange: minDate && maxDate ? `${minDate.split('T')[0]} to ${maxDate.split('T')[0]}` : null,
+      evidenceDateRange: (minDate && maxDate) ? `${String(minDate).split('T')[0]} to ${String(maxDate).split('T')[0]}` : null,
       humanExpertAttribution: vertical.startsWith('expert-') ? vertical.replace('expert-', '').replace(/-/g, ' ').toUpperCase() : null,
       failureType
     });

@@ -17,6 +17,7 @@ import {
   rewriteContext
 } from '../helpers.js';
 import { sendSystemEmail } from '../services/emailService.js';
+import { buildMcpConnection } from '../services/mcpConnectionService.js';
 import { addToStreakPipeline, STAGE_SELF_DEMO, STAGE_SELF_EXPERT } from '../services/streakService.js';
 
 const router = Router();
@@ -182,12 +183,13 @@ async function provisionUserFromClerk(
     }
   }
 
-  // 5. Trigger onboarding welcome email
-  const baseUrl = process.env.APP_URL || "https://app.fodda.ai";
-  const confirmationLink = `${baseUrl}/api/auth/confirm?email=${encodeURIComponent(normalizedEmail)}`;
-  sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { 
-    name: firstName, 
-    confirmationLink, 
+  // 5. Trigger onboarding welcome email (OAuth verified)
+  const mcpConn = await buildMcpConnection(normalizedEmail).catch(() => null);
+  sendSystemEmail('OAUTH_WELCOME', normalizedEmail, { 
+    name: firstName,
+    level: 'Base',
+    mcpUrl: mcpConn?.mcpUrl || undefined,
+    claudeConnectorUrl: mcpConn?.claudeConnectorUrl || undefined,
     intent: intent || 'account' 
   }).catch(e => console.error("[Clerk Webhook] Welcome email dispatch failed:", e));
 

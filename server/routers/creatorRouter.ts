@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { clerkClient } from '@clerk/express';
-import { queryAirtable, updateAirtableRecord, escapeAirtableString } from '../db.js';
+import { queryAirtable, queryAirtableCE, updateAirtableRecord, updateAirtableCERecord, escapeAirtableString } from '../db.js';
 import { LOGS_TABLE_QUESTIONS, CE_BASE_ID, CE_ANALYSTS_TABLE, GRAPH_LIST_TABLE, TOKEN_PURCHASES_TABLE } from '../constants.js';
 import { getGraph } from '../services/graph-registry.js';
 import { authenticateSession } from '../helpers.js';
@@ -264,10 +264,10 @@ router.post("/takedown", async (req: any, res) => {
     // 1. Find Analyst record in CE base matching Analyst ID, expertSlug, or graphId
     const safeGraphId = escapeAirtableString(graphId);
     const formula = `OR({Analyst ID} = '${safeGraphId}', {expertSlug} = '${safeGraphId}', {graphId} = '${safeGraphId}')`;
-    const analystRes = await queryAirtable(CE_ANALYSTS_TABLE, formula, '', CE_BASE_ID);
+    const analystRes = await queryAirtableCE(CE_ANALYSTS_TABLE, formula);
     const analystRec = analystRes.records?.[0];
     if (analystRec) {
-      await updateAirtableRecord(CE_ANALYSTS_TABLE, analystRec.id, { "Status": status }, CE_BASE_ID);
+      await updateAirtableCERecord(CE_ANALYSTS_TABLE, analystRec.id, { "Status": status });
     }
 
     // 2. Also update GRAPH_LIST_TABLE in main base

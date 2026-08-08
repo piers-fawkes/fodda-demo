@@ -181,7 +181,7 @@ router.get('/usage', async (req, res) => {
       `{accessKey} = '${escapeAirtableString(accountId)}'`
     ];
     memberEmailList.forEach(email => {
-      userOrAccountFilters.push(`LOWER({userEmail}) = '${escapeAirtableString(email)}'`);
+      userOrAccountFilters.push(`LOWER({userEmail}) = '${escapeAirtableString(String(email))}'`);
     });
 
     // Fetch logs filtered directly in Airtable formula

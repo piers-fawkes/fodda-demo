@@ -188,7 +188,16 @@ function foddaBody(html: string): string {
  * Prompt item — monospace code-style block with purple left border.
  */
 function foddaPromptItem(text: string): string {
-    return `<div style="margin:0 0 12px 0;font-family:${T.fontMono};font-size:13px;background:${T.primaryLight};padding:12px 16px;border-left:3px solid ${T.primary};border-radius:6px;color:${T.textDark};">${text}</div>`;
+    const formattedText = (text.toLowerCase().startsWith('use fodda') || text.toLowerCase().startsWith('ask fodda'))
+        ? text
+        : `Use Fodda to ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(formattedText)}`;
+    return `<div style="margin:0 0 12px 0;font-family:${T.fontMono};font-size:13px;background:${T.primaryLight};padding:12px 16px;border-left:3px solid ${T.primary};border-radius:8px;">
+    <a href="${claudeUrl}" target="_blank" style="color:${T.textDark};text-decoration:none;display:block;">
+        <span style="color:${T.primary};font-weight:600;margin-right:6px;">⚡</span>${formattedText}
+        <span style="display:block;margin-top:6px;font-family:${T.fontSans};font-size:11px;color:${T.primary};font-weight:600;">Query Fodda via Claude →</span>
+    </a>
+</div>`;
 }
 
 /**
@@ -215,6 +224,74 @@ function foddaSignature(name: string = 'Piers', title: string = 'Founder, Fodda'
 // ── EMAIL TEMPLATES ────────────────────────────────────────────────────────────
 
 export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
+    OAUTH_WELCOME: {
+        subject: (data: any) => `Welcome to Fodda — your ${data?.level || 'Base'} account is active`,
+        body: (data: { level?: string; mcpUrl?: string; claudeConnectorUrl?: string }) => {
+            const level = data.level || 'Base';
+            const stdUrl = data.mcpUrl || '';
+            const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl
+                ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
+                : 'https://claude.ai/customize/connectors?modal=add-custom-connector');
+
+            const mcpSection = stdUrl ? `For your LLM, the MCP URL to add in your setting is:
+• Standard (Claude Web/Gemini): ${stdUrl}
+⚡ Add Fodda to Claude in one click:
+${claudeInstallUrl}` : `To connect Fodda to Claude, Perplexity or your AI system:
+
+Log into app.fodda.ai to get your one-click MCP connection link and setup instructions:
+👉 https://app.fodda.ai`;
+
+            return `
+Hi - I'm an intelligent agent helping new users get the most out of Fodda. You now have a ${level} account. 
+
+You can access Fodda via our app (https://app.fodda.ai) or your favorite LLM. 
+
+${mcpSection}
+
+Need help getting started? Just reply back to me to get started or check out our quickstart guide:
+👉 https://app.fodda.ai/Fodda_Quickstart.md
+
+If you didn't sign up for Fodda, you should reply back with the initials 'WTF'. And if the link doesn't work for any reason, just reply here and I'll sort it.
+
+Thanks — and see you on the inside.
+
+Team Fodda
+            `.trim();
+        },
+        html: (data: { level?: string; mcpUrl?: string; claudeConnectorUrl?: string }) => {
+            const level = data.level || 'Base';
+            const stdUrl = data.mcpUrl || '';
+            const claudeInstallUrl = data.claudeConnectorUrl || (stdUrl
+                ? `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdUrl)}`
+                : 'https://claude.ai/customize/connectors?modal=add-custom-connector');
+
+            return foddaWrap({
+                statusChip: { text: `${level} Account Active`, dotColor: T.green },
+                content: [
+                    foddaHero({
+                        kicker: 'Welcome to Fodda',
+                        headline: 'Your account is active',
+                        bodyHtml: `<p style="margin:0 0 12px;">Hi — I'm an intelligent agent helping new users get the most out of Fodda.</p>
+<p style="margin:0;">You now have a <strong>${level}</strong> account.</p>`
+                    }),
+                    foddaSection('Access Fodda', `
+                        <p style="font-size:14px;color:${T.textBody};line-height:1.6;margin:0 0 16px;font-family:${T.fontSans};">You can access Fodda via our web app or connect it directly to your favorite LLM.</p>
+                        ${foddaButton('Open Fodda App', 'https://app.fodda.ai')}
+                    `),
+                    stdUrl ? foddaSection('Connect Your LLM', `
+                        <p style="font-size:14px;color:${T.textBody};line-height:1.6;margin:0 0 16px;font-family:${T.fontSans};">Plug in your dedicated MCP URL to add Fodda intelligence to Claude, Gemini, or Cursor:</p>
+                        ${foddaButton('Add Fodda to Claude', claudeInstallUrl, 'secondary')}
+                        ${foddaMcpCard(stdUrl)}
+                    `) : '',
+                    foddaSection('Need Help?', `
+                        <p style="font-size:14px;color:${T.textBody};line-height:1.6;margin:0 0 16px;font-family:${T.fontSans};">Need help getting started? Just reply back to this email or check out our quickstart guide.</p>
+                        ${foddaButton('Fodda Quickstart', 'https://app.fodda.ai/Fodda_Quickstart.md', 'secondary')}
+                    `),
+                    foddaCtaStrip('If you didn\'t sign up for Fodda, reply back with \'WTF\' and we\'ll sort it. If the link doesn\'t work, just reply here.'),
+                ].join('\n')
+            });
+        }
+    },
     SIGNUP_CONFIRMATION: {
         subject: (data: any) => {
             if (data?.intent === 'trial') return "Your Fodda Trial API Key is Ready";

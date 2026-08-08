@@ -20,6 +20,7 @@ const TEMPLATE_TRANSPORT: Record<string, EmailTransport> = {
   EXPERT_GRAPH_SUBMITTED_ADMIN: 'internal',
 
   // Formal — transactional from Fodda via Resend
+  OAUTH_WELCOME: 'formal',
   SIGNUP_CONFIRMATION: 'formal',
   PLAN_LIMIT_WARNING: 'formal',
   LAPSED_NOTIFICATION: 'formal',

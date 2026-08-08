@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryAirtable } from '../db.js';
+import { queryAirtable, queryAirtableAll } from '../db.js';
 import { GRAPH_LIST_TABLE } from '../constants.js';
 
 const router = Router();
@@ -35,13 +35,8 @@ router.get("/graph-catalog", async (req, res) => {
 
     console.log('[Graph Catalog] Fetching from Airtable Graph List...');
     const filter = `OR({graphStatus} = 'live', {graphStatus} = 'beta', {graphStatus} = 'coming_soon')`;
-    let allRecords: any[] = [];
-    let offset = '';
-    do {
-      const page = await queryAirtable(GRAPH_LIST_TABLE, filter, offset ? `offset=${offset}` : '');
-      allRecords = allRecords.concat(page.records || []);
-      offset = page.offset || '';
-    } while (offset);
+    const page = await queryAirtableAll(GRAPH_LIST_TABLE, filter);
+    const allRecords = page.records || [];
     console.log(`[Graph Catalog] Fetched ${allRecords.length} records across all pages`);
 
     const graphs = allRecords.map((r: any) => {
@@ -120,9 +115,10 @@ router.get("/graph-catalog", async (req, res) => {
         // Build a lookup: graphId -> analyst (scoped to Digital Twin analysts with dedicated graphs)
         const graphIdToAnalyst = new Map<string, any>();
         for (const analyst of analysts) {
+          const analystSubType = (analyst.graphSubType || '').toLowerCase().trim();
           const backingGraphs: string[] = Array.isArray(analyst.backingGraphs) ? analyst.backingGraphs : [];
-          for (const bgId of backingGraphs) {
-            graphIdToAnalyst.set(bgId, analyst);
+          if (analystSubType === 'digital twin' && backingGraphs.length === 1 && backingGraphs[0] !== '*') {
+            graphIdToAnalyst.set(backingGraphs[0], analyst);
           }
         }
 

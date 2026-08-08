@@ -115,14 +115,14 @@ export function selectPrompts(
     addPrompts((bank['cross-graph']?.['general']) || [], count);
   }
 
-  // Absolute fallback
+  // Absolute fallback — Base plan compatible Offering & Human Agent prompts
   if (prompts.length === 0) {
     return [
-      "Where are retailers removing friction from the buying journey, and how are they actually doing it?",
-      "How is beauty personalization moving beyond skin tone matching into something more meaningful?",
-      "How are sports brands turning one-off experiences into repeatable formats, and where is that showing up?",
-      "Which consumer electronics products are genuinely blurring the line between technology and furniture?",
-      "Show me examples of brands doing something new in any sector that customer experience teams should know about."
+      "Use Fodda to run a brand intelligence audit on Patagonia focusing on circular economy signals.",
+      "Use Fodda to search statistics and insights around friction removal in retail checkout.",
+      "Use Fodda to write a deep research briefing on how Gen Z is reshaping luxury retail.",
+      "Use Fodda to find what retail executives are saying in recent earnings calls about inventory levels.",
+      "Use Fodda to consult Ben Dietz and pressure-test our luxury fashion tech roadmap."
     ];
   }
 
