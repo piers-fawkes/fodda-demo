@@ -197,12 +197,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Sample Workflows</p>
             <h3 className="font-serif italic text-xl text-ink font-bold">What to Ask</h3>
           </div>
+          {/* Query Library hidden 2026-08-14
           <button
             onClick={() => onNavigate('library')}
             className="text-xs font-bold text-brand hover:underline"
           >
             Browse Full Library →
-          </button>
+          </button> */}
         </div>
 
         {loading ? (

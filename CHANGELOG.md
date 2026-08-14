@@ -3,6 +3,43 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-14] — Query Library Hidden from UI (`frontend/components/Sidebar.tsx`, `frontend/App.tsx`, `frontend/components/HomeDashboard.tsx`)
+
+### Changed
+- **Query Library commented out per Piers**: Hidden (not deleted) from all three entry points — the "Query Library" nav item in the Ask section of `Sidebar.tsx`, the `activeView === 'library'` render branch and `QueryLibraryPage` import in `App.tsx`, and the "Browse Full Library →" button in the "What to Ask" section of `HomeDashboard.tsx`. The page component (`frontend/components/QueryLibraryPage.tsx`), the `/api/prompts` endpoint, and the Home "What to Ask" prompt picks remain intact; only navigation into the full library page is removed.
+
+### Files Changed
+- `frontend/components/Sidebar.tsx`
+- `frontend/App.tsx`
+- `frontend/components/HomeDashboard.tsx`
+
+### Manual Verification
+- **Build verification**: `npx vite build` compiled cleanly with zero errors (✓ built in 4.55s).
+
+## [2026-08-10] — Claude Connector OAuth Resume Fix (`frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`, `frontend/App.tsx`)
+
+### Fixed
+- **OAuth Resume Parameter Preservation (`AuthGate.tsx`)**: Stashed the incoming `redirect_url` query parameter in `sessionStorage` under `fodda.pendingOAuthResume` prior to triggering social OAuth redirects (`signUp.sso` / `signIn.sso`).
+- **SSO Callback Fast-Path (`SsoCallbackPage.tsx`)**: Added an immediate check at the top of `SsoCallbackPage`'s post-auth `useEffect` for `fodda.pendingOAuthResume`. If present, clears the stash and immediately executes `window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume))`. This intercepts before any branch decisions or extra fields forms occur, ensuring both returning users and new signups preserve the OAuth continue URL.
+- **Fast-Path Consent Resume (`App.tsx`)**: Updated the `redirect_url` resume `useEffect` in `App.tsx` so that when the target host is `accounts.fodda.ai` or `clerk.fodda.ai` (an OAuth continue URL), the browser resumes redirect immediately as soon as a Clerk session (`clerkUserId`) is authenticated, without gating on full app profile completion (`isUnlocked`).
+- **1-Card OAuth Access Request Dialog (`AuthGate.tsx`)**: Replaced the 2-column app newspaper layout with a dedicated, centered 1-card OAuth access request dialog (`Claude is requesting access`) matching Fireflies MCP styling, featuring stacked 1-click Google, GitHub, and LinkedIn SSO buttons with zero email sign-in distraction.
+
+### Files Changed
+- `frontend/components/AuthGate.tsx`
+- `frontend/components/SsoCallbackPage.tsx`
+- `frontend/App.tsx`
+
+### Manual Verification
+- **Build verification**: `npm run build` (`vite build`) compiled 1,678 modules cleanly with zero errors.
+- **Live Bundle Verification**: Inspected live production bundle on `https://app.fodda.ai` and confirmed inclusion of all 5 `fodda.pendingOAuthResume` string literals (`AuthGate` stash, `SsoCallbackPage` get/remove pairs), `.clerk.fodda.ai` fast-path check, and console log hooks (`[App] Resuming OAuth redirect to:`).
+- **OAuth Stash & Resume Flow Verification**:
+  1. Simulated Claude connector initiation: Visited `app.fodda.ai/?redirect_url=https%3A%2F%2Fclerk.fodda.ai%2Fv1%2Foauth_callback%2Ftest_token` in fresh session state.
+  2. Clicked Google / LinkedIn OAuth CTA in `AuthGate`. Verified `sessionStorage.getItem('fodda.pendingOAuthResume')` correctly captured `https://clerk.fodda.ai/v1/oauth_callback/test_token` prior to third-party SSO redirect.
+  3. Evaluated callback return on `/sso-callback`: `SsoCallbackPage` detected `fodda.pendingOAuthResume`, bypassed company/job-title form, cleared stash, and replaced location to `/?redirect_url=https%3A%2F%2Fclerk.fodda.ai%2Fv1%2Foauth_callback%2Ftest_token`.
+  4. Evaluated resume in `App.tsx`: `App.tsx` detected `clerkUserId` and `redirect_url` targeting `clerk.fodda.ai`, and initiated immediate navigation to `https://clerk.fodda.ai/v1/oauth_callback/test_token` without waiting for `isUnlocked`.
+  5. Completed E2E Browser Walkthrough: Incognito window → claude.ai → Settings → Connectors → Fodda → Connect → Sign in with Google/LinkedIn → Verified 1-pass redirect to Clerk Allow page and successful connection.
+  6. Verified non-`redirect_url` sign-ins continue to land on standard home dashboard without disruption.
+
 ## [2026-08-08] — Dedicated OAuth Welcome Email Template (`server/services/emailTemplates.ts`, `server/routers/webhookRouter.ts`)
 
 ### Added

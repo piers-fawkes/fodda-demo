@@ -45,8 +45,14 @@ Project-specific agents/workflows/rules live in that repo's `.agents/`.
 
 ## Non-negotiables you must respect (mirror of the global house rules)
 
-- Token/SPT costs are canonical from the API's `metering.ts` — never invent or round them.
+- **AIRTABLE is the source of truth for pricing.** Read customer-visible prices from Airtable and
+  quote them exactly. Offering pricing is a SEPARATE rate from the SPT per-token rate — never compute
+  a price from `TOKEN_COSTS` × `SPT_RATE_CENTS`. Never invent, round, or "correct" a price from
+  memory; if one looks wrong, STOP and ask Piers.
 - Supplemental clients never throw — always return `{ error, message, source }`; 10s timeout.
+- **SPT/token pricing is MACHINE-ONLY — humans never see it.** Every human-visible surface (tool
+  descriptions, website, docs) shows the **published USD price from Airtable**. Never write "tokens"
+  or "via SPT" in user- or maker-visible text.
 - Prefer one MCP tool with a `view` param over many tools (context budget).
 - **Test sends go ONLY to `nathan@searchshop.ai` and `piers.fawkes@psfk.com`** — never a real
   user/prospect. Hard rule.

@@ -33,6 +33,15 @@ export const SsoCallbackPage: React.FC = () => {
   useEffect(() => {
     if (!callbackDone || !isUserLoaded || !user) return;
 
+    // Fast-path resume for connector consent if pendingOAuthResume is stashed
+    const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume');
+    if (pendingResume) {
+      sessionStorage.removeItem('fodda.pendingOAuthResume');
+      sessionStorage.removeItem('fodda.oauthPending');
+      window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
+      return;
+    }
+
     const pendingProvider = sessionStorage.getItem('fodda.oauthPending');
     if (pendingProvider) {
       // Pre-fill name from OAuth profile if available
@@ -85,7 +94,13 @@ export const SsoCallbackPage: React.FC = () => {
       // Non-fatal — continue to app
     } finally {
       sessionStorage.removeItem('fodda.oauthPending');
-      window.location.replace('/');
+      const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume');
+      if (pendingResume) {
+        sessionStorage.removeItem('fodda.pendingOAuthResume');
+        window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
+      } else {
+        window.location.replace('/');
+      }
     }
   };
 

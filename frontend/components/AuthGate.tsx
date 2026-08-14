@@ -117,6 +117,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
    *  Uses signIn.sso() / signUp.sso() — the Clerk Core 3 API on SignInFutureResource / SignUpFutureResource. */
   const handleOAuth = async (provider: 'oauth_google' | 'oauth_linkedin_oidc' | 'oauth_github') => {
     sessionStorage.setItem('fodda.oauthPending', provider);
+    if (typeof window !== 'undefined') {
+      const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
+      if (redirectUrl) {
+        sessionStorage.setItem('fodda.pendingOAuthResume', redirectUrl);
+      }
+    }
     if (isSignUp) {
       if (!signUp) return;
       const { error } = await signUp.sso({
@@ -729,6 +735,56 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   }
 
   // ═══ SCREEN 01: Login (default) ═══
+  const hasRedirectUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('redirect_url');
+
+  if (hasRedirectUrl) {
+    return (
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6" style={{ background: 'var(--cream, #faf9f6)' }}>
+        <div
+          className="w-full my-auto animate-fade-in-up"
+          style={{
+            maxWidth: 440,
+            background: 'var(--paper, #ffffff)',
+            border: '1px solid var(--line, #e2ded8)',
+            borderRadius: 14,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.03)',
+            padding: '36px 32px 28px',
+            textAlign: 'center',
+          }}
+        >
+          {/* Header icon row: Fodda <-> Assistant */}
+          <div className="flex items-center justify-center gap-3.5" style={{ marginBottom: 20 }}>
+            <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 12, border: '1px solid var(--line)', background: '#fff' }}>
+              <img src="https://ucarecdn.com/6e7893d7-6b14-426b-83bc-574a3f72d6bc/foddaminilogo.png" alt="Fodda" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            </div>
+            <span style={{ fontSize: 16, color: 'var(--ink-3)' }}>⇄</span>
+            <div className="flex items-center justify-center font-mono font-bold" style={{ width: 48, height: 48, borderRadius: 12, border: '1px solid var(--brand)', background: 'var(--brand-soft)', color: 'var(--brand)', fontSize: 13 }}>
+              MCP
+            </div>
+          </div>
+
+          <h2 className="font-serif italic" style={{ fontSize: 28, fontWeight: 400, margin: '0 0 8px', color: 'var(--ink)', lineHeight: 1.15 }}>
+            Claude is requesting access
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 24px' }}>
+            Sign in to allow Claude to cite your Fodda knowledge graphs.
+          </p>
+
+          {/* Full-width OAuth buttons */}
+          <div className="flex flex-col gap-2.5" style={{ marginBottom: 24 }}>
+            <OAuthBtn provider="oauth_google" label="Sign in with Google" onClick={() => handleOAuth('oauth_google')} style={{ width: '100%', padding: '12px 16px' }} />
+            <OAuthBtn provider="oauth_github" label="Sign in with GitHub" onClick={() => handleOAuth('oauth_github')} style={{ width: '100%', padding: '12px 16px' }} />
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Sign in with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} style={{ width: '100%', padding: '12px 16px' }} />
+          </div>
+
+          <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px dashed var(--line)', fontSize: 11, color: 'var(--ink-3)' }}>
+            Powered by <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Fodda</span> · PSFK Context Layer
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <GateFrame footer={footer} margin={loginMarginalia}>
       <Eyebrow style={{ marginBottom: 12 }}>{dateEyebrow()}</Eyebrow>
@@ -786,13 +842,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 };
 
 // ─── OAuthBtn ─────────────────────────────────────────────────────────────────
-// Pill-style OAuth button matching the AuthGate design system.
-// Uses inline SVG so there's no external icon dependency.
 const OAuthBtn: React.FC<{
   provider: 'oauth_google' | 'oauth_linkedin_oidc' | 'oauth_github';
   label: string;
   onClick: () => void;
-}> = ({ provider, label, onClick }) => {
+  style?: React.CSSProperties;
+}> = ({ provider, label, onClick, style }) => {
   const [hovered, setHovered] = React.useState(false);
 
   const googleIcon = (
@@ -836,6 +891,7 @@ const OAuthBtn: React.FC<{
         cursor: 'pointer',
         justifyContent: 'center',
         whiteSpace: 'nowrap',
+        ...style,
       }}
     >
       {provider === 'oauth_google' ? googleIcon : provider === 'oauth_github' ? githubIcon : linkedinIcon}

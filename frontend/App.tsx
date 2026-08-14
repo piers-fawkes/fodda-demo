@@ -27,7 +27,7 @@ import { ProfileUsagePage } from './components/ProfileUsagePage';
 import { PaymentSetupModal } from './components/PaymentSetupModal';
 import { UsageWarningBanner } from './components/UsageWarningBanner';
 import { HomeDashboard } from './components/HomeDashboard';
-import { QueryLibraryPage } from './components/QueryLibraryPage';
+// import { QueryLibraryPage } from './components/QueryLibraryPage'; // Query Library hidden 2026-08-14
 import { ExpertDirectoryPage } from './components/ExpertDirectoryPage';
 import { AnswerReceiptDrawer, ReceiptData } from './components/AnswerReceiptDrawer';
 import { ExpertTwinPage } from './components/ExpertTwinPage';
@@ -468,22 +468,38 @@ const App: React.FC = () => {
 
   // Deep-link: resume OAuth consent flow if redirect_url query parameter is present
   useEffect(() => {
-    if (isUnlocked && typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const redirectUrl = params.get('redirect_url');
-      if (redirectUrl) {
-        try {
-          const parsed = new URL(redirectUrl);
-          if (parsed.hostname.endsWith('fodda.ai') || parsed.hostname.endsWith('clerk.com') || parsed.hostname.endsWith('clerk.fodda.ai')) {
-            console.log('[App] Resuming OAuth redirect to:', redirectUrl);
-            window.location.href = redirectUrl;
-          }
-        } catch (e) {
-          console.error('[App] Invalid redirect_url:', redirectUrl);
+    if (typeof window === 'undefined' || !isAuthLoaded) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const redirectUrl = params.get('redirect_url');
+    if (!redirectUrl) return;
+
+    try {
+      const parsed = new URL(redirectUrl);
+      const host = parsed.hostname;
+      const isClerkOAuthContinue =
+        host === 'accounts.fodda.ai' ||
+        host.endsWith('.accounts.fodda.ai') ||
+        host === 'clerk.fodda.ai' ||
+        host.endsWith('.clerk.fodda.ai') ||
+        parsed.pathname.includes('oauth');
+      const isAllowlisted = host.endsWith('fodda.ai') || host.endsWith('clerk.com') || host.endsWith('clerk.fodda.ai') || host.endsWith('accounts.fodda.ai');
+
+      if (isAllowlisted) {
+        // Fast-path for connector consent (clerk.fodda.ai): resume as soon as Clerk session is authenticated (clerkUserId),
+        // without gating on full app unlock (profile setup). For other app deep links, require isUnlocked.
+        const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
+        if (canResume) {
+          console.log('[App] Resuming OAuth redirect to:', redirectUrl);
+          window.location.href = redirectUrl;
         }
+      } else {
+        console.error('[App] Invalid redirect_url hostname:', host);
       }
+    } catch (e) {
+      console.error('[App] Invalid redirect_url:', redirectUrl);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, clerkUserId, isAuthLoaded]);
 
   // Auto-dismiss checkout banner after 8 seconds
   useEffect(() => {
@@ -1874,6 +1890,7 @@ const App: React.FC = () => {
       );
     }
 
+    /* Query Library hidden 2026-08-14
     if (activeView === 'library') {
       return (
         <QueryLibraryPage
@@ -1887,6 +1904,7 @@ const App: React.FC = () => {
         />
       );
     }
+    */
 
     if (activeView === 'directory') {
       return (
