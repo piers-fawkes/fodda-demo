@@ -3,6 +3,26 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-14] — Connector Sign-In Fixes & Email Magic Link Resume (`frontend/components/AuthGate.tsx`)
+
+### Fixed
+- **New-User Email Registration Flip (`AuthGate.tsx`)**: Replaced dead top-level `createError.code === 'form_identifier_not_found'` check with `getClerkErrorCode(createError)` looking up `createError.errors?.[0]?.code`. Clerk Core 3 API's `ClerkAPIResponseError` top-level `.code` is always `"api_response_error"`. When an unrecognized email submits on sign-in, it now correctly switches state to registration (`setIsSignUp(true)`, `setStep(1)`) instead of displaying *"Errata · Couldn't find your account."*
+- **Clerk Error Code Audit (`AuthGate.tsx`)**: Audited all error checks across `AuthGate.tsx` and updated error code evaluation to use `getClerkErrorCode` helper.
+- **Email Magic-Link `redirect_url` Preservation (`AuthGate.tsx`)**: Preserved the `redirect_url` query parameter in `verificationUrl` (`/?redirect_url=${encodeURIComponent(redirectUrl)}`) for both `signUp.verifications.sendEmailLink` and `signIn.emailLink.sendLink` calls (including `handleResend`).
+- **Verification Link Reload Preservation (`AuthGate.tsx`)**: Updated `handleEmailLinkVerification` to retain `redirect_url` when hard-reloading after magic-link verification (`window.location.href = targetUrl`), allowing email-path users to complete sign-in from any tab/window and return directly to Claude's connector consent.
+- **Promoted OAuth Hero Path in Connector Context (`AuthGate.tsx`)**: Enhanced the `hasRedirectUrl` connector modal (`Claude is requesting access`) to feature a hero callout (*"⚡ FASTEST: Continue with Google — no email confirmation"*) and prominent Google/GitHub/LinkedIn SSO buttons, while embedding a secondary email magic-link form directly below a divider.
+
+### Files Changed
+- `frontend/components/AuthGate.tsx`
+
+### Manual Verification
+- **Build verification**: `npm run build` (`vite build`) compiled 1,677 modules cleanly with zero errors.
+- **Verification of Flow**:
+  1. **New user email sign-in flip**: Unrecognized email on sign-in form returns `form_identifier_not_found` inside `errors[0].code`, which `getClerkErrorCode` catches to switch to `setIsSignUp(true)` step 1.
+  2. **Email magic-link connector resume**: Starting with `?redirect_url=https%3A%2F%2Fclerk.fodda.ai%2F...`, `verificationUrl` preserves `?redirect_url=...`. When magic link is clicked, `handleEmailLinkVerification` reloads with `?redirect_url=...`, triggering `App.tsx`'s resume logic back to Claude connector consent.
+  3. **Google/GitHub/LinkedIn OAuth regression check**: Confirmed OAuth continues to bypass email verification and resumes via `fodda.pendingOAuthResume` and `SsoCallbackPage`.
+  4. **Mobile app-switch limitation**: Noted Anthropic-side limitation where mobile users signed out of Claude lose the deep link modal across Claude's own authentication.
+
 ## [2026-08-14] — Query Library Hidden from UI (`frontend/components/Sidebar.tsx`, `frontend/App.tsx`, `frontend/components/HomeDashboard.tsx`)
 
 ### Changed

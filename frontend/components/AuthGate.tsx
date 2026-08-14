@@ -40,6 +40,11 @@ const API_USE_OPTIONS: [string, string, string][] = [
   ['Not sure yet', "I Don't Know", 'Decide later'],
 ];
 
+const getClerkErrorCode = (error: any): string | undefined => {
+  if (!error) return undefined;
+  return error.errors?.[0]?.code || error.code;
+};
+
 const dateEyebrow = () => {
   const d = new Date();
   return `${d.toLocaleDateString('en', { weekday: 'long' })} · ${d.toLocaleDateString('en', { month: 'long' })} ${d.getDate()} · Sign in`.toUpperCase();
@@ -203,6 +208,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
       setIsVerifying(true);
       setVerifyProgress(50);
 
+      const redirectUrl = params.get('redirect_url');
+      const targetUrl = redirectUrl
+        ? `/?redirect_url=${encodeURIComponent(redirectUrl)}`
+        : '/';
+
       // Complete the verification on Clerk's backend, then hard-reload.
       // A hard reload lets ClerkProvider reinitialize and find the active session.
       clerk.handleEmailLinkVerification({})
@@ -210,12 +220,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           console.log('[AuthGate] Email link verification complete. Reloading...');
           setVerifyProgress(100);
           // Hard reload — ClerkProvider will pick up the session on fresh init
-          setTimeout(() => { window.location.href = '/'; }, 500);
+          setTimeout(() => { window.location.href = targetUrl; }, 500);
         })
         .catch((err: any) => {
           console.error('[AuthGate] Email link verification error:', err);
           // Even on error, the session may have been created. Try reloading.
-          setTimeout(() => { window.location.href = '/'; }, 500);
+          setTimeout(() => { window.location.href = targetUrl; }, 500);
         });
     }
   }, [clerk]);
@@ -348,8 +358,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
         // Core 3: Send email link for verification (sign-up uses verifications.*, not emailLink.*)
         setIsWaitingForConfirmation(true);
+        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
+        const verificationUrl = redirectUrl
+          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/`;
         const { error: sendError } = await signUp.verifications.sendEmailLink({
-          verificationUrl: `${window.location.origin}/`,
+          verificationUrl,
         });
         if (sendError) {
           setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-up link. Please try again.');
@@ -378,7 +392,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         });
         if (createError) {
           // User not found in Clerk — prompt them to register
-          if (createError.code === 'form_identifier_not_found') {
+          const errorCode = getClerkErrorCode(createError);
+          if (errorCode === 'form_identifier_not_found') {
             setIsSignUp(true);
             setStep(1);
             setErrorHeader('');
@@ -391,9 +406,13 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
         // Core 3: Send email link
         setIsWaitingForConfirmation(true);
+        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
+        const verificationUrl = redirectUrl
+          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/`;
         const { error: sendError } = await signIn.emailLink.sendLink({
           emailAddress: email,
-          verificationUrl: `${window.location.origin}/`,
+          verificationUrl,
         });
         if (sendError) {
           setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-in link. Please try again.');
@@ -467,12 +486,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
     const handleResend = async () => {
       setResendStatus('sending');
       try {
+        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
+        const verificationUrl = redirectUrl
+          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
+          : `${window.location.origin}/`;
+
         if (isSignUp) {
           if (!signUp) {
             throw new Error("Sign up helper is not loaded yet.");
           }
           const { error } = await signUp.verifications.sendEmailLink({
-            verificationUrl: `${window.location.origin}/`,
+            verificationUrl,
           });
           if (error) throw error;
         } else {
@@ -481,7 +505,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           }
           const { error } = await signIn.emailLink.sendLink({
             emailAddress: email,
-            verificationUrl: `${window.location.origin}/`,
+            verificationUrl,
           });
           if (error) throw error;
         }
@@ -763,19 +787,60 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             </div>
           </div>
 
-          <h2 className="font-serif italic" style={{ fontSize: 28, fontWeight: 400, margin: '0 0 8px', color: 'var(--ink)', lineHeight: 1.15 }}>
+          <h2 className="font-serif italic" style={{ fontSize: 28, fontWeight: 400, margin: '0 0 6px', color: 'var(--ink)', lineHeight: 1.15 }}>
             Claude is requesting access
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 18px' }}>
             Sign in to allow Claude to cite your Fodda knowledge graphs.
           </p>
 
-          {/* Full-width OAuth buttons */}
-          <div className="flex flex-col gap-2.5" style={{ marginBottom: 24 }}>
-            <OAuthBtn provider="oauth_google" label="Sign in with Google" onClick={() => handleOAuth('oauth_google')} style={{ width: '100%', padding: '12px 16px' }} />
-            <OAuthBtn provider="oauth_github" label="Sign in with GitHub" onClick={() => handleOAuth('oauth_github')} style={{ width: '100%', padding: '12px 16px' }} />
-            <OAuthBtn provider="oauth_linkedin_oidc" label="Sign in with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} style={{ width: '100%', padding: '12px 16px' }} />
+          {/* Hero callout for OAuth */}
+          <div style={{ marginBottom: 14, padding: '8px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 6 }}>
+            <span className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              ⚡ FASTEST: Continue with Google — no email confirmation
+            </span>
           </div>
+
+          {/* Full-width OAuth buttons */}
+          <div className="flex flex-col gap-2.5" style={{ marginBottom: 20 }}>
+            <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} style={{ width: '100%', padding: '12px 16px', fontWeight: 600 }} />
+            <OAuthBtn provider="oauth_github" label="Continue with GitHub" onClick={() => handleOAuth('oauth_github')} style={{ width: '100%', padding: '12px 16px' }} />
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} style={{ width: '100%', padding: '12px 16px' }} />
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3" style={{ marginBottom: 16, color: 'var(--ink-4)' }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)' }}>OR VIA EMAIL LINK</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          </div>
+
+          {/* Demoted / Secondary Email Form */}
+          <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
+            <FieldRule
+              label="Your email"
+              hint="single-use link"
+              value={email}
+              onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
+              type="email"
+              autoComplete="email"
+              required
+              disabled={isLoading}
+              error={errorHeader || undefined}
+            />
+            <div style={{ marginTop: 14 }}>
+              <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
+                {isLoading ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending…" />
+                    Sending magic link…
+                  </span>
+                ) : (
+                  'Send sign-in link →'
+                )}
+              </Btn>
+            </div>
+          </form>
 
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px dashed var(--line)', fontSize: 11, color: 'var(--ink-3)' }}>
             Powered by <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Fodda</span> · PSFK Context Layer
