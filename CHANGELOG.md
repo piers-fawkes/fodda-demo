@@ -15,6 +15,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Files Changed
 - `frontend/components/AuthGate.tsx`
 
+### Deployed
+- **Google Cloud Run (`fodda-sandbox`)**: Deployed revision `fodda-sandbox-00528-thc` to `https://fodda-sandbox-1095548227950.us-central1.run.app` (`app.fodda.ai`) serving 100% of traffic.
+
 ### Manual Verification
 - **Build verification**: `npm run build` (`vite build`) compiled 1,677 modules cleanly with zero errors.
 - **Verification of Flow**:
