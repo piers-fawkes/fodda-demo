@@ -13,8 +13,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - `frontend/App.tsx`
 - `frontend/components/HomeDashboard.tsx`
 
+### Deployed
+- **Google Cloud Run (`fodda-sandbox`)**: Deployed revision `fodda-sandbox-00527-vhb` to `https://fodda-sandbox-1095548227950.us-central1.run.app` (`app.fodda.ai`) serving 100% of traffic.
+
 ### Manual Verification
 - **Build verification**: `npx vite build` compiled cleanly with zero errors (✓ built in 4.55s).
+- **Deployment verification**: Successfully deployed revision `fodda-sandbox-00527-vhb` to Google Cloud Run (`fodda-sandbox`).
+- **Expert Deep-Linking Contract**: Verified route handling, unauthenticated localStorage persistence, Analyst table single-source-of-truth graph_type enrichment, auto-selection, and query auto-submission.
 
 ## [2026-08-10] — Claude Connector OAuth Resume Fix (`frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`, `frontend/App.tsx`)
 
