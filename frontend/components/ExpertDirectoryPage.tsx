@@ -46,6 +46,14 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
     return name.includes(q) || desc.includes(q) || niche.includes(q) || topics.includes(q) || curator.includes(q);
   });
 
+  // Helper: Detect raw slug display names (e.g. name === id or matches /^[a-z0-9]+(-[a-z0-9]+)+$/)
+  const isRawSlug = (name: string, id: string): boolean => {
+    const raw = (name || '').trim();
+    if (!raw) return true;
+    if (raw.toLowerCase() === (id || '').trim().toLowerCase()) return true;
+    return /^[a-z0-9]+(-[a-z0-9]+)+$/.test(raw);
+  };
+
   // Categorization: Human Expert Twins vs. Synthetic Role Personas vs. Supplemental Data
   const isExpertPersona = (g: KnowledgeGraph) => {
     return g.graph_type === 'expert' || !!g.expert_slug || (g as any).isExpert === true;
@@ -53,6 +61,17 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
 
   const humanExperts = filtered.filter(g => {
     if (!isExpertPersona(g)) return false;
+    
+    // Active Analyst Gate & Raw Slug Guard
+    const status = ((g as any).analyst_status || (g as any).status || '').toLowerCase().trim();
+    if (status && status !== 'active' && status !== 'live') return false;
+
+    const displayName = g.name || g.domain || g.verticalName || '';
+    if (isRawSlug(displayName, g.id)) {
+      console.warn(`[ExpertDirectoryPage] Suppressed raw-slug expert card for graph "${g.id}" (displayName: "${displayName}")`);
+      return false;
+    }
+
     const subType = (g.graph_sub_type || (g as any).graphSubType || '').toLowerCase().trim();
     return subType === 'human agent' || subType === 'digital twin' || (g as any).isVerifiedRealPerson === true;
   });
@@ -60,6 +79,17 @@ export const ExpertDirectoryPage: React.FC<ExpertDirectoryPageProps> = ({ user, 
   const syntheticPersonas = filtered.filter(g => {
     if (!isExpertPersona(g)) return false;
     if (humanExperts.some(h => h.id === g.id)) return false;
+
+    // Active Analyst Gate & Raw Slug Guard
+    const status = ((g as any).analyst_status || (g as any).status || '').toLowerCase().trim();
+    if (status && status !== 'active' && status !== 'live') return false;
+
+    const displayName = g.name || g.domain || g.verticalName || '';
+    if (isRawSlug(displayName, g.id)) {
+      console.warn(`[ExpertDirectoryPage] Suppressed raw-slug expert card for graph "${g.id}" (displayName: "${displayName}")`);
+      return false;
+    }
+
     return true;
   });
 

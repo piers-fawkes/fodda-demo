@@ -354,15 +354,22 @@ class DataService {
           if (analystsRes.ok) {
             const analystsData = await analystsRes.json();
             if (analystsData.ok && Array.isArray(analystsData.analysts)) {
-              // Collect backing graph IDs for dedup (exclude wildcard)
-              for (const a of analystsData.analysts) {
+              // Filter analysts roster to Active status only
+              const activeAnalysts = analystsData.analysts.filter((a: any) =>
+                (a.status || a.Status || '').toLowerCase().trim() === 'active'
+              );
+
+              // Collect backing graph IDs and analyst IDs for dedup & gating (exclude wildcard)
+              const activeAnalystIds = new Set<string>();
+              for (const a of activeAnalysts) {
+                if (a.id) activeAnalystIds.add(a.id);
                 const backing: string[] = Array.isArray(a.backingGraphs) ? a.backingGraphs : [];
                 for (const bgId of backing) {
                   if (bgId !== '*') analystBackingGraphIds.add(bgId);
                 }
               }
 
-              analystsGraphs = analystsData.analysts.map((a: any) => {
+              analystsGraphs = activeAnalysts.map((a: any) => {
                 // Use graphSubType from API; rename 'Digital Twin' to 'Human Agent'
                 const apiSubType = (a.graphSubType || '').trim();
                 const isExec = a.id.startsWith('brand-');
@@ -374,6 +381,7 @@ class DataService {
                 const stableImage = a.imageUrl || a.image_url || '';
                 const curatorUrl = a.newsletterUrl || '';
                 const curatorName = a.newsletterName || 'Fodda';
+                const analystStatus = a.status || a.Status || 'Active';
                 
                 return {
                   id: a.id,
@@ -392,7 +400,8 @@ class DataService {
                   graph_type: 'expert',
                   graph_sub_type: subType,
                   topics: Array.isArray(a.topic) ? a.topic : (a.topic ? [a.topic] : []),
-                  status: 'live',
+                  status: analystStatus,
+                  analyst_status: analystStatus,
                   last_updated: '',
                   published_date: '',
                   example_queries: Array.isArray(a.example_queries)
@@ -418,20 +427,26 @@ class DataService {
                   accessible: true,
                 };
               });
-              console.log(`[DataService] Loaded ${analystsGraphs.length} experts from roster`);
+              console.log(`[DataService] Loaded ${analystsGraphs.length} active experts from roster`);
+
+              // Demote catalog graphs marked as graph_type='expert' that have no active analyst backing
+              for (const g of graphs) {
+                if (g.graph_type === 'expert') {
+                  const isBacking = analystBackingGraphIds.has(g.id);
+                  const isAnalystId = activeAnalystIds.has(g.id) || (g.expert_slug && activeAnalystIds.has(g.expert_slug));
+                  if (isBacking) {
+                    g.graph_type = 'domain';
+                    console.log(`[DataService] Demoted catalog graph "${g.id}" from expert (analyst entry is canonical)`);
+                  } else if (!isAnalystId) {
+                    g.graph_type = 'domain';
+                    console.log(`[DataService] Demoted unbacked catalog expert graph "${g.id}" to domain (no Active analyst)`);
+                  }
+                }
+              }
             }
           }
         } catch (err) {
           console.warn('[DataService] Failed to fetch analysts from external API:', err);
-        }
-
-        // Deduplicate: demote catalog graphs that are backing graphs of an analyst
-        // so they appear in sandbox but not the expert dropdown (the analyst entry is canonical)
-        for (const g of graphs) {
-          if (analystBackingGraphIds.has(g.id) && g.graph_type === 'expert') {
-            g.graph_type = 'domain';
-            console.log(`[DataService] Demoted catalog graph "${g.id}" from expert (analyst entry is canonical)`);
-          }
         }
 
         const combined = [...graphs, ...analystsGraphs];

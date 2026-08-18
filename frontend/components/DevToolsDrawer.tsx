@@ -40,8 +40,6 @@ interface DevToolsDrawerProps {
         durationMs: number;
         timestamp: number;
     } | null;
-    isMcpMode: boolean;
-    onToggleMcpMode: () => void;
     simulationMode: string | null;
     onSimulationChange: (mode: string | null) => void;
     reasoningMode?: 'graph' | 'gemini' | 'blended';
@@ -76,8 +74,6 @@ export const DevToolsDrawer: React.FC<DevToolsDrawerProps> = ({
     isOpen,
     onClose,
     transaction,
-    isMcpMode,
-    onToggleMcpMode,
     simulationMode,
     onSimulationChange,
     reasoningMode = 'graph'
@@ -109,7 +105,7 @@ export const DevToolsDrawer: React.FC<DevToolsDrawerProps> = ({
     if (!isOpen) return null;
 
     const isGemini = reasoningMode === 'gemini';
-    const mode = isGemini ? 'Gemini' : isMcpMode ? 'MCP' : 'API';
+    const mode = isGemini ? 'Gemini' : 'MCP';
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end">
@@ -124,11 +120,11 @@ export const DevToolsDrawer: React.FC<DevToolsDrawerProps> = ({
                     <div className="flex items-center gap-4">
                         <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${systemStatus?.ok ? 'bg-green-500' : 'bg-red-500'}`} />
                         <h2 className="eyebrow mt-0.5">Diagnostic Console</h2>
-                        <div className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${isGemini ? 'bg-blue-50 text-blue-700 border-blue-200' : isMcpMode ? 'bg-brand-soft text-brand border-brand/20' : 'bg-paper text-ink-3 border-line'}`}>
+                        <div className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${isGemini ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-brand-soft text-brand border-brand/20'}`}>
                             {mode}
                         </div>
                         
-                        {!isGemini && isMcpMode && (
+                        {!isGemini && (
                             <div className="flex items-center gap-3 ml-2 pl-4 border-l border-line">
                                 <button
                                     onClick={() => onSimulationChange(simulationMode === 'gemini_echo' ? null : 'gemini_echo')}

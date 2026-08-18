@@ -7,7 +7,7 @@ interface EvidenceDrawerProps {
   articles: Article[];
   trends: Trend[];
   baselineRows: RetrievedRow[];
-  vertical: Vertical;
+  vertical: Vertical | string;
   isOpen: boolean;
   onClose: () => void;
   isLoading: boolean;
@@ -92,7 +92,7 @@ const AdjacentTrendCard: React.FC<{
 // ── Trend Card ────────────────────────────────────────────────────────
 const TrendCard: React.FC<{
   trend: Trend;
-  vertical: Vertical;
+  vertical: Vertical | string;
   onLearnMore: (name: string) => void;
   isHighlighted: boolean;
   onExploreGraph?: (trendId: string) => void;

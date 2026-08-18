@@ -562,8 +562,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
       <GateFrame footer={footer} margin={
         <>
           <Margin n="re:" label={graphName} body={`${graphOwner} · updated weekly`} />
-          <Margin n="incl." label="What you get" body={"Free Base account access.\n100 queries/month, no card needed."} />
-          <Margin n="→" label="Already registered?" body={<a onClick={() => { setIsSignUp(false); setReferralGraph(null); }} className="cursor-pointer" style={{ color: 'var(--brand)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4, fontSize: 12 }}>Sign in instead →</a>} />
+          <Margin n="incl." label="What you get" body={"Free Base account access.\n100 queries/month."} />
+          <Margin n="→" label="Already registered?" body={<a onClick={() => { setIsSignUp(false); setReferralGraph(null); }} className="cursor-pointer" style={{ color: 'var(--brand)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4, fontSize: 12 }}>Sign in with Clerk →</a>} />
         </>
       }>
         <div className="inline-flex items-center gap-2.5" style={{ padding: '6px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 999, marginBottom: 18 }}>
@@ -576,6 +576,21 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         </h2>
         <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 500, lineHeight: 1.65, margin: '0 0 30px' }}>{graphHeadline}</p>
         {promoTag && <div className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', marginBottom: 16 }}>✨ PROMO: {promoTag.toUpperCase()}</div>}
+
+        {/* ── OAuth quick sign-in / sign-up via Clerk ── */}
+        <div style={{ maxWidth: 480, marginBottom: 24 }}>
+          <div className="flex items-center gap-2" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
+            <OAuthBtn provider="oauth_google" label="Google" onClick={() => handleOAuth('oauth_google')} />
+            <OAuthBtn provider="oauth_github" label="GitHub" onClick={() => handleOAuth('oauth_github')} />
+            <OAuthBtn provider="oauth_linkedin_oidc" label="LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+          </div>
+          <div className="flex items-center gap-3">
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-4" style={{ maxWidth: 480 }}>
             <div className="grid gap-5 gate-name-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -590,9 +605,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           <div id="clerk-captcha" />
           {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
           <div className="flex items-center gap-3.5" style={{ marginTop: 32, paddingTop: 18, borderTop: '1px solid var(--ink)' }}>
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>no card needed · 30-day reader pass</span>
+            <a onClick={() => { setIsSignUp(false); setReferralGraph(null); }} className="cursor-pointer" style={{ fontSize: 12, color: 'var(--ink-2)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}>Sign in with Clerk →</a>
             <span style={{ flex: 1 }} />
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Creating account…" />Creating Account…</span> : 'Add this graph to my desk →'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Creating account…" />Creating Account…</span> : 'Continue with Email →'}</Btn>
           </div>
         </form>
       </GateFrame>

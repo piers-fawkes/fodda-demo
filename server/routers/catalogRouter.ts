@@ -115,6 +115,8 @@ router.get("/graph-catalog", async (req, res) => {
         // Build a lookup: graphId -> analyst (scoped to Digital Twin analysts with dedicated graphs)
         const graphIdToAnalyst = new Map<string, any>();
         for (const analyst of analysts) {
+          const analystStatus = (analyst.status || analyst.Status || '').toLowerCase().trim();
+          if (analystStatus !== 'active') continue;
           const analystSubType = (analyst.graphSubType || '').toLowerCase().trim();
           const backingGraphs: string[] = Array.isArray(analyst.backingGraphs) ? analyst.backingGraphs : [];
           if (analystSubType === 'digital twin' && backingGraphs.length === 1 && backingGraphs[0] !== '*') {

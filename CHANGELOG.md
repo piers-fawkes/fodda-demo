@@ -3,6 +3,65 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-16] — Test Bench MCP-Only & Optional Focus Control (`frontend/App.tsx`, `frontend/components/DevToolsDrawer.tsx`, `frontend/components/ChatInterface.tsx`, `frontend/components/EvidenceDrawer.tsx`)
+
+### Changed
+- **MCP-Only Sandbox Pipeline (`frontend/App.tsx`)**: Removed legacy Direct API mode branch (`dataService.retrieve` + `generateResponse`), dead `inferBaselineQuestion` helper, and `isMcpMode` state. Made `handleSendMessage` in the Test Bench unconditionally route via MCP agentic `dataService.mcpChat`.
+- **Default Unscoped Queries (`frontend/App.tsx`, `frontend/components/ChatInterface.tsx`)**: Changed default vertical in Sandbox from `Vertical.Retail` to `'all'`. Test Bench queries now start unscoped across all live graphs and tools without requiring graph pre-selection.
+- **Demoted Graph Selector to Optional Focus (`frontend/App.tsx`)**:
+  - Relabeled header selector from "Graph:" to "Focus (optional)" with default "All graphs".
+  - Added "All graphs (recommended)" top row to the dropdown to reset focus back to `'all'`.
+  - Added an inline dismiss `×` clear button to the Focus trigger when a focus graph is set, allowing one-click return to "All graphs".
+  - Updated header copy to tools-first agentic behavior: *"Ask anything — the agent picks the right graphs and tools."*
+- **DevTools Drawer Prop Cleanup (`frontend/components/DevToolsDrawer.tsx`, `frontend/App.tsx`)**: Dropped `isMcpMode` and `onToggleMcpMode` props while keeping full MCP transaction logging and trace visualization.
+- **Unscoped Handling in Chat Interface (`frontend/components/ChatInterface.tsx`, `frontend/components/EvidenceDrawer.tsx`)**: Added support for `vertical: 'all'`, including "All Graphs" header label, orb status label, input placeholder, and cross-vertical starter queries.
+
+### Files Changed
+- `frontend/App.tsx`
+- `frontend/components/DevToolsDrawer.tsx`
+- `frontend/components/ChatInterface.tsx`
+- `frontend/components/EvidenceDrawer.tsx`
+- `CHANGELOG.md`
+
+### Manual Verification
+- **Build verification**: `npm run build` (`vite build`) compiled 1,676 modules cleanly with 0 TypeScript/JSX errors in 3.68s.
+- **Codebase hygiene verification**: Verified 0 remaining references to `isMcpMode`, `onToggleMcpMode`, or `inferBaselineQuestion` in the application code.
+
+## [2026-08-14] — AuthGate Referral Landing Clerk OAuth & Outdated Text Removal (`frontend/components/AuthGate.tsx`)
+
+### Fixed
+- **Outdated Text Removal (`frontend/components/AuthGate.tsx`)**: Removed out-of-date `no card needed · 30-day reader pass` subtext and marginalia text from Screen 08 (referral / expert graph landing page).
+- **Submit Button Text Update (`frontend/components/AuthGate.tsx`)**: Replaced outdated button label `'Add this graph to my desk →'` with `'Continue with Email →'`.
+- **Clerk OAuth & Login Integration (`frontend/components/AuthGate.tsx`)**: Embedded Clerk OAuth buttons (`Google`, `GitHub`, `LinkedIn`) above the email form with an `OR WITH EMAIL` divider, and added an explicit `Sign in with Clerk →` link for existing users.
+
+### Files Changed
+- `frontend/components/AuthGate.tsx`
+- `CHANGELOG.md`
+
+### Manual Verification
+- **Build verification**: Ran `npm run build` (`vite build`), which completed cleanly in 7.36s with zero TypeScript/JSX errors.
+
+## [2026-08-14] — Filter Unclaimed Test Graphs Off Experts Page (`frontend/components/ExpertDirectoryPage.tsx`, `shared/dataService.ts`, `server/routers/catalogRouter.ts`)
+
+### Fixed
+- **Active-Analyst Gate (`frontend/components/ExpertDirectoryPage.tsx`, `shared/dataService.ts`, `server/routers/catalogRouter.ts`)**: Enforced structural gating on the Experts page so expert cards are rendered ONLY for analysts returned with `status === 'Active'` from `GET /v1/analysts`. Filtered non-active analyst records (`Unclaimed`, `Beta`, `declined`, `Draft`, `Archived`) out of `dataService.fetchGraphs()` mapping and demoted catalog graphs with `graph_type === 'expert'` that lack active analyst backing to `graph_type === 'domain'`.
+- **Defense-in-Depth Raw-Slug Guard (`frontend/components/ExpertDirectoryPage.tsx`)**: Added `isRawSlug(name, id)` helper matching `/^[a-z0-9]+(-[a-z0-9]+)+$/` or `name === id`. If any card's display name evaluates to a raw slug (such as test fixtures like `alex-mercer-retail-graph`), it is automatically suppressed from rendering and logged with `console.warn`.
+- **Structural Exclusion without Blocklists**: Fixed expert roster leakage structurally without hardcoding name strings (e.g. "alex-mercer"). Preserved report and curated graphs in the Ask graph selector as required.
+
+### Files Changed
+- `frontend/components/ExpertDirectoryPage.tsx`
+- `shared/dataService.ts`
+- `server/routers/catalogRouter.ts`
+- `CHANGELOG.md`
+
+### Manual Verification
+- **Build verification**: `npm run build` (`vite build`) compiled 1,677 modules cleanly with zero errors.
+- **Filtering verification**: Executed test suite confirming:
+  1. `alex-mercer-retail-graph` (declined/unclaimed test fixture) is verifiably excluded from rendering.
+  2. All 18 active analysts (10 Digital Twins, 8 Synthetic Experts) render properly with real display names and verified badges.
+  3. Raw slug display names matching `/^[a-z0-9]+(-[a-z0-9]+)+$/` are suppressed from customer view.
+  4. Curated domain and report graphs remain available in the Ask graph selector.
+
 ## [2026-08-14] — Connector Sign-In Fixes & Email Magic Link Resume (`frontend/components/AuthGate.tsx`)
 
 ### Fixed

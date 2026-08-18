@@ -1,5 +1,5 @@
 
-import { Vertical, Message, RetrievalResult, User, Account, AuthResponse, KnowledgeGraph } from '../shared/types';
+import { Vertical, Message, User, Account, AuthResponse, KnowledgeGraph } from '../shared/types';
 import { Sidebar, AppView } from './components/Sidebar';
 import { ChatInterface } from './components/ChatInterface';
 import { EvidenceDrawer } from './components/EvidenceDrawer';
@@ -33,12 +33,10 @@ import { AnswerReceiptDrawer, ReceiptData } from './components/AnswerReceiptDraw
 import { ExpertTwinPage } from './components/ExpertTwinPage';
 import { UnclaimedExpertModal } from './components/UnclaimedExpertModal';
 import { dataService, ApiError } from '../shared/dataService';
-import { generateResponse } from './services/geminiService';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useDiscovery } from './hooks/useDiscovery';
 import { useAuth, useOrganizationList } from '@clerk/react';
 import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/WelcomeContextPopup';
-import { BASELINE_QUESTIONS } from '../shared/constants';
 import { useLavaWallet } from './hooks/useLavaWallet';
 
 // Global fetch interceptor to inject Clerk JWT Bearer Token
@@ -130,7 +128,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const [accessMode, setAccessMode] = useState<'psfk' | 'waldo'>('psfk');
-  const [currentVertical, setCurrentVertical] = useState<Vertical>(Vertical.Retail);
+  const [currentVertical, setCurrentVertical] = useState<Vertical | string>('all');
 
   // Context & Identity State
   const [userContext, setUserContext] = useState('');
@@ -281,7 +279,6 @@ const App: React.FC = () => {
   const [hasSetInitialView, setHasSetInitialView] = useState(false);
 
   const [isDevMode, setIsDevMode] = useState(false);
-  const [isMcpMode, setIsMcpMode] = useState(true); // Default to MCP for full agentic experience
   const [apiTransaction, setApiTransaction] = useState<{ request: any, headers?: any, response: any, durationMs: number, timestamp: number } | null>(null);
 
   // ─── Dynamic Graph Catalog (Airtable-powered) ───
@@ -444,7 +441,7 @@ const App: React.FC = () => {
 
   // Preserve inputValue between switches (intentional)
   useEffect(() => {
-    const newKey = `${activeView}:${currentVertical}:${accessMode}:${isMcpMode}`;
+    const newKey = `${activeView}:${currentVertical}:${accessMode}`;
     // Save outgoing session's messages
     if (prevChatKeyRef.current && messages.length > 0) {
       chatHistoryRef.current[prevChatKeyRef.current] = messages;
@@ -456,7 +453,7 @@ const App: React.FC = () => {
     setHighlightedItem(null);
     setIsEvidenceOpen(false);
     setApiTransaction(null);
-  }, [currentVertical, accessMode, isMcpMode, activeView]);
+  }, [currentVertical, accessMode, activeView]);
 
   // Deep-link: open top-up modal when navigated via /account/top-up
   useEffect(() => {
@@ -771,53 +768,6 @@ const App: React.FC = () => {
 
   // Clerk handles verification, registration, sign-in, and team joining natively via its headless SDK hooks.
 
-  const inferBaselineQuestion = useCallback(async (query: string): Promise<string> => {
-    try {
-      // Use server proxy to avoid exposing API key
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Gemini-Key': demoApiKey || '' // Pass user-selected key if present
-        },
-        body: JSON.stringify({
-          model: 'gemini-2.5-flash',
-          contents: `Mapping Request: "${query}"\n\nSurvey Schema:\n${BASELINE_QUESTIONS.map(q => `${q.id}: ${q.label}`).join('\n')}`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                questionId: { type: "STRING" }
-              },
-              required: ["questionId"]
-            },
-            systemInstruction: `You are a machine-to-machine mapping agent. Identify the best survey questionId.
-            Common intents:
-            - "tiktok", "instagram" -> SMUSE_TT, SMUSE_IG
-            - "internet", "broadband" -> BBHOME
-            - "safety", "crime" -> CRIMESAFE
-            - "financial" -> FIN_SIT
-            If no mapping exists, return 'BBHOME'.`
-          }
-        })
-      });
-
-      if (!response.ok) return 'BBHOME';
-
-      const data = await response.json();
-      // data is the full Gemini response object
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return 'BBHOME';
-
-      const json = JSON.parse(text);
-      return json.questionId || 'BBHOME';
-    } catch (e) {
-      console.error("Baseline inference failed", e);
-      return 'BBHOME';
-    }
-  }, [demoApiKey]);
-
   const handleSendMessage = useCallback(async (text: string, manualTerms?: string[], promptSource?: string) => {
     if (!text.trim()) return;
 
@@ -851,147 +801,72 @@ const App: React.FC = () => {
     );
 
     try {
-      if (isMcpMode) {
-        // ── MCP AGENTIC MODE ──
-        // Routes through the Fodda MCP server for the full experience
-        const userEmail = currentUser?.email || '';
+      // ── MCP AGENTIC MODE (Default & Only Pipeline) ──
+      // Routes through the Fodda MCP server for full agentic tool fan-out
+      const userEmail = currentUser?.email || '';
 
-        // Build persona context from confirmed fields (only if sharing is enabled)
-        const userShareEnabled = currentUser?.shareContextInSessions !== false;
-        const accountShareEnabled = currentAccount?.shareAccountContextInSessions !== false;
-        let mcpPersonaCtx = '';
-        if (userShareEnabled && currentUser?.personaConfirmed && currentUser?.confirmedPersonaText) {
-          mcpPersonaCtx = currentUser.confirmedPersonaText;
-        }
-        if (userShareEnabled && currentUser?.interestsCurrent) {
-          try {
-            const interests = JSON.parse(currentUser.interestsCurrent);
-            if (Array.isArray(interests) && interests.length > 0) {
-              const topInterests = interests.slice(0, 5).map((i: any) => i.node).join(', ');
-              mcpPersonaCtx += mcpPersonaCtx ? `. Key interests: ${topInterests}` : `Key interests: ${topInterests}`;
-            }
-          } catch { /* ignore invalid JSON */ }
-        }
-
-        const mcpResult = await dataService.mcpChat(
-          text,
-          currentVertical,
-          userEmail,
-          currentAccount?.apiKey || '',
-          currentUser?.firstName,
-          mcpPersonaCtx || undefined,
-          userShareEnabled ? (userContext || undefined) : undefined,
-          accountShareEnabled ? (accountContext || undefined) : undefined
-        );
-
-        if (!mcpResult.ok) {
-          throw new Error(mcpResult.error || 'MCP chat failed');
-        }
-
-        // DEV MODE: Capture MCP transaction for DevTools
-        setApiTransaction({
-          request: { query: text, vertical: currentVertical, mode: 'mcp' },
-          headers: { 'X-Fodda-Execution-Mode': 'mcp' },
-          response: {
-            toolCalls: mcpResult.toolCalls,
-            totalDurationMs: mcpResult.totalDurationMs,
-            answerLength: mcpResult.answer?.length || 0,
-          },
-          durationMs: mcpResult.totalDurationMs || 0,
-          timestamp: Date.now()
-        });
-
-        const assistantMsg: Message = {
-          id: generateUUID(),
-          role: 'assistant',
-          content: mcpResult.answer || 'No response generated.',
-          timestamp: Date.now(),
-          evidence: [],
-          relatedTrends: [],
-          suggestedQuestions: mcpResult.suggestedQuestions || [],
-          stepCount: mcpResult.toolCalls?.length || 1,
-          failureType: mcpResult.failureType,
-          diagnostic: {
-            dataStatus: 'MCP_AGENTIC',
-            termsUsed: mcpResult.toolCalls?.map((tc: any) => tc.tool) || []
-          }
-        } as Message;
-
-        setMessages((prev: Message[]) => [...prev, assistantMsg]);
-
-      } else {
-        // ── DIRECT API MODE ──
-        // Current pipeline: retrieve() → generateResponse()
-        let result: RetrievalResult;
-
-        if (currentVertical === Vertical.Baseline) {
-          const qId = await inferBaselineQuestion(text);
-          result = await dataService.retrieve(text, Vertical.Baseline, 200, {
-            questionId: qId,
-            segmentType: 'AGEGRP',
-            excludeBlank: true
-          }, trackingInfo);
-        } else {
-          result = await dataService.retrieve(text, currentVertical, 40, { manualTerms }, trackingInfo, 'direct');
-        }
-
-        // DEV MODE: Capture transaction
-        if (result.debug) {
-          setApiTransaction({
-            request: result.debug.request,
-            headers: result.debug.headers,
-            response: result.debug.response,
-            durationMs: result.debug.durationMs,
-            timestamp: Date.now()
-          });
-        }
-
-        // Build persona context from confirmed fields (only if sharing is enabled)
-        const shareEnabled = currentUser?.shareContextInSessions !== false;
-        const accountShareEnabled = currentAccount?.shareAccountContextInSessions !== false;
-        let personaContext = '';
-        if (shareEnabled && currentUser?.personaConfirmed && currentUser?.confirmedPersonaText) {
-          personaContext = currentUser.confirmedPersonaText;
-        }
-        if (shareEnabled && currentUser?.interestsCurrent) {
-          try {
-            const interests = JSON.parse(currentUser.interestsCurrent);
-            if (Array.isArray(interests) && interests.length > 0) {
-              const topInterests = interests.slice(0, 5).map((i: any) => i.node).join(', ');
-              personaContext += personaContext ? `. Key interests: ${topInterests}` : `Key interests: ${topInterests}`;
-            }
-          } catch { /* ignore invalid JSON */ }
-        }
-
-        // Generate AI Response Synthesis
-        const generationResult = await generateResponse(
-          text,
-          currentVertical,
-          result,
-          shareEnabled ? userContext : undefined,
-          accountShareEnabled ? accountContext : undefined,
-          currentUser?.firstName,
-          personaContext || undefined
-        );
-
-        // Process result
-        const assistantMsg: Message = {
-          id: generateUUID(),
-          role: 'assistant',
-          content: generationResult.answer,
-          timestamp: Date.now(),
-          evidence: result.articles || [],
-          relatedTrends: result.trends || [],
-          suggestedQuestions: generationResult.suggestedQuestions,
-          diagnostic: {
-            dataStatus: result.dataStatus,
-            termsUsed: result.termsUsed
-          }
-        };
-
-        setMessages((prev: Message[]) => [...prev, assistantMsg]);
-        setIsEvidenceOpen(true);
+      // Build persona context from confirmed fields (only if sharing is enabled)
+      const userShareEnabled = currentUser?.shareContextInSessions !== false;
+      const accountShareEnabled = currentAccount?.shareAccountContextInSessions !== false;
+      let mcpPersonaCtx = '';
+      if (userShareEnabled && currentUser?.personaConfirmed && currentUser?.confirmedPersonaText) {
+        mcpPersonaCtx = currentUser.confirmedPersonaText;
       }
+      if (userShareEnabled && currentUser?.interestsCurrent) {
+        try {
+          const interests = JSON.parse(currentUser.interestsCurrent);
+          if (Array.isArray(interests) && interests.length > 0) {
+            const topInterests = interests.slice(0, 5).map((i: any) => i.node).join(', ');
+            mcpPersonaCtx += mcpPersonaCtx ? `. Key interests: ${topInterests}` : `Key interests: ${topInterests}`;
+          }
+        } catch { /* ignore invalid JSON */ }
+      }
+
+      const mcpResult = await dataService.mcpChat(
+        text,
+        currentVertical,
+        userEmail,
+        currentAccount?.apiKey || '',
+        currentUser?.firstName,
+        mcpPersonaCtx || undefined,
+        userShareEnabled ? (userContext || undefined) : undefined,
+        accountShareEnabled ? (accountContext || undefined) : undefined
+      );
+
+      if (!mcpResult.ok) {
+        throw new Error(mcpResult.error || 'MCP chat failed');
+      }
+
+      // DEV MODE: Capture MCP transaction for DevTools
+      setApiTransaction({
+        request: { query: text, vertical: currentVertical, mode: 'mcp' },
+        headers: { 'X-Fodda-Execution-Mode': 'mcp' },
+        response: {
+          toolCalls: mcpResult.toolCalls,
+          totalDurationMs: mcpResult.totalDurationMs,
+          answerLength: mcpResult.answer?.length || 0,
+        },
+        durationMs: mcpResult.totalDurationMs || 0,
+        timestamp: Date.now()
+      });
+
+      const assistantMsg: Message = {
+        id: generateUUID(),
+        role: 'assistant',
+        content: mcpResult.answer || 'No response generated.',
+        timestamp: Date.now(),
+        evidence: [],
+        relatedTrends: [],
+        suggestedQuestions: mcpResult.suggestedQuestions || [],
+        stepCount: mcpResult.toolCalls?.length || 1,
+        failureType: mcpResult.failureType,
+        diagnostic: {
+          dataStatus: 'MCP_AGENTIC',
+          termsUsed: mcpResult.toolCalls?.map((tc: any) => tc.tool) || []
+        }
+      } as Message;
+
+      setMessages((prev: Message[]) => [...prev, assistantMsg]);
     } catch (err: any) {
       console.error("[App] Search Failed:", err);
 
@@ -1017,7 +892,7 @@ const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId, inferBaselineQuestion]);
+  }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId]);
 
   // ─── Auto-submit prefilled question when chat is ready ───
   useEffect(() => {
@@ -1054,9 +929,8 @@ const App: React.FC = () => {
   }, [isUnlocked, prefilledQuestion, activeView, initialExpertSlug, initialReferralGraph, currentVertical, graphCatalog, handleSendMessage]);
 
   const handleVerticalChange = (newVertical: string) => {
-    const v = newVertical as Vertical;
-    if (v === currentVertical) return;
-    setCurrentVertical(v);
+    if (newVertical === currentVertical) return;
+    setCurrentVertical(newVertical as any);
     // State reset is handled by useEffect dependency on currentVertical
   };
 
@@ -1671,45 +1545,71 @@ const App: React.FC = () => {
         groupedGraphs[key].sort((a, b) => (a.name || a.domain || a.verticalName || '').localeCompare(b.name || b.domain || b.verticalName || ''));
       });
 
-      // If current vertical isn't in the research list, switch to the first available
-      const isCurrentInResearch = graphOptions.some(g => g.id === currentVertical);
-      if (!isCurrentInResearch && graphOptions.length > 0) {
-        setTimeout(() => handleVerticalChange(graphOptions[0].id), 0);
-      }
-
-      const activeGraph = graphOptions.find(g => g.id === currentVertical) || graphOptions[0];
+      const isFocused = Boolean(currentVertical && currentVertical !== 'all');
+      const activeGraph = isFocused ? graphOptions.find(g => g.id.toLowerCase() === (currentVertical || '').toLowerCase()) : null;
 
       return (
         <>
           {/* Graph Chat View */}
           <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Page Header — title + graph selector + diagnostic console */}
+            {/* Page Header — title + focus selector + diagnostic console */}
             <div className="px-8 pt-8 pb-2 shrink-0 flex items-start justify-between relative z-20">
               <div>
                 <p className="eyebrow mb-1">Graph Chat</p>
                 <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Research Graphs</h1>
-                <p className="text-sm text-ink-3 mt-1">Compose a query against any live graph.</p>
+                <p className="text-sm text-ink-3 mt-1">Ask anything — the agent picks the right graphs and tools.</p>
               </div>
               
               <div className="flex items-center gap-3 shrink-0">
-                {/* Graph Selector — inline in header */}
+                {/* Focus Selector (Optional) — inline in header */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-ink-4 uppercase tracking-[0.15em] shrink-0 hidden sm:inline">Graph:</span>
+                  <span className="text-[10px] font-bold text-ink-4 uppercase tracking-[0.15em] shrink-0 hidden sm:inline">Focus (optional):</span>
                   <div className="relative">
-                    <button
-                      onClick={() => setIsGraphSelectorOpen(prev => !prev)}
-                      className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-xl text-xs font-bold text-ink hover:border-line-strong transition-all shrink-0 shadow-sm"
-                    >
-                      {activeGraph && PSFK_GRAPH_IDS.has(activeGraph.id) ? (
-                        <img src="https://psfk.com/favicon.ico" alt="PSFK" className="w-4 h-4 rounded-sm object-cover shrink-0" />
-                      ) : (
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setIsGraphSelectorOpen(prev => !prev)}
+                        className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm ${
+                          isFocused && activeGraph
+                            ? 'border-brand/40 text-brand bg-brand-soft/30 hover:border-brand'
+                            : 'border-line text-ink hover:border-line-strong'
+                        }`}
+                      >
+                        {isFocused && activeGraph ? (
+                          PSFK_GRAPH_IDS.has(activeGraph.id.toLowerCase()) ? (
+                            <img src="https://psfk.com/favicon.ico" alt="PSFK" className="w-4 h-4 rounded-sm object-cover shrink-0" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                          )
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-ink-4 shrink-0" />
+                        )}
+                        <span className="truncate max-w-[140px] sm:max-w-[200px]">
+                          {isFocused && activeGraph
+                            ? (activeGraph.name || activeGraph.domain || activeGraph.verticalName)
+                            : 'All graphs'}
+                        </span>
+                        <svg className={`w-3.5 h-3.5 text-ink-4 transition-transform duration-200 ${isGraphSelectorOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Dismissible chip clear button when focus is active */}
+                      {isFocused && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleVerticalChange('all');
+                          }}
+                          className="p-1.5 bg-white border border-line hover:border-line-strong hover:bg-line-soft rounded-xl text-ink-4 hover:text-ink transition-all shadow-sm shrink-0"
+                          title="Clear focus (search across all graphs)"
+                          aria-label="Clear focus"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       )}
-                      <span className="truncate max-w-[140px] sm:max-w-[200px]">{activeGraph ? (activeGraph.name || activeGraph.domain || activeGraph.verticalName) : 'Select a Graph...'}</span>
-                      <svg className={`w-3.5 h-3.5 text-ink-4 transition-transform duration-200 ${isGraphSelectorOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                    </div>
 
                     {/* Dropdown Panel */}
                     {isGraphSelectorOpen && (
@@ -1746,6 +1646,33 @@ const App: React.FC = () => {
 
                           {/* List Area */}
                           <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-3">
+                            {/* "All graphs (recommended)" Top Option */}
+                            {(!graphSearchQuery || 'all graphs'.includes(graphSearchQuery.toLowerCase().trim())) && (
+                              <div className="pb-1.5 border-b border-line-soft">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVerticalChange('all');
+                                    setIsGraphSelectorOpen(false);
+                                    setGraphSearchQuery('');
+                                  }}
+                                  className={`w-full text-left px-3 py-2 rounded-xl text-xs flex flex-col gap-0.5 transition-all ${
+                                    !isFocused
+                                      ? 'bg-brand-soft text-brand border border-brand/20'
+                                      : 'text-ink-2 hover:bg-line-soft border border-transparent hover:text-ink'
+                                  }`}
+                                >
+                                  <div className="font-bold flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${!isFocused ? 'bg-brand' : 'bg-ink-4'}`} />
+                                    <span>All graphs (recommended)</span>
+                                  </div>
+                                  <span className="text-[10px] text-ink-3 truncate font-normal leading-tight">
+                                    Unscoped query — the agent searches across all live graphs and tools
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+
                             {Object.entries(groupedGraphs).map(([catKey, graphsInCat]) => {
                               // Filter graphs within category by search query
                               const filtered = graphsInCat.filter(g => {
@@ -1802,15 +1729,16 @@ const App: React.FC = () => {
                             })}
 
                             {/* No Results Found */}
-                            {Object.values(groupedGraphs).every(
-                              graphsInCat =>
-                                graphsInCat.filter(g => {
-                                  const name = (g.domain || g.verticalName || g.name || '').toLowerCase();
-                                  const desc = (g.description || g.headline || '').toLowerCase();
-                                  const query = graphSearchQuery.toLowerCase().trim();
-                                  return name.includes(query) || desc.includes(query);
-                                }).length === 0
-                            ) && (
+                            {(!('all graphs'.includes(graphSearchQuery.toLowerCase().trim()))) &&
+                              Object.values(groupedGraphs).every(
+                                graphsInCat =>
+                                  graphsInCat.filter(g => {
+                                    const name = (g.domain || g.verticalName || g.name || '').toLowerCase();
+                                    const desc = (g.description || g.headline || '').toLowerCase();
+                                    const query = graphSearchQuery.toLowerCase().trim();
+                                    return name.includes(query) || desc.includes(query);
+                                  }).length === 0
+                              ) && (
                               <div className="py-6 text-center text-ink-4 text-xs italic">
                                 No graphs found matching "{graphSearchQuery}"
                               </div>
@@ -2051,8 +1979,6 @@ const App: React.FC = () => {
         isOpen={isDevMode}
         onClose={() => setIsDevMode(false)}
         transaction={apiTransaction}
-        isMcpMode={isMcpMode}
-        onToggleMcpMode={() => setIsMcpMode(!isMcpMode)}
         simulationMode={null}
         onSimulationChange={() => {}}
       />

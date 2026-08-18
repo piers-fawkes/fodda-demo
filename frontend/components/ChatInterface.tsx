@@ -1,14 +1,14 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { ThinkingOrb, type OrbState } from 'thinking-orbs';
 import ReactMarkdown from 'react-markdown';
-import { LayoutDashboard, Search, Building2, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Search, Building2, Briefcase, Sparkles } from 'lucide-react';
 import { Message, Vertical, KnowledgeGraph } from '../../shared/types';
 import { SUGGESTED_QUESTIONS } from '../../shared/constants';
 
 interface ChatInterfaceProps {
   messages: Message[];
   isProcessing: boolean;
-  vertical: Vertical;
+  vertical: Vertical | string;
   inputValue: string;
   onInputChange: (val: string) => void;
   onSendMessage: (msg: string, terms?: string[], promptSource?: string) => void;
@@ -189,6 +189,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return () => clearInterval(interval);
   }, [isProcessing]);
 
+  const isUnscoped = !vertical || vertical === 'all';
   const isBaseline = vertical === Vertical.Baseline;
   const isSIC = vertical === Vertical.SIC;
   const isWaldo = vertical === Vertical.Waldo;
@@ -197,13 +198,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const isBeauty = vertical === Vertical.Beauty;
 
   const VerticalIcon = useMemo(() => {
+    if (isUnscoped) return Sparkles;
     if (isBaseline) return LayoutDashboard;
     if (isWaldo) return Search;
     if (isSIC) return Building2;
     return Briefcase; // Default/PSFK
-  }, [isBaseline, isWaldo, isSIC]);
+  }, [isUnscoped, isBaseline, isWaldo, isSIC]);
 
   const headerLabel = useMemo(() => {
+    if (isUnscoped) return 'All Graphs';
     const catalogItem = graphCatalog?.find(g => g.id === vertical);
     if (catalogItem?.name) return catalogItem.name;
 
@@ -214,9 +217,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (isSports) return 'Future of Sports Graph';
     if (isBeauty) return 'Future of Beauty Graph';
     return `${vertical} Graph`;
-  }, [vertical, isBaseline, isSIC, isWaldo, isRetail, isSports, isBeauty, graphCatalog]);
+  }, [vertical, isUnscoped, isBaseline, isSIC, isWaldo, isRetail, isSports, isBeauty, graphCatalog]);
 
   const welcomeTitle = useMemo(() => {
+    if (isUnscoped) return 'Traceable Strategic Discovery.';
     const catalogItem = graphCatalog?.find(g => g.id === vertical);
     if (catalogItem?.headline) return catalogItem.headline;
 
@@ -227,7 +231,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (isSports) return 'Sports Sector Future Trends & Current Signals.';
     if (isBeauty) return 'Beauty Sector Future Trends & Current Signals.';
     return 'Traceable Strategic Discovery.';
-  }, [vertical, isBaseline, isSIC, isWaldo, isRetail, isSports, isBeauty, graphCatalog]);
+  }, [vertical, isUnscoped, isBaseline, isSIC, isWaldo, isRetail, isSports, isBeauty, graphCatalog]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,7 +435,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 {ORB_LABELS[orbState]}
               </span>
               <span className="text-[9px] font-mono text-ink-4 uppercase tracking-widest mt-0.5">
-                {isBaseline ? 'via Pew Data Graph' : `via ${headerLabel}`}
+                {isBaseline ? 'via Pew Data Graph' : isUnscoped ? 'across all live graphs' : `via ${headerLabel}`}
               </span>
             </div>
           </div>
@@ -446,7 +450,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               {(() => {
                 // Perform a case-insensitive search in graphCatalog
                 const catalogGraph = graphCatalog?.find(
-                  g => g.id.toLowerCase() === vertical.toLowerCase()
+                  g => g.id.toLowerCase() === (vertical || '').toLowerCase()
                 );
                 const dynamicQueries = catalogGraph?.example_queries;
 
@@ -459,6 +463,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 } else if (isBaseline) {
                   return ["How often do older Americans use TikTok?", "Perceptions of crime safety by age", "Broadband access among urban populations", "Trust in government protection"].map((q, i) => (
                     <button key={i} onClick={() => onSendMessage(q)} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
+                      {q}
+                    </button>
+                  ));
+                } else if (isUnscoped) {
+                  return [
+                    "What emerging trends are shaping retail in 2026?",
+                    "How is AI driving innovation across beauty and wellness?",
+                    "What are the latest shifts in sports fan engagement?",
+                    "Key technology signals and consumer behavior trends"
+                  ].map((q, i) => (
+                    <button key={i} onClick={() => onSendMessage(q, undefined, 'welcome_unscoped')} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
                       {q}
                     </button>
                   ));
@@ -476,7 +491,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
                   // Case-insensitive lookup in SUGGESTED_QUESTIONS
                   const staticQuestionsKey = Object.keys(SUGGESTED_QUESTIONS).find(
-                    k => k.toLowerCase() === vertical.toLowerCase()
+                    k => k.toLowerCase() === (vertical || '').toLowerCase()
                   );
                   const staticQuestions = staticQuestionsKey
                     ? SUGGESTED_QUESTIONS[staticQuestionsKey as Exclude<Vertical, Vertical.Baseline>]
@@ -505,7 +520,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             type="text"
             value={inputValue}
             onChange={(e) => onInputChange(e.target.value)}
-            placeholder={isBaseline ? "Ask a question..." : `Identify signals in ${vertical.toLowerCase()}...`}
+            placeholder={isBaseline ? "Ask a question..." : isUnscoped ? "Ask anything — research across all live graphs..." : `Identify signals in ${vertical.toLowerCase()}...`}
             className="flex-1 bg-transparent border-none rounded-[14px] px-3 py-2.5 text-ink text-sm placeholder:text-ink-4 focus:outline-none focus:ring-0 transition-all h-10 font-sans"
             disabled={isProcessing}
           />
