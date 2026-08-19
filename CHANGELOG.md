@@ -23,9 +23,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - `frontend/components/EvidenceDrawer.tsx`
 - `CHANGELOG.md`
 
+### Deployed
+- **Google Cloud Run (`fodda-sandbox`)**: Deployed revision `fodda-sandbox-00530-gbl` to `https://fodda-sandbox-1095548227950.us-central1.run.app` (`app.fodda.ai`) serving 100% of traffic.
+
 ### Manual Verification
 - **Build verification**: `npm run build` (`vite build`) compiled 1,676 modules cleanly with 0 TypeScript/JSX errors in 3.68s.
 - **Codebase hygiene verification**: Verified 0 remaining references to `isMcpMode`, `onToggleMcpMode`, or `inferBaselineQuestion` in the application code.
+- **Deployment verification**: Cloud Run deployment revision `fodda-sandbox-00530-gbl` succeeded with exit code 0.
 
 ## [2026-08-14] — AuthGate Referral Landing Clerk OAuth & Outdated Text Removal (`frontend/components/AuthGate.tsx`)
 
