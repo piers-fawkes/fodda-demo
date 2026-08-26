@@ -577,6 +577,8 @@ class DataService {
     ok: boolean;
     answer?: string;
     suggestedQuestions?: string[];
+    nextMoves?: any;
+    nextMoveLines?: string[];
     toolCalls?: Array<{ tool: string; args: any; durationMs: number; resultPreview: string }>;
     totalDurationMs?: number;
     error?: string;
@@ -756,7 +758,7 @@ class DataService {
     }
   }
 
-  async logToAirtable(userId: string, email: string, query: string, vertical: string, accessKey: string, context?: any, graphIdOverride?: string, promptSource?: string): Promise<{ ok: boolean; error?: string }> {
+  async logToAirtable(userId: string, email: string, query: string, vertical: string, accessKey: string, context?: any, graphIdOverride?: string, promptSource?: string, nextMoveTaken?: string): Promise<{ ok: boolean; error?: string }> {
     // Derive graphId
     const v = vertical.toLowerCase();
     let graphId = graphIdOverride || "psfk";
@@ -776,6 +778,7 @@ class DataService {
         accessKey,
         context,
         promptSource: promptSource || '',
+        next_move_taken: nextMoveTaken || '',
       });
       return { ok: true };
     } catch (err: any) {

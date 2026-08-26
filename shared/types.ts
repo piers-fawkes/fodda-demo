@@ -186,6 +186,8 @@ export interface RetrievalResult {
   };
 }
 
+export type NextMoveTaken = 'thread' | 'specific_brand' | 'specific_stat' | 'specific_expert' | 'shelf' | 'scope' | 'none';
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -206,6 +208,10 @@ export interface Message {
     };
   };
   suggestedQuestions?: string[];
+  nextMoves?: any;
+  nextMoveLines?: string[];
+  stepCount?: number;
+  failureType?: string | null;
 }
 
 // --- New Types for Auth & Account ---

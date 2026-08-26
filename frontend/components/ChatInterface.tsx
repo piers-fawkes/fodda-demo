@@ -161,6 +161,81 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [jobInput, setJobInput] = useState<string>('');
+
+  // ─── Dynamic 4 Catalog Chips (Selected Graph + Popular Categories) ───
+  const welcomeChips = useMemo(() => {
+    if (!graphCatalog || graphCatalog.length === 0) {
+      // Fallback to static questions when Airtable is unreachable
+      const staticQuestionsKey = Object.keys(SUGGESTED_QUESTIONS).find(
+        k => k.toLowerCase() === (vertical || '').toLowerCase()
+      );
+      const staticQuestions = staticQuestionsKey
+        ? SUGGESTED_QUESTIONS[staticQuestionsKey as Exclude<Vertical, Vertical.Baseline>]
+        : SUGGESTED_QUESTIONS[Vertical.Retail] || [];
+      return staticQuestions.slice(0, 4).map(q => ({ text: q.text, terms: q.terms, source: 'welcome_static' as const }));
+    }
+
+    const currentId = (vertical || '').toLowerCase();
+    const catalogGraph = graphCatalog.find(
+      g => g.id.toLowerCase() === currentId || (g.verticalName && g.verticalName.toLowerCase() === currentId)
+    );
+
+    const chips: Array<{ text: string; terms?: string[]; source: 'welcome_catalog' | 'welcome_static' }> = [];
+
+    // 1. Up to 2 chips from the user's selected graph
+    const selectedQueries = (catalogGraph?.example_queries || []).filter(q => q && q.trim().length > 0);
+    if (selectedQueries.length > 0) {
+      chips.push(...selectedQueries.slice(0, 2).map(q => ({ text: q, source: 'welcome_catalog' as const })));
+    }
+
+    // 2. 2 chips from graphs the log shows people actually ask about next:
+    // Gen Z / Culture (sic/culture), Health & Longevity (beauty/health/longevity), F&B (food/f&b), Sports (sports)
+    const priorityCategories = ['sic', 'beauty', 'food', 'sport', 'health', 'longevity', 'retail', 'culture', 'gen z'];
+    const otherGraphs = graphCatalog.filter(g => {
+      const gid = g.id.toLowerCase();
+      const dom = (g.domain || '').toLowerCase();
+      const vname = (g.verticalName || '').toLowerCase();
+      const gTopics = (g.topics || []).map(t => t.toLowerCase());
+      if (gid === currentId) return false;
+      if (!g.example_queries || g.example_queries.length === 0) return false;
+      return priorityCategories.some(cat => gid.includes(cat) || dom.includes(cat) || vname.includes(cat) || gTopics.some(t => t.includes(cat)));
+    });
+
+    for (const g of otherGraphs) {
+      if (chips.length >= 4) break;
+      const gQueries = (g.example_queries || []).filter(q => q && q.trim().length > 0 && !chips.some(c => c.text === q));
+      if (gQueries.length > 0) {
+        chips.push({ text: gQueries[0], source: 'welcome_catalog' as const });
+      }
+    }
+
+    // If still under 4 chips, backfill from any remaining catalog graph example_queries
+    if (chips.length < 4) {
+      for (const g of graphCatalog) {
+        if (chips.length >= 4) break;
+        for (const q of (g.example_queries || [])) {
+          if (chips.length >= 4) break;
+          if (q && q.trim().length > 0 && !chips.some(c => c.text === q)) {
+            chips.push({ text: q, source: 'welcome_catalog' as const });
+          }
+        }
+      }
+    }
+
+    // Final fallback only if no catalog queries existed at all
+    if (chips.length === 0) {
+      const staticQuestionsKey = Object.keys(SUGGESTED_QUESTIONS).find(
+        k => k.toLowerCase() === (vertical || '').toLowerCase()
+      );
+      const staticQuestions = staticQuestionsKey
+        ? SUGGESTED_QUESTIONS[staticQuestionsKey as Exclude<Vertical, Vertical.Baseline>]
+        : SUGGESTED_QUESTIONS[Vertical.Retail] || [];
+      return staticQuestions.slice(0, 4).map(q => ({ text: q.text, terms: q.terms, source: 'welcome_static' as const }));
+    }
+
+    return chips.slice(0, 4);
+  }, [graphCatalog, vertical]);
 
   // Cycle orb state through the MCP pipeline phases while processing
   const ORB_CYCLE: OrbState[] = ['searching', 'solving', 'composing'];
@@ -237,6 +312,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     e.preventDefault();
     if (!inputValue.trim() || isProcessing) return;
     onSendMessage(inputValue);
+  };
+
+  const handleJobSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobInput.trim() || isProcessing) return;
+    onSendMessage(jobInput.trim(), undefined, 'job_scoped');
+    setJobInput('');
   };
 
   useEffect(() => {
@@ -336,16 +418,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     />
 
                     {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
-                      <div className="mt-6 flex flex-wrap gap-2 animate-fade-in-up justify-start pl-1" style={{ animationDelay: '500ms' }}>
-                        {msg.suggestedQuestions.map((q, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => onSendMessage(q, undefined, 'followup')}
-                            className="px-3 py-1.5 bg-paper border border-line rounded-md text-[10px] font-medium text-ink-3 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm active:scale-95 text-left font-mono"
-                          >
-                            {"›"} {q}
-                          </button>
-                        ))}
+                      <div className="mt-4 space-y-1.5 animate-fade-in-up pl-1" style={{ animationDelay: '300ms' }}>
+                        {msg.suggestedQuestions.slice(0, 3).map((line, idx) => {
+                          const sources = ['next_moves_thread', 'next_moves_specific', 'next_moves_scope'];
+                          const source = sources[idx] || 'next_moves_thread';
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => onSendMessage(line, undefined, source)}
+                              className="w-full text-left px-3.5 py-2 bg-paper hover:bg-brand-soft border border-line hover:border-brand/30 rounded-xl text-xs text-ink-2 hover:text-brand transition-all flex items-center justify-between group shadow-2xs"
+                            >
+                              <span className="font-sans font-medium">{line}</span>
+                              <span className="text-ink-4 group-hover:text-brand text-xs font-mono ml-2 shrink-0 transition-transform group-hover:translate-x-0.5">→</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -445,68 +532,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       <div className="px-4 md:px-8 py-4 bg-paper border-t border-line z-10 shrink-0 pb-safe">
         {messages.length === 0 && (
-          <div className="max-w-3xl mx-auto mb-3 pl-0.5 animate-fade-in-up">
+          <div className="max-w-3xl mx-auto mb-3 space-y-2.5 pl-0.5 animate-fade-in-up">
+            {/* Part 1: Job intake input */}
+            <form onSubmit={handleJobSubmit} className="relative flex items-center bg-paper border border-line rounded-[14px] shadow-2xs focus-within:border-brand/40 focus-within:ring-1 focus-within:ring-brand/20 transition-all px-3 py-1">
+              <input
+                type="text"
+                value={jobInput}
+                onChange={(e) => setJobInput(e.target.value)}
+                placeholder="What are you working on? (a brand, a category, or an audience)"
+                className="flex-1 bg-transparent border-none text-xs text-ink placeholder:text-ink-3 focus:outline-none focus:ring-0 font-sans h-8"
+                disabled={isProcessing}
+              />
+              <button
+                type="submit"
+                disabled={!jobInput.trim() || isProcessing}
+                className="px-2.5 py-1 bg-brand text-white font-mono text-[10px] uppercase font-bold rounded-lg hover:bg-brand-dark disabled:opacity-20 transition-all shrink-0 ml-1.5 shadow-2xs"
+              >
+                Set Job ↵
+              </button>
+            </form>
+
+            {/* Part 2: 4 Catalog Chips */}
             <div className="flex flex-wrap gap-2">
-              {(() => {
-                // Perform a case-insensitive search in graphCatalog
-                const catalogGraph = graphCatalog?.find(
-                  g => g.id.toLowerCase() === (vertical || '').toLowerCase()
-                );
-                const dynamicQueries = catalogGraph?.example_queries;
-
-                if (dynamicQueries && dynamicQueries.length > 0) {
-                  return dynamicQueries.map((q: string, i: number) => (
-                    <button key={i} onClick={() => onSendMessage(q, undefined, 'welcome_catalog')} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
-                      {q}
-                    </button>
-                  ));
-                } else if (isBaseline) {
-                  return ["How often do older Americans use TikTok?", "Perceptions of crime safety by age", "Broadband access among urban populations", "Trust in government protection"].map((q, i) => (
-                    <button key={i} onClick={() => onSendMessage(q)} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
-                      {q}
-                    </button>
-                  ));
-                } else if (isUnscoped) {
-                  return [
-                    "What emerging trends are shaping retail in 2026?",
-                    "How is AI driving innovation across beauty and wellness?",
-                    "What are the latest shifts in sports fan engagement?",
-                    "Key technology signals and consumer behavior trends"
-                  ].map((q, i) => (
-                    <button key={i} onClick={() => onSendMessage(q, undefined, 'welcome_unscoped')} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
-                      {q}
-                    </button>
-                  ));
-                } else {
-                  // In Expert Chat, never fall back to static PSFK domain questions (only show expert's own example queries)
-                  if (isExpertChat) {
-                    return null;
-                  }
-
-                  // Also block static fallback if the active catalog graph is an expert or industry report
-                  const isExpertOrReport = catalogGraph && (catalogGraph.graph_type === 'expert' || catalogGraph.graph_type === 'industry_report' || catalogGraph.graph_type === 'industry report');
-                  if (isExpertOrReport) {
-                    return null;
-                  }
-
-                  // Case-insensitive lookup in SUGGESTED_QUESTIONS
-                  const staticQuestionsKey = Object.keys(SUGGESTED_QUESTIONS).find(
-                    k => k.toLowerCase() === (vertical || '').toLowerCase()
-                  );
-                  const staticQuestions = staticQuestionsKey
-                    ? SUGGESTED_QUESTIONS[staticQuestionsKey as Exclude<Vertical, Vertical.Baseline>]
-                    : undefined;
-
-                  if (staticQuestions?.length) {
-                    return staticQuestions.map((q, i) => (
-                      <button key={i} onClick={() => onSendMessage(q.text, q.terms, 'welcome_static')} className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm">
-                        {q.text}
-                      </button>
-                    ));
-                  }
-                  return null;
-                }
-              })()}
+              {welcomeChips.map((chip, i) => (
+                <button
+                  key={i}
+                  onClick={() => onSendMessage(chip.text, chip.terms, chip.source)}
+                  className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm active:scale-95 text-left"
+                >
+                  {chip.text}
+                </button>
+              ))}
             </div>
           </div>
         )}

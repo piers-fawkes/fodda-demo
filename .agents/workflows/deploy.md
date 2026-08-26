@@ -18,6 +18,11 @@ description: How to deploy the Fodda App to Google Cloud Run
 
 ## Prerequisites
 
+- **Deploy ONLY from clean `main` branch**:
+  - `git checkout main`
+  - `git pull origin main`
+  - Ensure `git status --porcelain` is completely clean (no uncommitted or untracked changes).
+  - Record `git rev-parse HEAD` and the resulting Cloud Run revision in `CHANGELOG.md`.
 - `gcloud` CLI installed (located at `/opt/homebrew/bin/gcloud`)
 - `.env` file in the project root with all required environment variables
 - Authenticated with `gcloud auth login`
@@ -26,7 +31,16 @@ description: How to deploy the Fodda App to Google Cloud Run
 
 // turbo-all
 
-1. Deploy the source code (rebuilds the Docker image):
+1. Pre-deploy validation (must be clean `main`):
+
+```bash
+# Verify branch and clean working tree
+[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "❌ Deploy must be run from 'main' branch"; exit 1; }
+[ -z "$(git status --porcelain)" ] || { echo "❌ Working directory must be clean before deploying"; exit 1; }
+echo "✅ Deploying from commit $(git rev-parse HEAD)"
+```
+
+2. Deploy the source code (rebuilds the Docker image):
 
 ```bash
 /opt/homebrew/bin/gcloud run deploy fodda-sandbox \

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { mcpChat, listMcpTools } from '../services/mcpChatService.js';
 import { resolveIdentity, resolveEmailFromApiKey, autoProvisionUser } from '../helpers.js';
 import { createAirtableRecord, LOGS_TABLE_QUESTIONS } from '../db.js';
+import { recordChatTraffic, notifyQueryLogFailure } from '../services/queryReconciliationService.js';
 
 const router = Router();
 
@@ -102,6 +103,9 @@ router.post("/chat", async (req, res) => {
       personaContext
     );
 
+    // Track chat traffic for health check
+    recordChatTraffic();
+
     // Fire-and-forget query log write with true MCP step count & trace JSON
     createAirtableRecord(LOGS_TABLE_QUESTIONS, {
       "question": query,
@@ -114,7 +118,10 @@ router.post("/chat", async (req, res) => {
       "accountId": accountContext || '',
       "taxonomy_node": (vertical || 'all').substring(0, 100),
       "traceJson": result.traceJson || ''
-    }).catch(err => console.error('[McpRouter] Log write failed:', err?.message));
+    }).catch(err => {
+      console.error('[McpRouter] Log write failed:', err?.message);
+      notifyQueryLogFailure(err?.message || 'Questions write failed in /api/mcp/chat');
+    });
 
     res.json({ ok: true, ...result });
   } catch (err: any) {

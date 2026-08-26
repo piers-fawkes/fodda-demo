@@ -24,6 +24,7 @@ import {
 import { calculateQueryUnits } from "../../shared/metering.js";
 import { detectAccountType } from "../services/accountTypeService.js";
 import { generateSetupUrl } from "../services/stripeOverageService.js";
+import { notifyQueryLogFailure, recordChatTraffic } from "../services/queryReconciliationService.js";
 
 const router = Router();
 const OVERVIEW_TTL = 24 * 60 * 60 * 1000;
@@ -240,8 +241,11 @@ router.post("/query", async (req, res) => {
         "source": (apiKey.startsWith('sk_trial_') || accountType === 'trial') ? 'trial' : 'api',
         "accountId": tenantId || '',
         "promptSource": req.body.promptSource || '',
+        "next_move_taken": (req.body.next_move_taken || "none").substring(0, 50),
         "taxonomy_node": (queryGraphId || 'unknown').substring(0, 100),
-      }).catch(() => {});
+      }).catch((logErr: any) => {
+        notifyQueryLogFailure(logErr?.message || 'Questions write failed in /api/query');
+      });
     }).catch(() => {});
 
   } catch (err: any) {
@@ -256,8 +260,11 @@ router.post("/log", async (req, res) => {
     return res.status(429).json({ ok: false, error: 'Too many requests' });
   }
 
+  // Track chat traffic for health check
+  recordChatTraffic();
+
   try {
-    const { email, query, vertical, graphId, accessKey, context, apiCall, promptSource } = req.body;
+    const { email, query, vertical, graphId, accessKey, context, apiCall, promptSource, next_move_taken } = req.body;
 
     // Guard: silently accept but don't persist system signals — they pollute query analytics
     const normalizedQuery = (query || '').trim().substring(0, 1000); // cap length
@@ -279,15 +286,15 @@ router.post("/log", async (req, res) => {
       "userContext": (context?.userContext || "").substring(0, 500),
       "accountContext": (context?.accountContext || "").substring(0, 500),
       "promptSource": (promptSource || "").substring(0, 100),
+      "next_move_taken": (next_move_taken || "none").substring(0, 50),
       "source": "app",
       "taxonomy_node": (extractValue(graphId) || extractValue(vertical) || "unknown").substring(0, 100),
     });
     res.json({ ok: true });
   } catch (err: any) {
-    // Still return ok so the client never blocks on logging, but make the
-    // failure visible in Cloud Run logs — silent drops here masked broken
-    // query tracking for weeks.
+    // Fail-open for client UX, but notify ops with 15-min throttle and increment failure counter
     console.error('[QueryLog] Airtable write failed:', err?.message);
+    notifyQueryLogFailure(err?.message || 'Questions write failed in /api/log');
     res.status(200).json({ ok: true });
   }
 });

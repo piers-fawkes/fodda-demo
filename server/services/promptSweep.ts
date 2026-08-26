@@ -109,6 +109,40 @@ export interface SweepResult {
   failures: Array<{ prompt: string; graphId: string; source: string }>;
 }
 
+// In-memory set of prompts dropped from rotation due to thin/empty coverage
+const droppedPrompts = new Set<string>();
+
+/**
+ * Check if a prompt is currently dropped from rotation.
+ */
+export function isPromptDropped(prompt: string): boolean {
+  if (!prompt) return false;
+  return droppedPrompts.has(prompt.toLowerCase().trim());
+}
+
+/**
+ * Get a copy of all currently dropped prompts.
+ */
+export function getDroppedPrompts(): Set<string> {
+  return new Set(droppedPrompts);
+}
+
+/**
+ * Force a prompt to be dropped from rotation (for testing or manual gating).
+ */
+export function forcePromptDrop(prompt: string, graphId: string = 'unknown'): void {
+  const key = prompt.toLowerCase().trim();
+  droppedPrompts.add(key);
+  console.log(`[PromptSweep] Dropped prompt from rotation: "${prompt}" (graph: ${graphId})`);
+}
+
+/**
+ * Clear all dropped prompts (restore rotation).
+ */
+export function resetDroppedPrompts(): void {
+  droppedPrompts.clear();
+}
+
 /**
  * Run the prompt sweep: test all prompts, persist results, send alert if needed.
  */
@@ -136,10 +170,19 @@ export async function runPromptSweep(): Promise<SweepResult> {
       "Date": auditDate,
     }).catch(() => {});
 
+    const normKey = prompt.toLowerCase().trim();
     if (ok) {
       passed++;
+      // If it previously failed, it has passed again — restore to rotation
+      if (droppedPrompts.has(normKey)) {
+        droppedPrompts.delete(normKey);
+        console.log(`[PromptSweep] Restored prompt to rotation: "${prompt}" (graph: ${graphId})`);
+      }
     } else {
       failures.push({ prompt, graphId, source });
+      // Drop prompt from rotation until it passes again
+      droppedPrompts.add(normKey);
+      console.log(`[PromptSweep] Dropped prompt from rotation: "${prompt}" (graph: ${graphId})`);
     }
 
     // Throttle to avoid hammering the API

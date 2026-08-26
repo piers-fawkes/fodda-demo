@@ -23,6 +23,7 @@ import unclaimedRouter from "./routers/unclaimedRouter.js";
 import coverageRouter from "./routers/coverageRouter.js";
 import { resolveIdentity, isPendingKey, handleLegacyTrialKey } from './helpers.js';
 import { clerkMiddleware, requireAuth } from "@clerk/express";
+import { getQueryLogFailureCount } from "./services/queryReconciliationService.js";
 
 
 
@@ -225,7 +226,11 @@ app.use("/api/unclaimed", unclaimedRouter);
 app.use("/api/coverage", coverageRouter);
 
 // Health Check
-app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
+app.get("/health", (req, res) => res.json({ 
+  status: "ok", 
+  uptime: process.uptime(),
+  queryLogFailures: getQueryLogFailureCount()
+}));
 
 // Serve Vite frontend build
 const distPath = path.join(__dirname, "..", "dist");

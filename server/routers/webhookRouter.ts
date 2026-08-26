@@ -183,15 +183,23 @@ async function provisionUserFromClerk(
     }
   }
 
-  // 5. Trigger onboarding welcome email (OAuth verified)
-  const mcpConn = await buildMcpConnection(normalizedEmail).catch(() => null);
-  sendSystemEmail('OAUTH_WELCOME', normalizedEmail, { 
-    name: firstName,
-    level: 'Base',
-    mcpUrl: mcpConn?.mcpUrl || undefined,
-    claudeConnectorUrl: mcpConn?.claudeConnectorUrl || undefined,
-    intent: intent || 'account' 
-  }).catch(e => console.error("[Clerk Webhook] Welcome email dispatch failed:", e));
+  // 5. Trigger onboarding welcome email (OAuth verified) - delayed 2 hours to avoid interrupting initial connector setup
+  const OAUTH_WELCOME_DELAY_MS = 2 * 60 * 60 * 1000; // 2 hours
+  setTimeout(async () => {
+    try {
+      const mcpConn = await buildMcpConnection(normalizedEmail).catch(() => null);
+      await sendSystemEmail('OAUTH_WELCOME', normalizedEmail, { 
+        name: firstName,
+        level: 'Base',
+        mcpUrl: mcpConn?.mcpUrl || undefined,
+        claudeConnectorUrl: mcpConn?.claudeConnectorUrl || undefined,
+        intent: intent || 'account' 
+      });
+      console.log(`[Clerk Webhook] Delayed welcome email dispatched to ${normalizedEmail}`);
+    } catch (e) {
+      console.error(`[Clerk Webhook] Delayed welcome email dispatch failed for ${normalizedEmail}:`, e);
+    }
+  }, OAUTH_WELCOME_DELAY_MS);
 
   // Add user to Streak pipeline — experts go to 'Fodda Experts', everyone else to 'Fodda Sales'
   if (intent === 'expert') {

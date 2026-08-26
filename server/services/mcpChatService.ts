@@ -30,6 +30,8 @@ interface ToolCallLog {
 export interface McpChatResult {
   answer: string;
   suggestedQuestions: string[];
+  nextMoves?: any;
+  nextMoveLines?: string[];
   toolCalls: ToolCallLog[];
   totalDurationMs: number;
   failureType?: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null;
@@ -99,6 +101,7 @@ export async function mcpChat(
   const toolCallLog: ToolCallLog[] = [];
   // Accumulate trend/evidence data from tool results for post-loop skill execution
   const collectedData: { trends: any[]; evidence: any[] } = { trends: [], evidence: [] };
+  let capturedNextMoves: any = null;
   let mcpClient: Client | null = null;
 
   try {
@@ -136,7 +139,14 @@ WORKFLOW:
 5. Synthesize everything into a comprehensive answer
 
 Always attribute data sources. Include evidence links when available.
-Format your final answer as rich markdown with ## headers for trends.`;
+Format your final answer as rich markdown with ## headers for trends.
+
+NEXT MOVES CLOSING BLOCK (Render Spec 1.3):
+Every research response must end with exactly three plain sentences (no heading, no bullets, no emoji, never an exact digit count) in this fixed order:
+1. Pull the thread: One specific thing surfaced but not finished (e.g., "There are several more signals on this topic in my graph — want me to pull those?").
+2. Explore the shelf / Go specific: Merchandises 1-2 relevant graphs or offers brand/statistics options.
+3. Scope to the job: Fixed copy: "If you tell me the brand or brief you're working on, I'll cut this to that." (or "Want this cut to [brand] specifically?" if the user's brand/context is known).
+Never use bullet lists, fan-out option trees, section headers, or emojis for next moves. Output exactly three plain sentences.`;
 
     // Add user/account context if available
     const userName = firstName || 'the user';
@@ -298,6 +308,13 @@ Format your final answer as rich markdown with ## headers for trends.`;
               const parsed = JSON.parse(resultText);
               const trendArr = parsed.trends || parsed.results || (Array.isArray(parsed) ? parsed : []);
               collectedData.trends.push(...trendArr.filter((t: any) => t && t.name));
+              if (parsed.next_moves) capturedNextMoves = parsed.next_moves;
+            } catch { /* best-effort */ }
+          }
+          if (/consult_human_agent|consult_analyst|brand_tracker|get_expert_intelligence|get_domain_intelligence|get_report_intelligence/i.test(name)) {
+            try {
+              const parsed = JSON.parse(resultText);
+              if (parsed.next_moves) capturedNextMoves = parsed.next_moves;
             } catch { /* best-effort */ }
           }
           if (/get_evidence|evidence/i.test(name) && !/search/i.test(name)) {
@@ -305,6 +322,7 @@ Format your final answer as rich markdown with ## headers for trends.`;
               const parsed = JSON.parse(resultText);
               const evArr = parsed.evidence || (Array.isArray(parsed) ? parsed : []);
               collectedData.evidence.push(...evArr.filter((e: any) => e && (e.title || e.snippet)));
+              if (parsed.next_moves) capturedNextMoves = parsed.next_moves;
             } catch { /* best-effort */ }
           }
 
@@ -464,9 +482,25 @@ Format your final answer as rich markdown with ## headers for trends.`;
       failureType
     });
 
+    // Build Next Moves closing lines
+    let nextMoveLines: string[] = [];
+    if (capturedNextMoves) {
+      const threadLine = capturedNextMoves.consult_envelope?.thread_line || capturedNextMoves.thread?.text || 'Pull the thread on deeper signals in the graph.';
+      const shelfLine = capturedNextMoves.consult_envelope?.shelf_line || (capturedNextMoves.specific?.brands?.length ? `Want to drill into ${capturedNextMoves.specific.brands[0]} specifically?` : (capturedNextMoves.shelf?.length ? `Fodda also holds trend signals on this in ${capturedNextMoves.shelf[0].graph_display} if you want the wider picture.` : 'Explore related sector intelligence across adjacent graphs.'));
+      const scopeLine = capturedNextMoves.consult_envelope?.scope_line || (userContext ? `Want this cut to ${userContext} specifically?` : "If you tell me the brand or brief you're working on, I'll cut this to that.");
+      nextMoveLines = [threadLine, shelfLine, scopeLine].filter(Boolean);
+    }
+
+    // Default suggestedQuestions to nextMoveLines when present
+    if (nextMoveLines.length > 0) {
+      suggestedQuestions = nextMoveLines;
+    }
+
     return {
       answer: finalAnswer || 'No response generated.',
       suggestedQuestions,
+      nextMoves: capturedNextMoves,
+      nextMoveLines,
       toolCalls: toolCallLog,
       totalDurationMs: totalDuration,
       failureType,

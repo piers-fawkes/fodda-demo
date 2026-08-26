@@ -1,5 +1,6 @@
 
-import { Vertical, Message, User, Account, AuthResponse, KnowledgeGraph } from '../shared/types';
+import { Vertical, Message, User, Account, AuthResponse, KnowledgeGraph, NextMoveTaken } from '../shared/types';
+import { evaluateNextMoveMatch } from '../shared/nextMovesMatcher';
 import { Sidebar, AppView } from './components/Sidebar';
 import { ChatInterface } from './components/ChatInterface';
 import { EvidenceDrawer } from './components/EvidenceDrawer';
@@ -135,6 +136,7 @@ const App: React.FC = () => {
   const [accountContext, setAccountContext] = useState('');
   const [userId, setUserId] = useState('');
   const [demoApiKey, setDemoApiKey] = useState('');
+  const [lastNextMoves, setLastNextMoves] = useState<any>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
   // In-memory message history per view/graph combination — survives mode switches within session
@@ -779,25 +781,39 @@ const App: React.FC = () => {
     setInputValue('');
     setHighlightedItem(null);
 
-    // Prepare Tracking Info
-    const trackingInfo = {
-      userId,
-      apiKey: currentAccount?.apiKey || '',
-      userContext,
-      accountContext
-    };
+    // If job-scoped prompt, update userContext immediately
+    let effectiveUserContext = userContext;
+    if (promptSource === 'job_scoped') {
+      effectiveUserContext = text.trim();
+      setUserContext(effectiveUserContext);
+      localStorage.setItem('fodda.userContext', effectiveUserContext);
+    }
+
+    // Determine Next Move Taken
+    let nextMoveTaken: NextMoveTaken = 'none';
+    if (promptSource === 'next_moves_thread') {
+      nextMoveTaken = 'thread';
+    } else if (promptSource === 'next_moves_specific') {
+      const match = evaluateNextMoveMatch(text, lastNextMoves);
+      nextMoveTaken = match !== 'none' ? match : (lastNextMoves?.specific?.brands?.length ? 'specific_brand' : (lastNextMoves?.specific?.expert ? 'specific_expert' : (lastNextMoves?.specific?.statistics_source ? 'specific_stat' : 'shelf')));
+    } else if (promptSource === 'next_moves_scope') {
+      nextMoveTaken = 'scope';
+    } else if (lastNextMoves) {
+      nextMoveTaken = evaluateNextMoveMatch(text, lastNextMoves);
+    }
 
     // Async log to Airtable without blocking UI
-    console.log("[App] Logging message to Airtable...");
+    console.log("[App] Logging message to Airtable with next_move_taken:", nextMoveTaken);
     dataService.logToAirtable(
       userId,
       currentUser?.email || 'unknown',
       text,
       currentVertical,
       currentAccount?.apiKey || 'unknown',
-      { userContext, accountContext },
+      { userContext: effectiveUserContext, accountContext },
       undefined,
-      promptSource
+      promptSource,
+      nextMoveTaken
     );
 
     try {
@@ -829,12 +845,16 @@ const App: React.FC = () => {
         currentAccount?.apiKey || '',
         currentUser?.firstName,
         mcpPersonaCtx || undefined,
-        userShareEnabled ? (userContext || undefined) : undefined,
+        userShareEnabled ? (effectiveUserContext || undefined) : undefined,
         accountShareEnabled ? (accountContext || undefined) : undefined
       );
 
       if (!mcpResult.ok) {
         throw new Error(mcpResult.error || 'MCP chat failed');
+      }
+
+      if (mcpResult.nextMoves) {
+        setLastNextMoves(mcpResult.nextMoves);
       }
 
       // DEV MODE: Capture MCP transaction for DevTools
@@ -857,7 +877,9 @@ const App: React.FC = () => {
         timestamp: Date.now(),
         evidence: [],
         relatedTrends: [],
-        suggestedQuestions: mcpResult.suggestedQuestions || [],
+        suggestedQuestions: mcpResult.suggestedQuestions || mcpResult.nextMoveLines || [],
+        nextMoves: mcpResult.nextMoves,
+        nextMoveLines: mcpResult.nextMoveLines,
         stepCount: mcpResult.toolCalls?.length || 1,
         failureType: mcpResult.failureType,
         diagnostic: {
@@ -892,7 +914,7 @@ const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId]);
+  }, [currentVertical, currentUser, currentAccount, userContext, accountContext, userId, lastNextMoves]);
 
   // ─── Auto-submit prefilled question when chat is ready ───
   useEffect(() => {

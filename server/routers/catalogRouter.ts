@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { queryAirtable, queryAirtableAll } from '../db.js';
 import { GRAPH_LIST_TABLE } from '../constants.js';
+import { isPromptDropped } from '../services/promptSweep.js';
 
 const router = Router();
 
@@ -52,7 +53,8 @@ router.get("/graph-catalog", async (req, res) => {
       const tags = typeof topicsRaw === 'string'
         ? topicsRaw.split(',').map((t: string) => t.trim()).filter(Boolean)
         : (Array.isArray(topicsRaw) ? topicsRaw : []);
-      const exampleQueries = safeJsonParse(f.exampleQueries);
+      const rawExampleQueries = safeJsonParse(f.exampleQueries);
+      const exampleQueries = rawExampleQueries.filter((q: string) => !isPromptDropped(q));
       const askLine = f.askLine || f.ask_line || f['Ask Line'] || f.Ask || f['Ask'] || (Array.isArray(exampleQueries) && exampleQueries.length > 0 ? exampleQueries[0] : '');
       const niche = f.niche || f.Niche || f.expertise || f.Expertise || f['Niche Expertise'] || f['Niche'] || f['Expertise'] || (tags.length > 0 ? tags.join(' · ') : '');
       const portraitAttachment = f['Portrait Attachment'] || [];

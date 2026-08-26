@@ -227,4 +227,48 @@ router.post('/persona-synthesis', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/cron/query-health-check
+ * 
+ * Daily check: if chat traffic was served in last 24h, ensure count of Questions rows in 24h is > 0.
+ */
+router.post('/query-health-check', async (req, res) => {
+  if (!verifyCronAuth(req)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+
+  console.log('[Cron] Query health check triggered');
+  try {
+    const { runDailyZeroQuestionsCheck } = await import('../services/queryReconciliationService.js');
+    const result = await runDailyZeroQuestionsCheck();
+    res.json(result);
+  } catch (err: any) {
+    console.error('[Cron] Query health check failed:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/cron/reconcile-questions
+ * 
+ * Weekly reconciliation: find users with lastLogin in window and 0 Questions rows.
+ * Surfaces summary in Slack and writes noQuestionsRecorded: true to Users record.
+ */
+router.post('/reconcile-questions', async (req, res) => {
+  if (!verifyCronAuth(req)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+
+  const days = req.body?.days || 7;
+  console.log(`[Cron] Users vs Questions reconciliation triggered (${days} days)`);
+  try {
+    const { runUsersQuestionsReconciliation } = await import('../services/queryReconciliationService.js');
+    const result = await runUsersQuestionsReconciliation(days);
+    res.json({ ok: true, ...result });
+  } catch (err: any) {
+    console.error('[Cron] Reconcile questions failed:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 export default router;

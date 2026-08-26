@@ -3,7 +3,66 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
-## [2026-08-16] — Test Bench MCP-Only & Optional Focus Control (`frontend/App.tsx`, `frontend/components/DevToolsDrawer.tsx`, `frontend/components/ChatInterface.tsx`, `frontend/components/EvidenceDrawer.tsx`)
+## [2026-08-26] — Delay OAuth Welcome Email by 2 Hours
+
+### Changed
+- **Delayed OAuth Welcome Email Dispatch (`server/routers/webhookRouter.ts`)**:
+  - Delayed `sendSystemEmail('OAUTH_WELCOME', ...)` by 2 hours (`OAUTH_WELCOME_DELAY_MS = 2 * 60 * 60 * 1000`) upon Clerk `user.created` webhook receipt.
+  - Prevents immediate welcome emails from interrupting users while they are in the middle of authorizing their LLM / Claude connector or running initial queries.
+
+### Files Changed
+- `server/routers/webhookRouter.ts`
+- `CHANGELOG.md`
+
+## [2026-08-22] — Second Question Intake, Next Moves Tappable Actions & Logging Reliability Guard
+
+### Added
+- **First-Touch Job Intake Input (`frontend/components/ChatInterface.tsx`, `frontend/App.tsx`)**:
+  - Replaced single static starter list with a two-part welcome: single job intake input (*"What are you working on? (a brand, a category, or an audience)"*) + 4 dynamic catalog chips.
+  - Submitting job input tags query with `promptSource: 'job_scoped'`, sets `userContext` on the session and saves to `localStorage` (`fodda.userContext`) so subsequent queries carry job context downstream.
+- **Dynamic 4 Catalog Chips (`frontend/components/ChatInterface.tsx`, `server/routers/catalogRouter.ts`, `server/services/promptSweep.ts`)**:
+  - Selects 4 chips from live Airtable `exampleQueries` (2 from active/selected graph, 2 from high-affinity cross-topic graphs: Gen Z/culture, health & longevity, F&B, sports) tagged `promptSource: 'welcome_catalog'`.
+  - Fallback to `SUGGESTED_QUESTIONS` (`promptSource: 'welcome_static'`) only when Airtable is unreachable.
+  - Extended `server/services/promptSweep.ts` with rotation gate (`isPromptDropped`, `droppedPrompts` Set) to drop prompts with thin/empty coverage until they pass.
+- **Next Moves Verbatim Rendering & 3 Tappable Action Lines (`frontend/components/ChatInterface.tsx`, `frontend/App.tsx`, `server/services/mcpChatService.ts`)**:
+  - Assistant messages terminate with the 3 Next Moves sentences verbatim as the last paragraph (no heading, no bullets, no emoji, never an exact digit count).
+  - Replaced previous suggested question chips with 3 structured tappable action lines (Line 1: Thread, Line 2: Specific / Shelf, Line 3: Scope to the job).
+  - Tapping sends implied query with `promptSource: 'next_moves_thread'`, `'next_moves_specific'`, or `'next_moves_scope'`.
+- **Telemetry & Matcher (`shared/nextMovesMatcher.ts`, `shared/types.ts`, `frontend/App.tsx`)**:
+  - Ported `evaluateNextMoveMatch` from MCP `sessionTracker.ts` into shared utility to classify `next_move_taken` (`thread | specific_brand | specific_stat | specific_expert | shelf | scope | none`).
+  - Passes `next_move_taken` to Airtable `Questions` table (`tblvHx1DzwuTq3TJE`).
+- **Logging Failure Alerts & Health Telemetry (`server/services/queryReconciliationService.ts`, `server/routers/queryRouter.ts`, `server/routers/mcpRouter.ts`, `server/index.ts`)**:
+  - On Airtable write failure: fails open for client UX (HTTP 200), increments `queryLogFailures` counter exposed on `GET /health`, and triggers a 15-minute throttled Slack alert to `#fodda-research`.
+  - Added daily health check cron (`POST /api/cron/query-health-check`): alerts Slack if chat traffic > 0 in 24h but Questions rows written in 24h == 0.
+  - Added weekly reconciliation cron (`POST /api/cron/reconcile-questions`): identifies users with `lastLogin` in window and 0 recorded questions, alerts ops, and marks `noQuestionsRecorded: true` on `USERS_TABLE`.
+- **Clean Deploy Guard (`.agents/workflows/deploy.md`)**:
+  - Added deployment rule enforcing that deployments only occur from a clean `main` working branch.
+- **API Bible Update (`Fodda API/docs/bibles/product_and_system_reference.md`)**:
+  - Documented App welcome-input, Next Moves tap behavior, and `next_move_taken` column in Section 1.
+
+### Files Changed
+- `frontend/components/ChatInterface.tsx`
+- `frontend/App.tsx`
+- `shared/types.ts`
+- `shared/dataService.ts`
+- `shared/nextMovesMatcher.ts`
+- `server/services/promptSweep.ts`
+- `server/services/mcpChatService.ts`
+- `server/services/queryReconciliationService.ts`
+- `server/routers/catalogRouter.ts`
+- `server/routers/queryRouter.ts`
+- `server/routers/mcpRouter.ts`
+- `server/routers/cronRouter.ts`
+- `server/index.ts`
+- `.agents/workflows/deploy.md`
+- `Fodda API/docs/bibles/product_and_system_reference.md`
+- `CHANGELOG.md`
+
+### Verification
+- `npm run build` (`vite build`) passed cleanly with 0 TypeScript/JSX errors (1,677 modules transformed in 2.45s).
+- Full 19-case test suite (`test_verification.ts`) verified `evaluateNextMoveMatch` across all categories, prompt drop rotation gating, query log failure counter increments and Slack throttling, and traffic counter tracking.
+
+
 
 ### Changed
 - **MCP-Only Sandbox Pipeline (`frontend/App.tsx`)**: Removed legacy Direct API mode branch (`dataService.retrieve` + `generateResponse`), dead `inferBaselineQuestion` helper, and `isMcpMode` state. Made `handleSendMessage` in the Test Bench unconditionally route via MCP agentic `dataService.mcpChat`.
