@@ -14,6 +14,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - `server/routers/webhookRouter.ts`
 - `CHANGELOG.md`
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00531-4wz` (100% traffic)
+- **Health Check:** `GET /health` → HTTP `200`
+
 ## [2026-08-22] — Second Question Intake, Next Moves Tappable Actions & Logging Reliability Guard
 
 ### Added
