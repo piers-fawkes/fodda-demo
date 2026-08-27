@@ -52,7 +52,9 @@ export const FieldRule: React.FC<{
   disabled?: boolean;
   autoComplete?: string;
   error?: string;
-}> = ({ label, hint, value, onChange, type = 'text', mono, placeholder, required, disabled, autoComplete, error }) => {
+  maxLength?: number;
+  autoFocus?: boolean;
+}> = ({ label, hint, value, onChange, type = 'text', mono, placeholder, required, disabled, autoComplete, error, maxLength, autoFocus }) => {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -86,6 +88,8 @@ export const FieldRule: React.FC<{
           required={required}
           disabled={disabled}
           autoComplete={autoComplete}
+          maxLength={maxLength}
+          autoFocus={autoFocus}
           className="bg-transparent outline-none flex-1 placeholder:italic"
           style={{
             color: 'var(--ink)',
@@ -195,7 +199,8 @@ export const Btn: React.FC<{
   onClick?: () => void;
   type?: 'button' | 'submit';
   disabled?: boolean;
-}> = ({ children, brand, ghost, onClick, type = 'button', disabled }) => (
+  style?: React.CSSProperties;
+}> = ({ children, brand, ghost, onClick, type = 'button', disabled, style }) => (
   <button
     type={type}
     onClick={onClick}
@@ -210,6 +215,7 @@ export const Btn: React.FC<{
       background: ghost ? 'transparent' : brand ? 'var(--brand)' : 'var(--paper)',
       color: ghost ? 'var(--ink-2)' : brand ? '#fff' : 'var(--ink)',
       cursor: disabled ? 'not-allowed' : 'pointer',
+      ...style,
     }}
   >{children}</button>
 );

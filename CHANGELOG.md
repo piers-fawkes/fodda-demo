@@ -3,6 +3,42 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-26] — Clerk Email-Code Sign-In & OAuth Redirect Hardening (`briefs/clerk-email-code-oauth-resume.md`)
+
+### Added & Changed
+- **Clerk Future API Email-Code (OTP) Flows (`frontend/components/AuthGate.tsx`, `frontend/components/AuthGateAtoms.tsx`)**:
+  - Replaced legacy/magic-link calls with Clerk Core 3 Future API methods: `signIn.emailCode.sendCode()`, `signIn.emailCode.verifyCode({ code })`, `signUp.verifications.sendEmailCode()`, and `signUp.verifications.verifyEmailCode({ code })`.
+  - Added 6-digit OTP verification screen (`isWaitingForConfirmation`) with autofocus input, resend handler (`handleResend`), explicit post-finalize navigation, and storage cleanup on reset/abandon.
+  - Added legacy magic link detection notice (`legacyMagicLinkDetected`) when `__clerk_db_jwt` or `__clerk_status` are present, informing users that email link sign-in was replaced by 6-digit codes.
+  - Updated `FieldRule` with `maxLength`/`autoFocus` support and `Btn` with `style` prop.
+- **Shared Dot-Anchored Redirect Allowlist (`shared/redirectAllowlist.ts`)**:
+  - Built unified validator (`isValidRedirectUrl`, `isClerkOAuthContinueUrl`, `isInternalAppUrl`) enforcing dot-anchored host matching (`host === 'fodda.ai' || host.endsWith('.fodda.ai')`, `clerk.com`, `clerk.fodda.ai`, `accounts.fodda.ai`), rejecting protocol-relative URLs (`//evil.com`, `/\\evil.com`), and permitting relative internal paths.
+  - Applied shared allowlist across `App.tsx`, `AuthGate.tsx`, `SsoCallbackPage.tsx`, and `server/routers/authRouter.ts`.
+- **Hardened `/api/auth/confirm` & Token Protection (`server/routers/authRouter.ts`)**:
+  - `/api/auth/confirm` validates redirect URLs against the shared allowlist.
+  - Ensures 15-minute `loginToken` is ONLY appended for internal app URLs (`app.fodda.ai` or relative `/...`), preventing token exfiltration to external targets.
+  - Failure redirect preserves `redirect_url` only when allowlist validation passes.
+
+### Files Changed
+- `shared/redirectAllowlist.ts` (new)
+- `frontend/components/AuthGate.tsx`
+- `frontend/components/AuthGateAtoms.tsx`
+- `frontend/components/SsoCallbackPage.tsx`
+- `frontend/App.tsx`
+- `server/routers/authRouter.ts`
+- `CHANGELOG.md`
+
+## [2026-08-26] — Chat Failure UX Cleanup & Query Library Button Removal (`frontend/components/ChatInterface.tsx`)
+
+### Changed
+- **Removed Broken Query Library Button**: Removed the legacy `[BROWSE QUERY LIBRARY]` button that dispatched `'show query library'` as a prompt (which caused repeated `DIDNT_ROUTE` loops).
+- **Improved `DIDNT_ROUTE` Banner Messaging**: Replaced technical error copy (*"Query didn't match a tool handler. Try phrasing your prompt using forcing verbs..."*) with actionable guidance (*"Unable to route query to an available graph or tool. Try selecting a specific expert graph from the dropdown above, or phrase your prompt around a specific domain or topic."*).
+- **Suppressed Redundant Raw Text**: Prevented raw `"No response generated."` text from rendering above classified failure cards.
+
+### Files Changed
+- `frontend/components/ChatInterface.tsx`
+- `CHANGELOG.md`
+
 ## [2026-08-26] — Delay OAuth Welcome Email by 2 Hours
 
 ### Changed

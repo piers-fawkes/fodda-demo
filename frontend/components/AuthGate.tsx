@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSignIn, useSignUp, useClerk, useAuth } from '@clerk/react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { Eyebrow, Masthead, FieldRule, Margin, GateFrame, Btn, StepBar, WaxSeal, GateFooter } from './AuthGateAtoms';
+import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
 
 const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: string; portrait_url?: string }> = {
   retail: { name: 'Future of Retail Graph', owner: 'PSFK', headline: 'Tracking the automation of physical commerce' },
@@ -61,6 +62,17 @@ interface AuthGateProps {
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferralGraph, initialExpertSlug }) => {
+  // Capture ?redirect_url= into sessionStorage immediately before any URL cleaning runs
+  if (typeof window !== 'undefined') {
+    try {
+      const initialParams = new URLSearchParams(window.location.search);
+      const initialRedirect = initialParams.get('redirect_url');
+      if (initialRedirect && isValidRedirectUrl(initialRedirect)) {
+        sessionStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
+      }
+    } catch (e) {}
+  }
+
   const _hasReferral = !!(initialReferralGraph && initialReferralGraph.length > 0);
   const _hasExpert = !!(initialExpertSlug && initialExpertSlug.length > 0);
   const [isSignUp, setIsSignUp] = useState(_hasReferral || _hasExpert);
@@ -103,10 +115,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const [isLoading, setIsLoading] = useState(false);
   const [errorHeader, setErrorHeader] = useState('');
   const [isWaitingForConfirmation, setIsWaitingForConfirmation] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [legacyMagicLinkDetected, setLegacyMagicLinkDetected] = useState(false);
   const [isUnconfirmed, setIsUnconfirmed] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyProgress, setVerifyProgress] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [returningFromConfirm, setReturningFromConfirm] = useState(false);
 
@@ -123,9 +135,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const handleOAuth = async (provider: 'oauth_google' | 'oauth_linkedin_oidc' | 'oauth_github') => {
     sessionStorage.setItem('fodda.oauthPending', provider);
     if (typeof window !== 'undefined') {
-      const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
-      if (redirectUrl) {
+      const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+      if (redirectUrl && isValidRedirectUrl(redirectUrl)) {
         sessionStorage.setItem('fodda.pendingOAuthResume', redirectUrl);
+        sessionStorage.setItem('fodda.pendingOAuthRedirect', redirectUrl);
       }
     }
     if (isSignUp) {
@@ -196,45 +209,16 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
     }
   }, [clerkReady, signIn, clerk]);
 
-  // Handle incoming Clerk email link verification redirects
-  // When a user clicks the magic link in their email, Clerk redirects here with tokens in the URL.
-  // handleEmailLinkVerification() reads those tokens and completes the sign-in/sign-up.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const hasClerkVerification = params.has('__clerk_db_jwt') || params.has('__clerk_status') || params.has('__clerk_created_session');
-
-    if (hasClerkVerification) {
-      console.log('[AuthGate] Detected Clerk email link verification tokens. Processing...');
-      setIsVerifying(true);
-      setVerifyProgress(50);
-
-      const redirectUrl = params.get('redirect_url');
-      const targetUrl = redirectUrl
-        ? `/?redirect_url=${encodeURIComponent(redirectUrl)}`
-        : '/';
-
-      // Complete the verification on Clerk's backend, then hard-reload.
-      // A hard reload lets ClerkProvider reinitialize and find the active session.
-      clerk.handleEmailLinkVerification({})
-        .then(() => {
-          console.log('[AuthGate] Email link verification complete. Reloading...');
-          setVerifyProgress(100);
-          // Hard reload — ClerkProvider will pick up the session on fresh init
-          setTimeout(() => { window.location.href = targetUrl; }, 500);
-        })
-        .catch((err: any) => {
-          console.error('[AuthGate] Email link verification error:', err);
-          // Even on error, the session may have been created. Try reloading.
-          setTimeout(() => { window.location.href = targetUrl; }, 500);
-        });
-    }
-  }, [clerk]);
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const emailParam = params.get('email');
       
+      // Detect legacy email magic link tokens during the transition window
+      if (params.has('__clerk_db_jwt') || params.has('__clerk_status') || params.has('__clerk_created_session')) {
+        setLegacyMagicLinkDetected(true);
+      }
+
       const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const isRegisterPath = pathname === '/register';
       const signupParam = params.get('signup') === 'true' || params.get('register') === 'true';
@@ -301,9 +285,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
   const resetState = () => {
     signOut().catch(err => console.error("[AuthGate] Signout failed:", err));
+    sessionStorage.removeItem('fodda.pendingOAuthRedirect');
+    sessionStorage.removeItem('fodda.pendingOAuthResume');
     setStep(1); setIsSignUp(false); setIsJoinTeam(false);
     setErrorHeader(''); setCompanyContextRaw(''); setIsProfessionalServices(false); setUserContextRaw('');
     setSignupCode(''); setIsWaitingForConfirmation(false); setIsUnconfirmed(false); setResendStatus('idle');
+    setOtpCode('');
     setFieldErrors({});
   };
 
@@ -356,28 +343,15 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           return;
         }
 
-        // Core 3: Send email link for verification (sign-up uses verifications.*, not emailLink.*)
-        setIsWaitingForConfirmation(true);
-        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
-        const verificationUrl = redirectUrl
-          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
-          : `${window.location.origin}/`;
-        const { error: sendError } = await signUp.verifications.sendEmailLink({
-          verificationUrl,
-        });
-        if (sendError) {
-          setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-up link. Please try again.');
-          setIsWaitingForConfirmation(false);
+        // Send 6-digit verification code via email using Future API
+        const { error: prepError } = await signUp.verifications.sendEmailCode();
+        if (prepError) {
+          setErrorHeader(prepError.longMessage || prepError.message || 'Could not send verification code. Please try again.');
           return;
         }
-        console.log('[AuthGate] Sign-up email link sent');
-
-        // Wait for user to click the link
-        const { error: waitError } = await signUp.verifications.waitForEmailLinkVerification();
-        if (!waitError && signUp.verifications.emailLinkVerification?.status === 'verified') {
-          console.log('[AuthGate] Sign-up verified! Activating session...');
-          await signUp.finalize();
-        }
+        console.log('[AuthGate] Sign-up email code sent');
+        setOtpCode('');
+        setIsWaitingForConfirmation(true);
       } else {
         if (!signIn) {
           setErrorHeader('Connecting to auth service — please wait a moment and try again.');
@@ -404,29 +378,15 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           return;
         }
 
-        // Core 3: Send email link
-        setIsWaitingForConfirmation(true);
-        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
-        const verificationUrl = redirectUrl
-          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
-          : `${window.location.origin}/`;
-        const { error: sendError } = await signIn.emailLink.sendLink({
-          emailAddress: email,
-          verificationUrl,
-        });
-        if (sendError) {
-          setErrorHeader(sendError.longMessage || sendError.message || 'Could not send the sign-in link. Please try again.');
-          setIsWaitingForConfirmation(false);
+        // Send 6-digit verification code via email using Future API
+        const { error: prepError } = await signIn.emailCode.sendCode();
+        if (prepError) {
+          setErrorHeader(prepError.longMessage || prepError.message || 'Could not send verification code. Please try again.');
           return;
         }
-        console.log('[AuthGate] Sign-in email link sent');
-
-        // Wait for user to click the link
-        const { error: waitError } = await signIn.emailLink.waitForVerification();
-        if (!waitError && signIn.emailLink.verification?.status === 'verified') {
-          console.log('[AuthGate] Sign-in verified! Activating session...');
-          await signIn.finalize();
-        }
+        console.log('[AuthGate] Sign-in email code sent');
+        setOtpCode('');
+        setIsWaitingForConfirmation(true);
       }
     } catch (err: any) {
       console.error("[Clerk Auth] Verification Failed:", err);
@@ -437,88 +397,117 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
     }
   };
 
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode.trim()) {
+      setErrorHeader('Please enter the 6-digit verification code.');
+      return;
+    }
+    setIsLoading(true);
+    setErrorHeader('');
+    try {
+      if (isSignUp) {
+        if (!signUp) {
+          setErrorHeader('Sign up helper is not loaded yet.');
+          return;
+        }
+        const { error: verifyError } = await signUp.verifications.verifyEmailCode({
+          code: otpCode.trim(),
+        });
+        if (verifyError) {
+          setErrorHeader(verifyError.longMessage || verifyError.message || 'Invalid or expired code. Please try again.');
+          return;
+        }
+        if (signUp.status === 'complete') {
+          console.log('[AuthGate] Sign-up verified! Activating session...');
+          await signUp.finalize();
+          // Explicit navigation to resume OAuth or app home
+          const pendingResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          if (pendingResume && isValidRedirectUrl(pendingResume)) {
+            sessionStorage.removeItem('fodda.pendingOAuthRedirect');
+            sessionStorage.removeItem('fodda.pendingOAuthResume');
+            window.location.href = pendingResume;
+          } else {
+            window.location.href = '/';
+          }
+        }
+      } else {
+        if (!signIn) {
+          setErrorHeader('Sign in helper is not loaded yet.');
+          return;
+        }
+        const { error: verifyError } = await signIn.emailCode.verifyCode({
+          code: otpCode.trim(),
+        });
+        if (verifyError) {
+          setErrorHeader(verifyError.longMessage || verifyError.message || 'Invalid or expired code. Please try again.');
+          return;
+        }
+        if (signIn.status === 'complete') {
+          console.log('[AuthGate] Sign-in verified! Activating session...');
+          await signIn.finalize();
+          // Explicit navigation to resume OAuth or app home
+          const pendingResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          if (pendingResume && isValidRedirectUrl(pendingResume)) {
+            sessionStorage.removeItem('fodda.pendingOAuthRedirect');
+            sessionStorage.removeItem('fodda.pendingOAuthResume');
+            window.location.href = pendingResume;
+          } else {
+            window.location.href = '/';
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[AuthGate] Code verification failed:', err);
+      setErrorHeader(err.message || 'Verification failed. Please check the code and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendStatus('sending');
+    setErrorHeader('');
+    try {
+      if (isSignUp) {
+        if (!signUp) {
+          throw new Error("Sign up helper is not loaded yet.");
+        }
+        const { error } = await signUp.verifications.sendEmailCode();
+        if (error) throw error;
+      } else {
+        if (!signIn) {
+          throw new Error("Sign in helper is not loaded yet.");
+        }
+        const { error } = await signIn.emailCode.sendCode();
+        if (error) throw error;
+      }
+      setResendStatus('sent');
+      setTimeout(() => setResendStatus('idle'), 5000);
+    } catch (err: any) {
+      console.error("[Clerk Auth] Resend failed:", err);
+      setErrorHeader(err.longMessage || err.message || 'Failed to resend code.');
+      setResendStatus('idle');
+    }
+  };
+
   const footer = <GateFooter onAdminOpen={onAdminOpen} />;
   const loginMarginalia = (
     <>
       <Margin n="i." label="What is Fodda?" body={"A structured context layer\nthat lets your AI cite real,\ntrusted source graphs."} />
-      <Margin n="ii." label="No password, ever." body={"We mail a single-use link.\nIt expires in 15 minutes."} />
+      <Margin n="ii." label="No password, ever." body={"We mail a 6-digit code.\nIt expires in 15 minutes."} />
       <Margin n="iii." label="Trouble?" body="hello@fodda.ai" />
       <Margin n="iv." label="Setup Guide" body="Quickstart for Claude, Notion, Copilot, API & more" href="/Fodda_Quickstart.md" />
       <Margin n="v." label="Integration Auditor Skill" body="Audit your codebase for Fodda opportunities" href="/Fodda_Integration_Auditor.md" />
     </>
   );
 
-  // ═══ SCREEN 00: Verification In Progress ═══
-  if (isVerifying) {
-    return (
-      <GateFrame footer={footer}>
-        <Eyebrow style={{ marginBottom: 18 }}>Verifying</Eyebrow>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
-              <ThinkingOrb
-                state="connecting"
-                size={64}
-                theme="light"
-                aria-label="Confirming identity…"
-              />
-              <h2 className="font-serif italic" style={{ fontSize: 46, fontWeight: 400, margin: 0, lineHeight: 1.06, letterSpacing: '-0.015em' }}>Confirming your identity…</h2>
-            </div>
-            <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
-              Processing your sign-in link. This should only take a moment.
-            </p>
-            <div style={{ marginTop: 24, height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'var(--brand)', borderRadius: 2, width: `${verifyProgress}%`, transition: 'width 0.6s ease' }} />
-            </div>
-          </div>
-          <WaxSeal />
-        </div>
-      </GateFrame>
-    );
-  }
-
-  // ═══ SCREEN 05: Link Sent / Confirmation ═══
+  // ═══ SCREEN 05: Code Sent / Verification ═══
   if (isWaitingForConfirmation) {
-    let intentLine = "Click the link in your email to log in securely.";
-    try {
-      intentLine = isSignUp ? "You're almost ready to start using Fodda." : "Click the link in your email to log in securely.";
-    } catch {}
-    const handleResend = async () => {
-      setResendStatus('sending');
-      try {
-        const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url');
-        const verificationUrl = redirectUrl
-          ? `${window.location.origin}/?redirect_url=${encodeURIComponent(redirectUrl)}`
-          : `${window.location.origin}/`;
-
-        if (isSignUp) {
-          if (!signUp) {
-            throw new Error("Sign up helper is not loaded yet.");
-          }
-          const { error } = await signUp.verifications.sendEmailLink({
-            verificationUrl,
-          });
-          if (error) throw error;
-        } else {
-          if (!signIn) {
-            throw new Error("Sign in helper is not loaded yet.");
-          }
-          const { error } = await signIn.emailLink.sendLink({
-            emailAddress: email,
-            verificationUrl,
-          });
-          if (error) throw error;
-        }
-        setResendStatus('sent');
-        setTimeout(() => setResendStatus('idle'), 5000);
-      } catch (err) {
-        console.error("[Clerk Auth] Resend failed:", err);
-        setResendStatus('idle');
-      }
-    };
+    const intentLine = isSignUp ? "You're almost ready to start using Fodda." : "Enter the 6-digit code sent to your email to log in securely.";
     return (
       <GateFrame footer={footer}>
-        <Eyebrow style={{ marginBottom: 18 }}>Confirmation</Eyebrow>
+        <Eyebrow style={{ marginBottom: 18 }}>Verification</Eyebrow>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 40, alignItems: 'flex-start' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 18 }}>
@@ -526,20 +515,51 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
                 state="listening"
                 size={64}
                 theme="light"
-                aria-label="Waiting for email confirmation…"
+                aria-label="Waiting for verification code…"
               />
-              <h2 className="font-serif italic" style={{ fontSize: 46, fontWeight: 400, margin: 0, lineHeight: 1.06, letterSpacing: '-0.015em' }}>A link is in the mail.</h2>
+              <h2 className="font-serif italic" style={{ fontSize: 46, fontWeight: 400, margin: 0, lineHeight: 1.06, letterSpacing: '-0.015em' }}>We've emailed you a code.</h2>
             </div>
             <p className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.65, maxWidth: 520 }}>
-              We've sent a one-time sign-in link to&nbsp;
-              <span style={{ color: 'var(--ink)', borderBottom: '1px solid var(--ink)', fontStyle: 'normal' }}>{email}</span>. Open it in any browser to enter the desk.
+              We've emailed a 6-digit code to&nbsp;
+              <span style={{ color: 'var(--ink)', borderBottom: '1px solid var(--ink)', fontStyle: 'normal' }}>{email}</span>. Enter it below to access your desk.
             </p>
-            <div style={{ marginTop: 30, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4 }}>
+            <div style={{ marginTop: 24, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, maxWidth: 520 }}>
               <Eyebrow brand style={{ marginBottom: 6 }}>System Note</Eyebrow>
               <div className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink)', lineHeight: 1.45 }}>{intentLine}</div>
             </div>
+
+            <form onSubmit={handleVerifyCode} style={{ maxWidth: 520, marginTop: 24 }}>
+              <FieldRule
+                label="6-Digit Verification Code"
+                hint="from your email"
+                value={otpCode}
+                onChange={v => { setOtpCode(v); if (errorHeader) setErrorHeader(''); }}
+                mono
+                placeholder="123456"
+                required
+                autoFocus
+                maxLength={6}
+                disabled={isLoading}
+                error={errorHeader || undefined}
+              />
+              <div className="flex items-center gap-3.5" style={{ marginTop: 20 }}>
+                <Btn brand type="submit" disabled={isLoading || otpCode.trim().length === 0}>
+                  {isLoading ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <ThinkingOrb state="working" size={20} theme="dark" aria-label="Verifying…" />
+                      Verifying…
+                    </span>
+                  ) : (
+                    'Verify & Continue →'
+                  )}
+                </Btn>
+              </div>
+            </form>
+
             <div className="flex items-center gap-3" style={{ marginTop: 28 }}>
-              <Btn ghost onClick={handleResend} disabled={resendStatus !== 'idle'}>{resendStatus === 'sending' ? 'Sending…' : resendStatus === 'sent' ? '✓ Resent' : 'Resend link'}</Btn>
+              <Btn ghost onClick={handleResend} disabled={resendStatus !== 'idle'}>
+                {resendStatus === 'sending' ? 'Sending…' : resendStatus === 'sent' ? '✓ Resent' : 'Resend code'}
+              </Btn>
               <Btn ghost onClick={resetState}>Use a different email</Btn>
               <span style={{ flex: 1 }} />
               <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.14em' }}>check spam · promotions folder</span>
@@ -599,7 +619,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             </div>
             <FieldRule label="Company" value={company} onChange={setCompany} required />
             <FieldRule label="Job title" value={jobTitle} onChange={setJobTitle} required />
-            <FieldRule label="Email" hint="we will send a link" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
+            <FieldRule label="Email" hint="we will send a code" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
           </div>
           {/* Mount point for Clerk's bot-protection widget (required for headless signUp.create) */}
           <div id="clerk-captcha" />
@@ -693,7 +713,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             </div>
             <FieldRule label="Company" value={company} onChange={setCompany} required />
             <FieldRule label="Job title" value={jobTitle} onChange={setJobTitle} required />
-            <FieldRule label="Email" hint="we will send a link" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
+            <FieldRule label="Email" hint="we will send a code" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required />
           </div>
           {errorHeader && <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}><span className="font-mono uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>Errata · </span>{errorHeader}</div>}
           <div className="flex items-center gap-3.5" style={{ marginTop: 36, paddingTop: 20, borderTop: '1px solid var(--ink)' }}>
@@ -774,7 +794,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   }
 
   // ═══ SCREEN 01: Login (default) ═══
-  const hasRedirectUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('redirect_url');
+  const hasRedirectUrl = typeof window !== 'undefined' && (
+    (new URLSearchParams(window.location.search).has('redirect_url') && isValidRedirectUrl(new URLSearchParams(window.location.search).get('redirect_url'))) ||
+    (!!sessionStorage.getItem('fodda.pendingOAuthRedirect') && isValidRedirectUrl(sessionStorage.getItem('fodda.pendingOAuthRedirect'))) ||
+    (!!sessionStorage.getItem('fodda.pendingOAuthResume') && isValidRedirectUrl(sessionStorage.getItem('fodda.pendingOAuthResume')))
+  );
 
   if (hasRedirectUrl) {
     return (
@@ -809,6 +833,15 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             Sign in to allow Claude to cite your Fodda knowledge graphs.
           </p>
 
+          {legacyMagicLinkDetected && (
+            <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, textAlign: 'left' }}>
+              <Eyebrow brand style={{ marginBottom: 4 }}>Notice</Eyebrow>
+              <div className="font-serif italic" style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}>
+                Email link sign-in has been replaced. Please enter your email below to receive a 6-digit verification code.
+              </div>
+            </div>
+          )}
+
           {/* Hero callout for OAuth */}
           <div style={{ marginBottom: 14, padding: '8px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 6 }}>
             <span className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -826,7 +859,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           {/* Divider */}
           <div className="flex items-center gap-3" style={{ marginBottom: 16, color: 'var(--ink-4)' }}>
             <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)' }}>OR VIA EMAIL LINK</span>
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
             <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
           </div>
 
@@ -834,7 +867,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
             <FieldRule
               label="Your email"
-              hint="single-use link"
+              hint="6-digit code"
               value={email}
               onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
               type="email"
@@ -847,11 +880,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
               <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
                 {isLoading ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending…" />
-                    Sending magic link…
+                    <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />
+                    Sending code…
                   </span>
                 ) : (
-                  'Send sign-in link →'
+                  'Continue with Email →'
                 )}
               </Btn>
             </div>
@@ -872,8 +905,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         Welcome back to better insight.
       </h2>
       <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 520, lineHeight: 1.6, margin: '0 0 28px' }}>
-        Enter the email you registered with. We'll send a one-time link to that address — no password to remember, no token to copy.
+        Enter the email you registered with. We'll send a 6-digit code to that address — no password to remember, no token to copy.
       </p>
+
+      {legacyMagicLinkDetected && (
+        <div style={{ marginBottom: 24, padding: '16px 18px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, maxWidth: 520 }}>
+          <Eyebrow brand style={{ marginBottom: 4 }}>Notice</Eyebrow>
+          <div className="font-serif italic" style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.45 }}>
+            Email link sign-in has been replaced. Please enter your email below to receive a 6-digit verification code.
+          </div>
+        </div>
+      )}
 
       {/* ── OAuth quick sign-in ── */}
       <div style={{ maxWidth: 520, marginBottom: 28 }}>
@@ -891,9 +933,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
       <form onSubmit={handleSubmit}>
         <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <FieldRule label="Your email" hint="single-use · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
+          <FieldRule label="Your email" hint="6-digit code · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
           <div className="flex items-center gap-3.5" style={{ marginTop: 8 }}>
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending…" />Sending…</span> : 'Send sign-in link'}</Btn>
+            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />Sending code…</span> : 'Continue with Email →'}</Btn>
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
           </div>
         </div>
@@ -902,7 +944,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         /* Returning from email confirmation — show a helpful note instead of registration CTA */
         <div style={{ marginTop: 36, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, maxWidth: 520 }}>
           <Eyebrow brand style={{ marginBottom: 6 }}>Email confirmed</Eyebrow>
-          <div className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink)', lineHeight: 1.45 }}>Your email is verified. Click "Send sign-in link" above to receive a secure login link.</div>
+          <div className="font-serif italic" style={{ fontSize: 16, color: 'var(--ink)', lineHeight: 1.45 }}>Your email is verified. Enter your email above to receive a 6-digit sign-in code.</div>
         </div>
       ) : (
         /* New here? CTA */

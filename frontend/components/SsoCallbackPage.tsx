@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react';
 import { GateFrame, Eyebrow, FieldRule, Btn, Masthead, WaxSeal } from './AuthGateAtoms';
+import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
 
 /**
  * SsoCallbackPage
@@ -33,10 +34,11 @@ export const SsoCallbackPage: React.FC = () => {
   useEffect(() => {
     if (!callbackDone || !isUserLoaded || !user) return;
 
-    // Fast-path resume for connector consent if pendingOAuthResume is stashed
-    const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume');
-    if (pendingResume) {
+    // Fast-path resume for connector consent if pendingOAuthResume / pendingOAuthRedirect is stashed
+    const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+    if (pendingResume && isValidRedirectUrl(pendingResume)) {
       sessionStorage.removeItem('fodda.pendingOAuthResume');
+      sessionStorage.removeItem('fodda.pendingOAuthRedirect');
       sessionStorage.removeItem('fodda.oauthPending');
       window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
       return;
@@ -94,9 +96,10 @@ export const SsoCallbackPage: React.FC = () => {
       // Non-fatal — continue to app
     } finally {
       sessionStorage.removeItem('fodda.oauthPending');
-      const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume');
-      if (pendingResume) {
+      const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+      if (pendingResume && isValidRedirectUrl(pendingResume)) {
         sessionStorage.removeItem('fodda.pendingOAuthResume');
+        sessionStorage.removeItem('fodda.pendingOAuthRedirect');
         window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
       } else {
         window.location.replace('/');

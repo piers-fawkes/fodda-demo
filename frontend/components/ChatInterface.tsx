@@ -410,12 +410,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     <VerticalIcon className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <StaggeredMessageContent
-                      messageId={msg.id}
-                      content={msg.content}
-                      isNew={index === messages.length - 1}
-                      onAnchorClick={onAnchorClick}
-                    />
+                    {/* Message Content (suppress raw 'No response generated.' if a classified failure card is shown) */}
+                    {!(msg.content === 'No response generated.' && (msg as any).failureType) && (
+                      <StaggeredMessageContent
+                        messageId={msg.id}
+                        content={msg.content}
+                        isNew={index === messages.length - 1}
+                        onAnchorClick={onAnchorClick}
+                      />
+                    )}
 
                     {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
                       <div className="mt-4 space-y-1.5 animate-fade-in-up pl-1" style={{ animationDelay: '300ms' }}>
@@ -449,11 +452,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
                     {(msg as any).failureType === 'DIDNT_ROUTE' && (
                       <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
-                        <p className="text-xs font-bold text-purple-900">Query didn't match a tool handler.</p>
-                        <p className="text-xs text-purple-700">Try phrasing your prompt using forcing verbs like "Show me signals" or "Give me a brief".</p>
-                        <button onClick={() => onSendMessage('show query library')} className="px-3 py-1.5 bg-purple-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-purple-800 transition-colors">
-                          Browse Query Library
-                        </button>
+                        <p className="text-xs font-bold text-purple-900">Unable to route query to an available graph or tool.</p>
+                        <p className="text-xs text-purple-700">Try selecting a specific expert graph from the dropdown above, or phrase your prompt around a specific domain or topic (e.g. &ldquo;Show me signals on sustainability in retail&rdquo;).</p>
                       </div>
                     )}
 

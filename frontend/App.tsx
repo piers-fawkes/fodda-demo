@@ -39,6 +39,18 @@ import { useDiscovery } from './hooks/useDiscovery';
 import { useAuth, useOrganizationList } from '@clerk/react';
 import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/WelcomeContextPopup';
 import { useLavaWallet } from './hooks/useLavaWallet';
+import { isValidRedirectUrl, isClerkOAuthContinueUrl } from '../shared/redirectAllowlist';
+
+// Capture ?redirect_url= into sessionStorage immediately on load before any component stripping runs
+if (typeof window !== 'undefined') {
+  try {
+    const initialParams = new URLSearchParams(window.location.search);
+    const initialRedirect = initialParams.get('redirect_url');
+    if (initialRedirect && isValidRedirectUrl(initialRedirect)) {
+      sessionStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
+    }
+  } catch (e) {}
+}
 
 // Global fetch interceptor to inject Clerk JWT Bearer Token
 const originalFetch = window.fetch;
@@ -465,38 +477,23 @@ const App: React.FC = () => {
     }
   }, [pendingTopUpModal, isUnlocked]);
 
-  // Deep-link: resume OAuth consent flow if redirect_url query parameter is present
+  // Deep-link: resume OAuth consent flow if redirect_url query parameter or sessionStorage fallback is present
   useEffect(() => {
     if (typeof window === 'undefined' || !isAuthLoaded) return;
 
     const params = new URLSearchParams(window.location.search);
-    const redirectUrl = params.get('redirect_url');
-    if (!redirectUrl) return;
+    const rawRedirect = params.get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+    if (!rawRedirect || !isValidRedirectUrl(rawRedirect)) return;
 
-    try {
-      const parsed = new URL(redirectUrl);
-      const host = parsed.hostname;
-      const isClerkOAuthContinue =
-        host === 'accounts.fodda.ai' ||
-        host.endsWith('.accounts.fodda.ai') ||
-        host === 'clerk.fodda.ai' ||
-        host.endsWith('.clerk.fodda.ai') ||
-        parsed.pathname.includes('oauth');
-      const isAllowlisted = host.endsWith('fodda.ai') || host.endsWith('clerk.com') || host.endsWith('clerk.fodda.ai') || host.endsWith('accounts.fodda.ai');
-
-      if (isAllowlisted) {
-        // Fast-path for connector consent (clerk.fodda.ai): resume as soon as Clerk session is authenticated (clerkUserId),
-        // without gating on full app unlock (profile setup). For other app deep links, require isUnlocked.
-        const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
-        if (canResume) {
-          console.log('[App] Resuming OAuth redirect to:', redirectUrl);
-          window.location.href = redirectUrl;
-        }
-      } else {
-        console.error('[App] Invalid redirect_url hostname:', host);
-      }
-    } catch (e) {
-      console.error('[App] Invalid redirect_url:', redirectUrl);
+    const isClerkOAuthContinue = isClerkOAuthContinueUrl(rawRedirect);
+    // Fast-path for connector consent (clerk.fodda.ai): resume as soon as Clerk session is authenticated (clerkUserId),
+    // without gating on full app unlock (profile setup). For other app deep links, require isUnlocked.
+    const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
+    if (canResume) {
+      console.log('[App] Resuming OAuth redirect to:', rawRedirect);
+      sessionStorage.removeItem('fodda.pendingOAuthRedirect');
+      sessionStorage.removeItem('fodda.pendingOAuthResume');
+      window.location.href = rawRedirect;
     }
   }, [isUnlocked, clerkUserId, isAuthLoaded]);
 
@@ -567,9 +564,13 @@ const App: React.FC = () => {
         }, 300);
       }
 
-      // Clean search parameters from URL if present
+      // Clean search parameters from URL if present, preserving redirect_url if exists and valid
       if (typeof window !== 'undefined' && window.location.search) {
-        const cleanUrl = window.location.pathname;
+        const currentParams = new URLSearchParams(window.location.search);
+        const redirectUrl = currentParams.get('redirect_url');
+        const cleanUrl = (redirectUrl && isValidRedirectUrl(redirectUrl))
+          ? `${window.location.pathname}?redirect_url=${encodeURIComponent(redirectUrl)}`
+          : window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
       }
     }

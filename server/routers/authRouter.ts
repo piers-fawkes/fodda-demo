@@ -23,6 +23,7 @@ import {
   rewriteContext,
   resolveEmailFromApiKey
 } from '../helpers.js';
+import { isValidRedirectUrl, isInternalAppUrl } from '../../shared/redirectAllowlist.js';
 import { sendSystemEmail } from "../services/emailService.js";
 import { addToStreakPipeline, STAGE_SELF_DEMO } from "../services/streakService.js";
 import { enrichUserBuyerType } from "../services/userEnrichmentService.js";
@@ -422,6 +423,21 @@ router.get("/confirm", async (req, res) => {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     await updateAirtableRecord(USERS_TABLE, userRecord.id, { "loginToken": loginToken, "loginTokenExpires": expiresAt });
 
+    // ── OAuth / Custom redirect support ──────────────────────────────
+    const redirectParam = (req.query.redirect as string) || (req.query.redirect_url as string);
+    if (redirectParam && isValidRedirectUrl(redirectParam)) {
+      const isInternal = isInternalAppUrl(redirectParam);
+      if (isInternal) {
+        // Internal app path on app.fodda.ai: safe to append login token
+        const separator = redirectParam.includes('?') ? '&' : '?';
+        return res.redirect(`${redirectParam}${separator}confirmed=true&token=${loginToken}`);
+      } else {
+        // External allowlisted destination (e.g. Clerk OAuth continue URL):
+        // Redirect WITHOUT appending the internal login token (prevents token leakage)
+        return res.redirect(redirectParam);
+      }
+    }
+
     // ── Intent-based redirect ────────────────────────────────────────
     const onboardingIntent = userRecord.fields.onboardingIntent || 'api';
     const dashboardBase = 'https://app.fodda.ai';
@@ -444,7 +460,10 @@ router.get("/confirm", async (req, res) => {
     // Redirect back to the app with the email pre-filled so they can re-register or sign in
     const email = req.query.email as string || '';
     const normalizedEmail = email.toLowerCase().trim();
-    res.redirect(`${baseUrl}/?email=${encodeURIComponent(normalizedEmail)}`);
+    const redirectParam = (req.query.redirect as string) || (req.query.redirect_url as string);
+    const validRedirect = isValidRedirectUrl(redirectParam) ? redirectParam : '';
+    const redirectQuery = validRedirect ? `&redirect_url=${encodeURIComponent(validRedirect)}` : '';
+    res.redirect(`${baseUrl}/?email=${encodeURIComponent(normalizedEmail)}${redirectQuery}`);
   }
 });
 
