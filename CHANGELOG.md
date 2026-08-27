@@ -3,6 +3,23 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-26] — Dedicated OAuth Consent Route on app.fodda.ai (`briefs/custom-oauth-consent-page.md`)
+
+### Added & Changed
+- **Dedicated Custom `/oauth-consent` Route (`frontend/components/OAuthConsentPage.tsx`, `frontend/App.tsx`)**:
+  - Built custom OAuth consent page hosted on `app.fodda.ai/oauth-consent` using `@clerk/react`'s prebuilt `<OAuthConsent />` component, resolving the dead-end issue with Clerk's default-hosted `accounts.fodda.ai/oauth-consent`.
+  - **Signed-In Flow**: Renders `<OAuthConsent />` in a minimal, focused container with Fodda masthead branding and standard Allow / Deny buttons. No app navigation, sidebars, or escape links.
+  - **Signed-Out Flow**: Direct visits preserve the full URL (`window.location.pathname + window.location.search + window.location.hash`) as `pendingOAuthRedirect` and `pendingOAuthResume` in `sessionStorage`, rendering `AuthGate` for immediate LinkedIn/Google/Email authentication.
+  - **Referrer Policy**: Enforced `strict-origin-when-cross-origin` policy in `<head>` (via `index.html` and dynamic runtime check in `OAuthConsentPage.tsx`) required for Clerk Frontend API form POSTs.
+  - **Fast-Path Resume Compatibility (`frontend/App.tsx`, `frontend/components/SsoCallbackPage.tsx`)**: Guarded resume effect to prevent self-redirection loops on `/oauth-consent`, and updated `SsoCallbackPage.tsx` to directly replace location to `pendingResume`.
+
+### Files Changed
+- `frontend/components/OAuthConsentPage.tsx` (new)
+- `frontend/App.tsx`
+- `frontend/components/SsoCallbackPage.tsx`
+- `index.html`
+- `CHANGELOG.md`
+
 ## [2026-08-26] — AuthGate Sign-In Button Hierarchy (LinkedIn-First) (`briefs/authgate-button-hierarchy.md`)
 
 ### Deployment

@@ -40,7 +40,7 @@ export const SsoCallbackPage: React.FC = () => {
       sessionStorage.removeItem('fodda.pendingOAuthResume');
       sessionStorage.removeItem('fodda.pendingOAuthRedirect');
       sessionStorage.removeItem('fodda.oauthPending');
-      window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
+      window.location.replace(pendingResume);
       return;
     }
 

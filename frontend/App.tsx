@@ -12,6 +12,7 @@ import { DeterministicModal } from './components/DeterministicModal';
 import { Dashboard } from './components/Dashboard';
 import { AuthGate } from './components/AuthGate';
 import { SsoCallbackPage } from './components/SsoCallbackPage';
+import { OAuthConsentPage } from './components/OAuthConsentPage';
 import { ContextChips } from './components/ContextChips';
 import { DevToolsDrawer } from './components/DevToolsDrawer';
 import { UpgradeModal } from './components/UpgradeModal';
@@ -481,12 +482,15 @@ const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined' || !isAuthLoaded) return;
 
+    // If currently on /oauth-consent, we are already at the consent destination
+    if (window.location.pathname.replace(/\/+$/, '') === '/oauth-consent') return;
+
     const params = new URLSearchParams(window.location.search);
     const rawRedirect = params.get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
     if (!rawRedirect || !isValidRedirectUrl(rawRedirect)) return;
 
     const isClerkOAuthContinue = isClerkOAuthContinueUrl(rawRedirect);
-    // Fast-path for connector consent (clerk.fodda.ai): resume as soon as Clerk session is authenticated (clerkUserId),
+    // Fast-path for connector consent (clerk.fodda.ai / /oauth-consent): resume as soon as Clerk session is authenticated (clerkUserId),
     // without gating on full app unlock (profile setup). For other app deep links, require isUnlocked.
     const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
     if (canResume) {
@@ -983,10 +987,16 @@ const App: React.FC = () => {
     [lastAssistantMsg]
   );
 
-  // ─── SSO Callback Route ─────────────────────────────────────────────────────
+  // ─── OAuth Consent Route (/oauth-consent) ──────────────────────────────────
+  // Dedicated OAuth consent page for app.fodda.ai connector flows.
+  if (typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === '/oauth-consent') {
+    return <OAuthConsentPage />;
+  }
+
+  // ─── SSO Callback Route (/sso-callback) ─────────────────────────────────────
   // Must be checked before the isUnlocked / Clerk-loading guard so that the
   // OAuth redirect can complete even while the session is still being resolved.
-  if (typeof window !== 'undefined' && window.location.pathname === '/sso-callback') {
+  if (typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === '/sso-callback') {
     return <SsoCallbackPage />;
   }
 
