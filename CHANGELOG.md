@@ -5,6 +5,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-08-26] — AuthGate Sign-In Button Hierarchy (LinkedIn-First) (`briefs/authgate-button-hierarchy.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00533-l6q` (100% traffic)
+- **Health Check:** `GET /health` → HTTP `200`
+
 ### Changed
 - **LinkedIn-First Button Hierarchy (`frontend/components/AuthGate.tsx`)**:
   - Reordered and restyled authentication options across both sign-in and sign-up variants of AuthGate:
