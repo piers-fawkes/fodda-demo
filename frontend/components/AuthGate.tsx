@@ -121,6 +121,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [returningFromConfirm, setReturningFromConfirm] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   // Clerk head-less state hooks (v6 / Core 3 API)
   const clerk = useClerk();
@@ -217,6 +218,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
       // Detect legacy email magic link tokens during the transition window
       if (params.has('__clerk_db_jwt') || params.has('__clerk_status') || params.has('__clerk_created_session')) {
         setLegacyMagicLinkDetected(true);
+        setShowEmailForm(true);
       }
 
       const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -258,6 +260,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
       if (emailParam || isRegisterPath || signupParam || hasPlanParam) {
         if (emailParam) {
           setEmail(emailParam);
+          setShowEmailForm(true);
         }
         // Persist plan selection to localStorage so it survives authentication reloads
         if (hasPlanParam) {
@@ -277,6 +280,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           setIsSignUp(false);
           setIsJoinTeam(false);
           setReturningFromConfirm(true);
+          setShowEmailForm(true);
         }
         window.history.replaceState({}, document.title, '/');
       }
@@ -597,17 +601,22 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 500, lineHeight: 1.65, margin: '0 0 30px' }}>{graphHeadline}</p>
         {promoTag && <div className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', marginBottom: 16 }}>✨ PROMO: {promoTag.toUpperCase()}</div>}
 
-        {/* ── OAuth quick sign-in / sign-up via Clerk ── */}
+        {/* ── OAuth quick sign-in / sign-up via Clerk (LinkedIn-first) ── */}
         <div style={{ maxWidth: 480, marginBottom: 24 }}>
-          <div className="flex items-center gap-2" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-            <OAuthBtn provider="oauth_google" label="Google" onClick={() => handleOAuth('oauth_google')} />
-            <OAuthBtn provider="oauth_github" label="GitHub" onClick={() => handleOAuth('oauth_github')} />
-            <OAuthBtn provider="oauth_linkedin_oidc" label="LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+          <div className="flex flex-col gap-2.5">
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} variant="primary" />
+            <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} variant="secondary" />
           </div>
-          <div className="flex items-center gap-3">
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          <div className="flex items-center justify-between" style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-3)' }}>
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>OR WITH EMAIL</span>
+            <button
+              type="button"
+              onClick={() => handleOAuth('oauth_github')}
+              className="cursor-pointer hover:underline font-medium"
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+            >
+              or continue with GitHub
+            </button>
           </div>
         </div>
 
@@ -691,17 +700,22 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '0 0 20px', maxWidth: 480 }}>Two short pages, then a confirmation link.</p>
         {promoTag && <div className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', marginBottom: 16 }}>✨ PROMO: {promoTag.toUpperCase()}</div>}
 
-        {/* ── OAuth quick sign-up — name + company collected on /sso-callback ── */}
-        <div style={{ marginBottom: 24 }}>
-          <div className="flex items-center gap-2" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-            <OAuthBtn provider="oauth_google" label="Google" onClick={() => handleOAuth('oauth_google')} />
-            <OAuthBtn provider="oauth_github" label="GitHub" onClick={() => handleOAuth('oauth_github')} />
-            <OAuthBtn provider="oauth_linkedin_oidc" label="LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+        {/* ── OAuth quick sign-up — LinkedIn-first ── */}
+        <div style={{ maxWidth: 480, marginBottom: 24 }}>
+          <div className="flex flex-col gap-2.5">
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Sign up with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} variant="primary" />
+            <OAuthBtn provider="oauth_google" label="Sign up with Google" onClick={() => handleOAuth('oauth_google')} variant="secondary" />
           </div>
-          <div className="flex items-center gap-3">
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          <div className="flex items-center justify-between" style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-3)' }}>
+            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>OR WITH EMAIL</span>
+            <button
+              type="button"
+              onClick={() => handleOAuth('oauth_github')}
+              className="cursor-pointer hover:underline font-medium"
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+            >
+              or sign up with GitHub
+            </button>
           </div>
         </div>
 
@@ -843,52 +857,87 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           )}
 
           {/* Hero callout for OAuth */}
-          <div style={{ marginBottom: 14, padding: '8px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 6 }}>
+          <div style={{ marginBottom: 16, padding: '8px 12px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 6 }}>
             <span className="font-mono font-bold" style={{ fontSize: 10, color: 'var(--brand)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              ⚡ FASTEST: Continue with Google — no email confirmation
+              ⚡ FASTEST: Continue with LinkedIn — no email confirmation
             </span>
           </div>
 
-          {/* Full-width OAuth buttons */}
-          <div className="flex flex-col gap-2.5" style={{ marginBottom: 20 }}>
-            <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} style={{ width: '100%', padding: '12px 16px', fontWeight: 600 }} />
-            <OAuthBtn provider="oauth_github" label="Continue with GitHub" onClick={() => handleOAuth('oauth_github')} style={{ width: '100%', padding: '12px 16px' }} />
-            <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} style={{ width: '100%', padding: '12px 16px' }} />
+          {/* Full-width OAuth buttons (LinkedIn-first hierarchy) */}
+          <div className="flex flex-col gap-2.5" style={{ marginBottom: 16 }}>
+            <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} variant="primary" />
+            <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} variant="secondary" />
           </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3" style={{ marginBottom: 16, color: 'var(--ink-4)' }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-            <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-          </div>
-
-          {/* Demoted / Secondary Email Form */}
-          <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
-            <FieldRule
-              label="Your email"
-              hint="6-digit code"
-              value={email}
-              onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
-              type="email"
-              autoComplete="email"
-              required
-              disabled={isLoading}
-              error={errorHeader || undefined}
-            />
-            <div style={{ marginTop: 14 }}>
-              <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
-                {isLoading ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />
-                    Sending code…
-                  </span>
-                ) : (
-                  'Continue with Email →'
-                )}
-              </Btn>
+          {/* Quiet text links or expandable email form */}
+          {!showEmailForm && !email ? (
+            <div className="flex items-center justify-center gap-3" style={{ fontSize: 12, color: 'var(--ink-3)', margin: '14px 0 6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(true)}
+                className="cursor-pointer hover:underline font-medium"
+                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-2)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+              >
+                or continue with email
+              </button>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => handleOAuth('oauth_github')}
+                className="cursor-pointer hover:underline font-medium"
+                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+              >
+                GitHub
+              </button>
             </div>
-          </form>
+          ) : (
+            <div className="animate-fade-in-up" style={{ marginTop: 12 }}>
+              {/* Divider */}
+              <div className="flex items-center gap-3" style={{ marginBottom: 14, color: 'var(--ink-4)' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-3)' }}>OR WITH EMAIL</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              </div>
+
+              {/* Email Form */}
+              <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
+                <FieldRule
+                  label="Your email"
+                  hint="6-digit code"
+                  value={email}
+                  onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
+                  type="email"
+                  autoComplete="email"
+                  required
+                  disabled={isLoading}
+                  error={errorHeader || undefined}
+                />
+                <div style={{ marginTop: 14 }}>
+                  <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
+                    {isLoading ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />
+                        Sending code…
+                      </span>
+                    ) : (
+                      'Continue with Email →'
+                    )}
+                  </Btn>
+                </div>
+              </form>
+
+              <div className="text-center" style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => handleOAuth('oauth_github')}
+                  className="cursor-pointer hover:underline font-medium"
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+                >
+                  or continue with GitHub
+                </button>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px dashed var(--line)', fontSize: 11, color: 'var(--ink-3)' }}>
             Powered by <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Fodda</span> · PSFK Context Layer
@@ -917,29 +966,65 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         </div>
       )}
 
-      {/* ── OAuth quick sign-in ── */}
-      <div style={{ maxWidth: 520, marginBottom: 28 }}>
-        <div className="flex items-center gap-2" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-          <OAuthBtn provider="oauth_google" label="Google" onClick={() => handleOAuth('oauth_google')} />
-          <OAuthBtn provider="oauth_github" label="GitHub" onClick={() => handleOAuth('oauth_github')} />
-          <OAuthBtn provider="oauth_linkedin_oidc" label="LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} />
+      {/* ── OAuth quick sign-in (LinkedIn-first hierarchy) ── */}
+      <div style={{ maxWidth: 480, marginBottom: 24 }}>
+        <div className="flex flex-col gap-2.5">
+          <OAuthBtn provider="oauth_linkedin_oidc" label="Continue with LinkedIn" onClick={() => handleOAuth('oauth_linkedin_oidc')} variant="primary" />
+          <OAuthBtn provider="oauth_google" label="Continue with Google" onClick={() => handleOAuth('oauth_google')} variant="secondary" />
         </div>
-        <div className="flex items-center gap-3" style={{ color: 'var(--ink-4)' }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-          <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR VIA EMAIL</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-        </div>
+
+        {!showEmailForm && !email ? (
+          <div className="flex items-center gap-3" style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 14 }}>
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(true)}
+              className="cursor-pointer hover:underline font-medium"
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-2)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+            >
+              or continue with email
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => handleOAuth('oauth_github')}
+              className="cursor-pointer hover:underline font-medium"
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+            >
+              GitHub
+            </button>
+          </div>
+        ) : (
+          <div className="animate-fade-in-up" style={{ marginTop: 18 }}>
+            <div className="flex items-center gap-3" style={{ color: 'var(--ink-4)', marginBottom: 18 }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              <span className="font-mono" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--ink-3)' }}>OR VIA EMAIL</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <FieldRule label="Your email" hint="6-digit code · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
+                <div className="flex items-center gap-3.5" style={{ marginTop: 4 }}>
+                  <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />Sending code…</span> : 'Continue with Email →'}</Btn>
+                  <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
+                </div>
+              </div>
+            </form>
+
+            <div style={{ marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => handleOAuth('oauth_github')}
+                className="cursor-pointer hover:underline font-medium"
+                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+              >
+                or continue with GitHub
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <FieldRule label="Your email" hint="6-digit code · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
-          <div className="flex items-center gap-3.5" style={{ marginTop: 8 }}>
-            <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />Sending code…</span> : 'Continue with Email →'}</Btn>
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
-          </div>
-        </div>
-      </form>
       {returningFromConfirm ? (
         /* Returning from email confirmation — show a helpful note instead of registration CTA */
         <div style={{ marginTop: 36, padding: '18px 20px', background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderLeft: '3px solid var(--brand)', borderRadius: 4, maxWidth: 520 }}>
@@ -968,12 +1053,13 @@ const OAuthBtn: React.FC<{
   provider: 'oauth_google' | 'oauth_linkedin_oidc' | 'oauth_github';
   label: string;
   onClick: () => void;
+  variant?: 'primary' | 'secondary';
   style?: React.CSSProperties;
-}> = ({ provider, label, onClick, style }) => {
+}> = ({ provider, label, onClick, variant = 'secondary', style }) => {
   const [hovered, setHovered] = React.useState(false);
 
   const googleIcon = (
-    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
       <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
       <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
@@ -982,9 +1068,9 @@ const OAuthBtn: React.FC<{
   );
 
   const linkedinIcon = (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="24" height="24" rx="4" fill="#0A66C2"/>
-      <path d="M7.5 10h-3v9h3v-9zm-1.5-.9C5.1 9.1 4.5 8.5 4.5 7.7S5.1 6.3 6 6.3s1.5.6 1.5 1.4S6.9 9.1 6 9.1zm14 9.9h-3v-4.5c0-1.1-.4-1.8-1.4-1.8-.8 0-1.2.5-1.4 1v5.3h-3V10h3v1.3c.4-.6 1.2-1.5 2.8-1.5 2 0 3 1.3 3 4v5.2z" fill="white"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="4" fill={variant === 'primary' ? '#ffffff' : '#0A66C2'}/>
+      <path d="M7.5 10h-3v9h3v-9zm-1.5-.9C5.1 9.1 4.5 8.5 4.5 7.7S5.1 6.3 6 6.3s1.5.6 1.5 1.4S6.9 9.1 6 9.1zm14 9.9h-3v-4.5c0-1.1-.4-1.8-1.4-1.8-.8 0-1.2.5-1.4 1v5.3h-3V10h3v1.3c.4-.6 1.2-1.5 2.8-1.5 2 0 3 1.3 3 4v5.2z" fill={variant === 'primary' ? '#0A66C2' : '#ffffff'}/>
     </svg>
   );
 
@@ -994,25 +1080,51 @@ const OAuthBtn: React.FC<{
     </svg>
   );
 
+  const icon = provider === 'oauth_google' ? googleIcon : provider === 'oauth_github' ? githubIcon : linkedinIcon;
+
+  if (variant === 'primary') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="inline-flex items-center justify-center gap-2.5 font-semibold transition-all cursor-pointer shadow-sm"
+        style={{
+          width: '100%',
+          padding: '12px 20px',
+          borderRadius: 8,
+          fontSize: 14,
+          letterSpacing: '0.01em',
+          border: '1px solid #08529d',
+          background: hovered ? '#08529d' : '#0A66C2',
+          color: '#ffffff',
+          boxShadow: hovered ? '0 2px 8px rgba(10, 102, 194, 0.25)' : '0 1px 3px rgba(10, 102, 194, 0.15)',
+          ...style,
+        }}
+      >
+        {icon}
+        {label}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="inline-flex items-center gap-2 font-semibold transition-all"
+      className="inline-flex items-center justify-center gap-2 font-semibold transition-all cursor-pointer"
       style={{
-        flex: '1 1 120px',
-        padding: '9px 12px',
+        width: '100%',
+        padding: '10px 16px',
         borderRadius: 8,
-        fontSize: 12,
-        letterSpacing: '0.02em',
-        border: `1px solid ${hovered ? 'var(--ink-3)' : 'var(--line)'}`,
+        fontSize: 13,
+        letterSpacing: '0.01em',
+        border: `1px solid ${hovered ? 'var(--ink)' : 'var(--line)'}`,
         background: hovered ? 'var(--cream)' : 'var(--paper)',
         color: 'var(--ink)',
-        cursor: 'pointer',
-        justifyContent: 'center',
-        whiteSpace: 'nowrap',
         ...style,
       }}
     >

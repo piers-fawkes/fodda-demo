@@ -3,7 +3,30 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-26] — AuthGate Sign-In Button Hierarchy (LinkedIn-First) (`briefs/authgate-button-hierarchy.md`)
+
+### Changed
+- **LinkedIn-First Button Hierarchy (`frontend/components/AuthGate.tsx`)**:
+  - Reordered and restyled authentication options across both sign-in and sign-up variants of AuthGate:
+    - **LinkedIn**: Large primary button, full width, prominent `#0A66C2` styling with high contrast.
+    - **Google**: Visually quieter secondary button directly beneath LinkedIn.
+    - **Email**: Quiet text link (*"or continue with email"*) that reveals the email-code form on demand (auto-expanded if email parameter, legacy magic link, or confirm return is present).
+    - **GitHub**: Quiet text link (*"GitHub"* / *"or continue with GitHub"*) keeping GitHub SSO fully functional while reducing visual clutter.
+  - Applied the identical hierarchy to the Claude-connector OAuth screen (`hasRedirectUrl`), default sign-in screen, Step 1 registration screen (`isSignUp`), and Referral landing screen (`referralGraph`).
+  - Updated hero callout banner to highlight LinkedIn fast-path on the Claude OAuth connector screen.
+- **Provider User Verification**:
+  - Queried Airtable (`USERS_TABLE`) and Clerk (`clerkClient.users.getUserList()`): confirmed **0 existing users** authenticated via GitHub provider. Demoting GitHub to a quiet text link preserves backward compatibility with zero user disruption.
+
+### Files Changed
+- `frontend/components/AuthGate.tsx`
+- `CHANGELOG.md`
+
 ## [2026-08-26] — Clerk Email-Code Sign-In & OAuth Redirect Hardening (`briefs/clerk-email-code-oauth-resume.md`)
+
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00532-r7k` (100% traffic)
+- **Health Check:** `GET /health` → HTTP `200`
 
 ### Added & Changed
 - **Clerk Future API Email-Code (OTP) Flows (`frontend/components/AuthGate.tsx`, `frontend/components/AuthGateAtoms.tsx`)**:
