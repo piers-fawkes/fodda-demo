@@ -5,6 +5,12 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-08-26] — Dedicated OAuth Consent Route on app.fodda.ai (`briefs/custom-oauth-consent-page.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00534-qzn` (100% traffic)
+- **Health Check:** `GET /health` → HTTP `200`
+- **Route Check:** `GET /oauth-consent` → HTTP `200` with `strict-origin-when-cross-origin` referrer policy
+
 ### Added & Changed
 - **Dedicated Custom `/oauth-consent` Route (`frontend/components/OAuthConsentPage.tsx`, `frontend/App.tsx`)**:
   - Built custom OAuth consent page hosted on `app.fodda.ai/oauth-consent` using `@clerk/react`'s prebuilt `<OAuthConsent />` component, resolving the dead-end issue with Clerk's default-hosted `accounts.fodda.ai/oauth-consent`.
