@@ -7,7 +7,7 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ### Deployment
 - **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
-- **Active Revision:** `fodda-sandbox-00534-qzn` (100% traffic)
+- **Active Revision:** `fodda-sandbox-00535-zpw` (100% traffic)
 - **Health Check:** `GET /health` → HTTP `200`
 - **Route Check:** `GET /oauth-consent` → HTTP `200` with `strict-origin-when-cross-origin` referrer policy
 
