@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-08-28] — OAuth-Flow Preflight Guards, Deploy Gate & Post-Deploy Smoke Suite (`briefs/oauth-flow-preflight-guards.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00536-zfz` (100% traffic)
+- **Commit:** `b90f584`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, route wiring)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker, and Clerk code-only configuration
+
 ### Added & Changed
 - **OAuth Preflight Test Suite (`scripts/oauth-preflight.mjs`, `npm run preflight`)**:
   - Implemented multi-layer static and behavior test suite executed prior to build and deployment:
