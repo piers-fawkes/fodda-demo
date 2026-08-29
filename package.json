@@ -8,7 +8,9 @@
     "start": "tsx server/index.ts",
     "dev": "tsx server/index.ts",
     "build": "vite build",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "preflight": "node scripts/oauth-preflight.mjs",
+    "smoke:oauth": "node scripts/oauth-smoke.mjs"
   },
   "dependencies": {
     "@clerk/express": "^2.1.22",

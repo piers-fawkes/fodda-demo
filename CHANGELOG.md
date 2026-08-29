@@ -3,6 +3,40 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-28] — OAuth-Flow Preflight Guards, Deploy Gate & Post-Deploy Smoke Suite (`briefs/oauth-flow-preflight-guards.md`)
+
+### Added & Changed
+- **OAuth Preflight Test Suite (`scripts/oauth-preflight.mjs`, `npm run preflight`)**:
+  - Implemented multi-layer static and behavior test suite executed prior to build and deployment:
+    - **Source Guards**: Recursively scans all frontend files ensuring zero occurrences of forbidden magic-link/legacy Clerk methods (`emailLink`, `sendEmailLink`, `prepareEmailAddressVerification`, `prepareFirstFactor`) and ensures no inline redirect host checks exist outside `shared/redirectAllowlist.ts`.
+    - **Allowlist Behavior Verification**: Unit tests `isValidRedirectUrl` against malicious domains (`https://evilfodda.ai`, `https://notclerk.com`, `//evil.com`, `/\evil.com`, `javascript:alert(1)`) and valid routes (`/dashboard`, `https://app.fodda.ai/x`, `https://clerk.fodda.ai/oauth/x`, `https://accounts.fodda.ai/oauth-consent`); asserts `isInternalAppUrl` rejects all non-app hosts.
+    - **Route Wiring**: Verifies existence of `frontend/components/OAuthConsentPage.tsx` and routes `/oauth-consent` to `<OAuthConsentPage />` in `frontend/App.tsx`.
+- **Post-Deploy Smoke Suite (`scripts/oauth-smoke.mjs`, `npm run smoke:oauth`)**:
+  - Validates live production OAuth infrastructure post-deployment:
+    - `GET https://app.fodda.ai/` → HTTP `200`.
+    - `GET https://app.fodda.ai/oauth-consent` → HTTP `200` and verifies `OAuthConsent` component marker is present in served JS bundles.
+    - `GET https://clerk.fodda.ai/v1/environment` → HTTP `200` and validates Clerk `email_address` configuration is strictly email-code only (`verifications: ['email_code']`, `first_factors: ['email_code']`).
+- **Slack Alert Dispatcher & Fail Banner (`scripts/slack-alert.mjs`)**:
+  - On any preflight or smoke failure, dispatches alert message `🛑 OAuth-flow guard FAILED (<preflight|smoke>) on deploy of <commit>: <first failing check>` to `#fodda-sales` (`C0AV0HLSF24`) using `SLACK_BOT_TOKEN`.
+  - Fallbacks cleanly to an unmissable console failure banner if `SLACK_BOT_TOKEN` is unset in the execution environment, always failing closed.
+- **Deploy Script & Workflow Integration (`deploy_gcp.sh`, `.agents/workflows/deploy.md`)**:
+  - Wired `npm run preflight` as an abort-on-failure gate before Docker build/deploy.
+  - Appended `npm run smoke:oauth` as an automated post-deployment validation step.
+
+### Verification
+- `npm run preflight` executed on main working tree: passed 100% (source guards, allowlist test cases, route wiring).
+- Deliberate violation test (injected `sendEmailLink` into scratch frontend file): preflight caught the issue, posted `🛑 OAuth-flow guard FAILED (preflight) on deploy of f35e46c: Forbidden token 'sendEmailLink' found in frontend/test_violation_temp.ts...` to Slack `#fodda-sales`, and aborted with exit code 1. Reverted test file and verified clean pass.
+- `npm run smoke:oauth` executed against live endpoints: passed 100% (HTTP 200 on `/`, HTTP 200 + `OAuthConsent` marker on `/oauth-consent`, and Clerk environment code-only configuration verified).
+
+### Files Changed
+- `scripts/slack-alert.mjs` (new)
+- `scripts/oauth-preflight.mjs` (new)
+- `scripts/oauth-smoke.mjs` (new)
+- `package.json`
+- `deploy_gcp.sh`
+- `.agents/workflows/deploy.md`
+- `CHANGELOG.md`
+
 ## [2026-08-26] — Dedicated OAuth Consent Route on app.fodda.ai (`briefs/custom-oauth-consent-page.md`)
 
 ### Deployment

@@ -40,7 +40,13 @@ description: How to deploy the Fodda App to Google Cloud Run
 echo "✅ Deploying from commit $(git rev-parse HEAD)"
 ```
 
-2. Deploy the source code (rebuilds the Docker image):
+2. Run OAuth-flow preflight test suite gate:
+
+```bash
+npm run preflight
+```
+
+3. Deploy the source code (rebuilds the Docker image):
 
 ```bash
 /opt/homebrew/bin/gcloud run deploy fodda-sandbox \
@@ -51,7 +57,7 @@ echo "✅ Deploying from commit $(git rev-parse HEAD)"
   --allow-unauthenticated
 ```
 
-2. Set all environment variables (using separate flags to avoid shell parsing issues with special characters):
+4. Set all environment variables (using separate flags to avoid shell parsing issues with special characters):
 
 ```bash
 /opt/homebrew/bin/gcloud run services update fodda-sandbox \
@@ -81,7 +87,7 @@ echo "✅ Deploying from commit $(git rev-parse HEAD)"
   --update-env-vars "CLERK_WEBHOOK_SECRET=$(grep '^CLERK_WEBHOOK_SECRET=' .env | cut -d= -f2-)"
 ```
 
-2. Verify the deployment URL:
+5. Verify the deployment URL & run post-deploy smoke checks:
 
 ```bash
 /opt/homebrew/bin/gcloud run services describe fodda-sandbox \
@@ -89,9 +95,12 @@ echo "✅ Deploying from commit $(git rev-parse HEAD)"
   --region us-central1 \
   --project gen-lang-client-0472572023 \
   --format='value(status.url)'
+
+# Run post-deploy smoke suite
+npm run smoke:oauth
 ```
 
-3. Health check — confirm the app is responding:
+6. Health check — confirm the app is responding:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}" https://fodda-sandbox-1095548227950.us-central1.run.app/health

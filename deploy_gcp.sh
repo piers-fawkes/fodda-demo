@@ -62,6 +62,15 @@ fi
 echo "   AIRTABLE_PAT: ${AIRTABLE_PAT:0:8}..."
 echo "   GEMINI_API_KEY: ${GEMINI_API_KEY:0:8}..."
 
+# Run OAuth-flow Preflight Suite
+echo "🛡️  Running Preflight Deploy Gate..."
+npm run preflight
+if [ $? -ne 0 ]; then
+    echo "🛑 Preflight checks FAILED. Aborting deployment."
+    exit 1
+fi
+echo "✅ Preflight checks passed."
+
 # Deploy to Cloud Run
 echo "📦 Building and Deploying..."
 
@@ -78,6 +87,15 @@ if [ $? -eq 0 ]; then
     # Get the URL
     SERVICE_URL=$(gcloud run services describe fodda-sandbox --platform managed --region us-central1 --format 'value(status.url)')
     echo "   URL: $SERVICE_URL"
+
+    # Post-deploy smoke check
+    echo "💨 Running Post-Deploy Smoke Checks..."
+    npm run smoke:oauth
+    if [ $? -ne 0 ]; then
+        echo "🛑 Post-deploy smoke checks FAILED."
+        exit 1
+    fi
+    echo "✅ Post-deploy smoke checks passed cleanly."
 else
     echo "❌ Deployment Failed."
     exit 1
