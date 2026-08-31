@@ -1876,19 +1876,20 @@ router.post("/delete", async (req, res) => {
       });
     }
 
-    // 2. Anonymize all users in this account
-    const allUsersQuery = await queryAirtable(USERS_TABLE, `{Account} = '${escapeAirtableString(accountId)}'`);
-    for (const u of (allUsersQuery.records || [])) {
-      await updateAirtableRecord(USERS_TABLE, u.id, {
-        "email": `deleted_${u.id}@fodda.ai`,
+    // 2. Anonymize users in this account
+    const acctRecordQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+    const linkedUserIds: string[] = (acctRecordQuery.records?.[0]?.fields?.User as string[]) || [userRecord.id];
+    for (const uId of linkedUserIds) {
+      await updateAirtableRecord(USERS_TABLE, uId, {
+        "email": `deleted_${uId}@fodda.ai`,
         "First Name": "Deleted",
         "Last Name": "User",
         "User Full Name": "Deleted User",
         "userContext": "",
         "loginToken": "",
         "sessionToken": "",
-        "sessionExpiresAt": "",
-      });
+        "sessionExpiresAt": null,
+      }).catch(e => console.error(`[Delete Account] Failed to anonymize user ${uId}:`, e));
     }
 
     // 3. Mark account as deleted

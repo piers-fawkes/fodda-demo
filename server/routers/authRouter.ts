@@ -14,7 +14,8 @@ import {
   PLANS_TABLE, 
   API_KEYS_TABLE,
   BASE_ID,
-  CE_ANALYSTS_TABLE
+  CE_ANALYSTS_TABLE,
+  isGenericEmailDomain
 } from '../constants.js';
 import { 
   extractValue, 
@@ -76,7 +77,13 @@ router.post("/register", async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const firstName = rawFirstName || normalizedEmail.split('@')[0];
     const lastName = rawLastName || '';
-    const company = rawCompany || normalizedEmail;
+    const emailDomain = normalizedEmail.includes('@') ? normalizedEmail.split('@')[1] : '';
+    const isGeneric = isGenericEmailDomain(emailDomain) || isGenericEmailDomain(rawCompany);
+    const effectiveCompany = (rawCompany && !isGenericEmailDomain(rawCompany) && rawCompany !== 'Default Company' && rawCompany !== normalizedEmail)
+      ? rawCompany
+      : '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    const accountDisplayName = effectiveCompany || fullName || normalizedEmail;
 
     // Accept referralGraph as-is (single slug or comma-separated list like "psfk-retail,juan-isaza")
     const accountVertical = referralGraph ? referralGraph.toLowerCase().trim() : 'all';
@@ -86,13 +93,11 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ ok: false, error: "User already exists. Please log in." });
     }
 
-
     const freePlanQuery = await queryAirtable(PLANS_TABLE, `{planCode} = 2`);
     const freePlanRecord = freePlanQuery.records?.[0];
     const freePlanId = freePlanRecord?.id;
 
-    const fullName = `${firstName} ${lastName}`;
-    const baseHandle = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const baseHandle = fullName.toLowerCase().replace(/[^a-z0-9]/g, "") || "user";
     let uniqueHandle = baseHandle;
     let counter = 1;
     let isUnique = false;
@@ -107,8 +112,12 @@ router.post("/register", async (req, res) => {
     let finalAccountFields: any;
     let isNewAccount = false;
     let apiKeyForEmail = "";
-    const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `{Account Name} = '${escapeAirtableString(company)}'`);
-    const existingAccountCursor = existingAccountQuery.records?.[0];
+    
+    let existingAccountCursor;
+    if (effectiveCompany && !isGeneric) {
+      const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `AND({Account Name} = '${escapeAirtableString(effectiveCompany)}', {accountStatus} = 'active')`);
+      existingAccountCursor = existingAccountQuery.records?.[0];
+    }
 
     if (existingAccountCursor) {
       accountId = existingAccountCursor.id;
@@ -125,8 +134,8 @@ router.post("/register", async (req, res) => {
       isNewAccount = true;
       const todayISO = new Date().toISOString().split('T')[0];
       const accountFields: any = {
-        "Account Name": company,
-        "legalName": company,
+        "Account Name": accountDisplayName,
+        "legalName": accountDisplayName,
         "signupCode": randomBytes(4).toString('hex').toUpperCase(),
         "accountContext": companyContext || "", // Store raw initially for speed
         "vertical": accountVertical,
@@ -165,7 +174,7 @@ router.post("/register", async (req, res) => {
       "emailConfirmed": false,
       "apiUse": apiUse,
       "onboardingIntent": intent,
-      "Company": company,
+      "Company": effectiveCompany,
     };
     const userRecord = await createAirtableRecord(USERS_TABLE, userFields);
     const userId = userRecord.records[0].id;
@@ -564,6 +573,7 @@ router.patch('/patch-oauth-metadata', requireAuth(), async (req: any, res) => {
         const looksLikePlaceholder =
           existingName === 'Default Company' ||
           existingName.includes('@') ||
+          isGenericEmailDomain(existingName) ||
           /^[a-z0-9.-]+\.[a-z]{2,}$/.test(existingName.toLowerCase());
 
         if (looksLikePlaceholder) {

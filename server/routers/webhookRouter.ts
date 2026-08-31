@@ -11,7 +11,8 @@ import {
   USERS_TABLE, 
   ACCOUNTS_TABLE, 
   PLANS_TABLE, 
-  API_KEYS_TABLE 
+  API_KEYS_TABLE,
+  isGenericEmailDomain
 } from '../constants.js';
 import { 
   rewriteContext
@@ -44,9 +45,13 @@ async function provisionUserFromClerk(
 ) {
   const normalizedEmail = email.toLowerCase().trim();
   const todayISO = new Date().toISOString().split('T')[0];
-  const company = companyName || normalizedEmail;
-
-  console.log(`[Clerk Webhook] Provisioning user: ${normalizedEmail} (Company: ${company}, Intent: ${intent})`);
+  const emailDomain = normalizedEmail.includes('@') ? normalizedEmail.split('@')[1] : '';
+  const isGeneric = isGenericEmailDomain(emailDomain) || isGenericEmailDomain(companyName);
+  
+  // Real company name if provided by user; for generic consumer emails without a custom company, keep company empty
+  const effectiveCompany = (companyName && !isGenericEmailDomain(companyName) && companyName !== 'Default Company' && companyName !== normalizedEmail) 
+    ? companyName 
+    : '';
 
   // 1. Fetch the Plan based on signup intent (Trial plan 13 if intent is demo/trial, fallback to Base - Free plan 2)
   let planId: string | undefined;
@@ -60,6 +65,9 @@ async function provisionUserFromClerk(
 
   // 2. Generate a unique User Name handle
   const fullName = `${firstName} ${lastName}`.trim();
+  const accountDisplayName = effectiveCompany || fullName || normalizedEmail;
+  console.log(`[Clerk Webhook] Provisioning user: ${normalizedEmail} (Company: ${effectiveCompany || '[Personal/Generic]'}, Account Name: ${accountDisplayName}, Intent: ${intent})`);
+
   const baseHandle = fullName.toLowerCase().replace(/[^a-z0-9]/g, "") || "user";
   let uniqueHandle = baseHandle;
   let counter = 1;
@@ -82,12 +90,13 @@ async function provisionUserFromClerk(
 
   let existingAccountRecord;
   if (signupCode) {
-    const codeQuery = await queryAirtable(ACCOUNTS_TABLE, `{signupCode} = '${escapeAirtableString(signupCode.toUpperCase().trim())}'`);
+    const codeQuery = await queryAirtable(ACCOUNTS_TABLE, `AND({signupCode} = '${escapeAirtableString(signupCode.toUpperCase().trim())}', {accountStatus} = 'active')`);
     existingAccountRecord = codeQuery.records?.[0];
   }
 
-  if (!existingAccountRecord) {
-    const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `{Account Name} = '${escapeAirtableString(company)}'`);
+  // Only auto-join an existing company account for non-generic corporate domains and active accounts
+  if (!existingAccountRecord && effectiveCompany && !isGeneric) {
+    const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `AND({Account Name} = '${escapeAirtableString(effectiveCompany)}', {accountStatus} = 'active')`);
     existingAccountRecord = existingAccountQuery.records?.[0];
   }
 
@@ -105,8 +114,8 @@ async function provisionUserFromClerk(
   } else {
     isNewAccount = true;
     const accountFields: any = {
-      "Account Name": company,
-      "legalName": company,
+      "Account Name": accountDisplayName,
+      "legalName": accountDisplayName,
       "signupCode": randomBytes(4).toString('hex').toUpperCase(),
       "accountContext": "",
       "vertical": referralGraph || "all",
@@ -142,7 +151,7 @@ async function provisionUserFromClerk(
     "userContext": "",
     "emailConfirmed": true, // Clerk verified the email address
     "clerkUserId": clerkUserId,
-    "Company": company,
+    "Company": effectiveCompany,
     "Job Title": jobTitle || "",
     "apiUse": apiUse || "",
     "onboardingIntent": intent || "account"
@@ -262,9 +271,11 @@ router.post('/clerk', async (req: Request, res: Response) => {
       const firstName = data.first_name || '';
       const lastName = data.last_name || '';
       
-      // Extract unsafe metadata sent from the frontend client
+      // Extract metadata sent from the frontend client
       const meta = data.unsafe_metadata || {};
-      const company = meta.company || data.public_metadata?.company || email?.split('@')[1] || 'Default Company';
+      const rawCompany = meta.company || data.public_metadata?.company || '';
+      const emailDomain = email?.includes('@') ? email.split('@')[1] : '';
+      const company = rawCompany || (isGenericEmailDomain(emailDomain) ? '' : emailDomain);
       const jobTitle = meta.jobTitle || '';
       const apiUse = meta.apiUse || '';
       const intent = meta.signupIntent || 'account';
@@ -369,8 +380,8 @@ router.post('/clerk', async (req: Request, res: Response) => {
       const clerkOrgId = data.id;
       const orgName = data.name;
       
-      // Look up account by name or check if already mapped
-      const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `{Account Name} = '${escapeAirtableString(orgName)}'`);
+      // Look up account by name or check if already mapped (only active accounts)
+      const existingAccountQuery = await queryAirtable(ACCOUNTS_TABLE, `AND({Account Name} = '${escapeAirtableString(orgName)}', {accountStatus} = 'active')`);
       const existingAccount = existingAccountQuery.records?.[0];
       
       if (existingAccount) {

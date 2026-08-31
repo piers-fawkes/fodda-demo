@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-08-31] — Fix Account Grouping for Public Email Domains & Remediate Gmail Users
+
+### Fixed
+- **Public / Consumer Email Domain Isolation (`server/constants.ts`, `server/routers/webhookRouter.ts`, `server/routers/authRouter.ts`)**:
+  - Defined `GENERIC_EMAIL_DOMAINS` and `isGenericEmailDomain` helper covering common consumer providers (`gmail.com`, `yahoo.com`, `outlook.com`, `icloud.com`, `proton.me`, etc.).
+  - Prevented automatic company account matching (`{Account Name} = company`) when users register with generic email domains and no specific company name, ensuring each user receives their own individual Base account and API key.
+  - Added `{accountStatus} = 'active'` filter when querying existing accounts by name, preventing newly registering users or organizations from ever linking to deleted accounts.
+  - Fixed account deletion anonymization logic in `server/routers/accountRouter.ts` to query linked users directly by record ID and properly clear date fields.
+
+### Remediated
+- **Split 13 Active Users from Deleted Account `recN3rQCduEVgxPFu`**:
+  - Created individual active Base accounts (`Plan: recFePJbSswaTTmHX`) with dedicated active API keys and `Owner` roles for all 13 active users previously grouped under `recN3rQCduEVgxPFu`.
+  - Anonymized the original deleting owner (`the.stuart.martin@gmail.com` -> `deleted_recPYIvs6gFiYkQVr@fodda.ai`) attached to `recN3rQCduEVgxPFu`.
+
+### Verification
+- Ran verification script against Airtable confirming all 13 users are linked to their new active accounts as Owners with active API keys, and only the single anonymized deleted user remains on `recN3rQCduEVgxPFu`.
+
+---
+
 ## [2026-08-28] — OAuth-Flow Preflight Guards, Deploy Gate & Post-Deploy Smoke Suite (`briefs/oauth-flow-preflight-guards.md`)
 
 ### Deployment

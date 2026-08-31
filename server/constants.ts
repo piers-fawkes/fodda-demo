@@ -23,3 +23,40 @@ export const COVERAGE_REQUESTS_TABLE = process.env.COVERAGE_REQUESTS_TABLE_ID ||
 
 export const SCHEMA_VERSION = "2024.11.20";
 export const FODDA_API_URL = "https://fodda-api-cl2v4kptba-uc.a.run.app";
+
+// Public consumer email domains that should NEVER be treated as shared corporate accounts
+export const GENERIC_EMAIL_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'yahoo.com',
+  'yahoo.co.uk',
+  'yahoo.fr',
+  'hotmail.com',
+  'hotmail.co.uk',
+  'hotmail.fr',
+  'outlook.com',
+  'live.com',
+  'msn.com',
+  'icloud.com',
+  'me.com',
+  'mac.com',
+  'aol.com',
+  'protonmail.com',
+  'proton.me',
+  'pm.me',
+  'mail.com',
+  'zoho.com',
+  'ymail.com',
+  'gmx.com',
+  'gmx.net',
+  'fastmail.com',
+  'hey.com'
+]);
+
+export function isGenericEmailDomain(domainOrEmail?: string): boolean {
+  if (!domainOrEmail) return false;
+  const trimmed = domainOrEmail.toLowerCase().trim();
+  const domain = trimmed.includes('@') ? trimmed.split('@')[1] : trimmed;
+  return GENERIC_EMAIL_DOMAINS.has(domain);
+}
+
