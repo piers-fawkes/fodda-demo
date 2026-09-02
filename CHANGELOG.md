@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-02] — Normalize Clerk OAuth Consent Redirect to App Consent Route (`briefs/Brief - Normalize Clerk OAuth Consent Redirect to App Consent Route.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00538-xvc` (100% traffic)
+- **Commit:** `3c176c1`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, route wiring)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker, and Clerk code-only configuration
+
 ### Fixed
 - **Clerk OAuth Consent Redirect Normalization (`shared/redirectAllowlist.ts`)**:
   - Implemented and exported `normalizeOAuthRedirectUrl()` to rewrite any redirect URL targeting `accounts.fodda.ai/oauth-consent` to same-origin `/oauth-consent${search}${hash}`.
