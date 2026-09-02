@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { OAuthConsent, useAuth } from '@clerk/react';
 import { AuthGate } from './AuthGate';
-import { WaxSeal } from './AuthGateAtoms';
 import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
 
 /**
@@ -11,9 +10,9 @@ import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
  *
  * Requirements:
  * 1. Signed-in: Renders Clerk's prebuilt <OAuthConsent /> component with Allow / Deny buttons.
- * 2. Signed-out: Preserves the full URL with all OAuth params into sessionStorage and renders AuthGate.
+ * 2. Signed-out: Preserves the full URL with all OAuth params into storage and renders AuthGate.
  * 3. Enforces strict-origin-when-cross-origin referrer policy for Clerk Frontend API POSTs.
- * 4. Minimal, isolated layout with no app navigation or escape links.
+ * 4. Minimal, compact layout with official Fodda branding.
  */
 export const OAuthConsentPage: React.FC = () => {
   const { userId: clerkUserId, isLoaded: isAuthLoaded } = useAuth();
@@ -82,7 +81,7 @@ export const OAuthConsentPage: React.FC = () => {
     return <AuthGate />;
   }
 
-  // Signed in: render minimal, consent-focused OAuthConsent container
+  // Signed in: render compact, consent-focused OAuthConsent container
   return (
     <div
       style={{
@@ -92,30 +91,39 @@ export const OAuthConsentPage: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '32px 16px',
+        padding: '16px',
+        boxSizing: 'border-box',
       }}
     >
-      {/* Minimal Header */}
-      <div style={{ marginBottom: 24, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        <WaxSeal size={36} />
-        <div
+      {/* Official Brand Header */}
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <img
+          src="https://ucarecdn.com/6e7893d7-6b14-426b-83bc-574a3f72d6bc/foddaminilogo.png"
+          alt="Fodda"
+          style={{ width: 22, height: 22, objectFit: 'contain' }}
+        />
+        <span className="font-serif italic" style={{ fontSize: 20, fontWeight: 400, color: 'var(--ink, #1b1917)' }}>
+          Fodda
+        </span>
+        <span style={{ color: 'var(--line, #e2ded4)', margin: '0 2px' }}>·</span>
+        <span
           className="font-mono uppercase"
           style={{
             fontSize: 10,
-            letterSpacing: '0.18em',
+            letterSpacing: '0.14em',
             color: 'var(--ink-3, #78716c)',
-            fontWeight: 700,
+            fontWeight: 600,
           }}
         >
-          Fodda Context Layer · Authorization
-        </div>
+          Authorization
+        </span>
       </div>
 
       {/* Clerk prebuilt <OAuthConsent /> card */}
       <div
         style={{
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 460,
           display: 'flex',
           justifyContent: 'center',
         }}
@@ -125,23 +133,24 @@ export const OAuthConsentPage: React.FC = () => {
             elements: {
               rootBox: {
                 width: '100%',
-                maxWidth: '480px',
+                maxWidth: '460px',
                 margin: '0 auto',
               },
               card: {
-                boxShadow: 'none',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
                 border: '1px solid var(--line, #e2ded4)',
                 borderRadius: '12px',
                 backgroundColor: 'var(--paper, #ffffff)',
+                padding: '24px 20px',
               },
               headerTitle: {
                 fontFamily: 'var(--font-serif, "Newsreader", Georgia, serif)',
                 fontStyle: 'italic',
-                fontSize: '24px',
+                fontSize: '22px',
                 color: 'var(--ink, #1b1917)',
               },
               formButtonPrimary: {
-                backgroundColor: '#0A66C2',
+                backgroundColor: '#1b1917',
                 color: '#ffffff',
                 fontWeight: 600,
                 borderRadius: '8px',
@@ -160,7 +169,7 @@ export const OAuthConsentPage: React.FC = () => {
       {/* Minimal Footer */}
       <div
         style={{
-          marginTop: 32,
+          marginTop: 12,
           fontSize: 11,
           color: 'var(--ink-3, #a8a29e)',
           textAlign: 'center',
