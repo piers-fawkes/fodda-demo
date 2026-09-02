@@ -39,6 +39,8 @@ export const OAuthConsentPage: React.FC = () => {
       if (isValidRedirectUrl(fullUrl)) {
         sessionStorage.setItem('fodda.pendingOAuthRedirect', fullUrl);
         sessionStorage.setItem('fodda.pendingOAuthResume', fullUrl);
+        localStorage.setItem('fodda.pendingOAuthRedirect', fullUrl);
+        localStorage.setItem('fodda.pendingOAuthResume', fullUrl);
       }
     }
   }, [isAuthLoaded, clerkUserId]);

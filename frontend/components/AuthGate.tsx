@@ -62,13 +62,14 @@ interface AuthGateProps {
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferralGraph, initialExpertSlug }) => {
-  // Capture ?redirect_url= into sessionStorage immediately before any URL cleaning runs
+  // Capture ?redirect_url= into sessionStorage & localStorage immediately before any URL cleaning runs
   if (typeof window !== 'undefined') {
     try {
       const initialParams = new URLSearchParams(window.location.search);
       const initialRedirect = initialParams.get('redirect_url');
       if (initialRedirect && isValidRedirectUrl(initialRedirect)) {
         sessionStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
+        localStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
       }
     } catch (e) {}
   }
@@ -136,10 +137,15 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const handleOAuth = async (provider: 'oauth_google' | 'oauth_linkedin_oidc' | 'oauth_github') => {
     sessionStorage.setItem('fodda.oauthPending', provider);
     if (typeof window !== 'undefined') {
-      const redirectUrl = new URLSearchParams(window.location.search).get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+      const redirectUrl =
+        new URLSearchParams(window.location.search).get('redirect_url') ||
+        sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
+        localStorage.getItem('fodda.pendingOAuthRedirect');
       if (redirectUrl && isValidRedirectUrl(redirectUrl)) {
         sessionStorage.setItem('fodda.pendingOAuthResume', redirectUrl);
         sessionStorage.setItem('fodda.pendingOAuthRedirect', redirectUrl);
+        localStorage.setItem('fodda.pendingOAuthResume', redirectUrl);
+        localStorage.setItem('fodda.pendingOAuthRedirect', redirectUrl);
       }
     }
     if (isSignUp) {
@@ -291,6 +297,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
     signOut().catch(err => console.error("[AuthGate] Signout failed:", err));
     sessionStorage.removeItem('fodda.pendingOAuthRedirect');
     sessionStorage.removeItem('fodda.pendingOAuthResume');
+    localStorage.removeItem('fodda.pendingOAuthRedirect');
+    localStorage.removeItem('fodda.pendingOAuthResume');
     setStep(1); setIsSignUp(false); setIsJoinTeam(false);
     setErrorHeader(''); setCompanyContextRaw(''); setIsProfessionalServices(false); setUserContextRaw('');
     setSignupCode(''); setIsWaitingForConfirmation(false); setIsUnconfirmed(false); setResendStatus('idle');
@@ -426,11 +434,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           console.log('[AuthGate] Sign-up verified! Activating session...');
           await signUp.finalize();
           // Explicit navigation to resume OAuth or app home
-          const rawResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          const rawResume =
+            sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
+            sessionStorage.getItem('fodda.pendingOAuthResume') ||
+            localStorage.getItem('fodda.pendingOAuthRedirect') ||
+            localStorage.getItem('fodda.pendingOAuthResume');
           const pendingResume = normalizeOAuthRedirectUrl(rawResume);
           if (pendingResume) {
             sessionStorage.removeItem('fodda.pendingOAuthRedirect');
             sessionStorage.removeItem('fodda.pendingOAuthResume');
+            localStorage.removeItem('fodda.pendingOAuthRedirect');
+            localStorage.removeItem('fodda.pendingOAuthResume');
             window.location.href = pendingResume;
           } else {
             window.location.href = '/';
@@ -452,11 +466,17 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           console.log('[AuthGate] Sign-in verified! Activating session...');
           await signIn.finalize();
           // Explicit navigation to resume OAuth or app home
-          const rawResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          const rawResume =
+            sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
+            sessionStorage.getItem('fodda.pendingOAuthResume') ||
+            localStorage.getItem('fodda.pendingOAuthRedirect') ||
+            localStorage.getItem('fodda.pendingOAuthResume');
           const pendingResume = normalizeOAuthRedirectUrl(rawResume);
           if (pendingResume) {
             sessionStorage.removeItem('fodda.pendingOAuthRedirect');
             sessionStorage.removeItem('fodda.pendingOAuthResume');
+            localStorage.removeItem('fodda.pendingOAuthRedirect');
+            localStorage.removeItem('fodda.pendingOAuthResume');
             window.location.href = pendingResume;
           } else {
             window.location.href = '/';
@@ -813,7 +833,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const hasRedirectUrl = typeof window !== 'undefined' && (
     (new URLSearchParams(window.location.search).has('redirect_url') && isValidRedirectUrl(new URLSearchParams(window.location.search).get('redirect_url'))) ||
     (!!sessionStorage.getItem('fodda.pendingOAuthRedirect') && isValidRedirectUrl(sessionStorage.getItem('fodda.pendingOAuthRedirect'))) ||
-    (!!sessionStorage.getItem('fodda.pendingOAuthResume') && isValidRedirectUrl(sessionStorage.getItem('fodda.pendingOAuthResume')))
+    (!!sessionStorage.getItem('fodda.pendingOAuthResume') && isValidRedirectUrl(sessionStorage.getItem('fodda.pendingOAuthResume'))) ||
+    (!!localStorage.getItem('fodda.pendingOAuthRedirect') && isValidRedirectUrl(localStorage.getItem('fodda.pendingOAuthRedirect'))) ||
+    (!!localStorage.getItem('fodda.pendingOAuthResume') && isValidRedirectUrl(localStorage.getItem('fodda.pendingOAuthResume')))
   );
 
   if (hasRedirectUrl) {

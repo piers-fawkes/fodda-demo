@@ -42,13 +42,14 @@ import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/Welcom
 import { useLavaWallet } from './hooks/useLavaWallet';
 import { isValidRedirectUrl, isClerkOAuthContinueUrl, normalizeOAuthRedirectUrl } from '../shared/redirectAllowlist';
 
-// Capture ?redirect_url= into sessionStorage immediately on load before any component stripping runs
+// Capture ?redirect_url= into sessionStorage & localStorage immediately on load before any component stripping runs
 if (typeof window !== 'undefined') {
   try {
     const initialParams = new URLSearchParams(window.location.search);
     const initialRedirect = initialParams.get('redirect_url');
     if (initialRedirect && isValidRedirectUrl(initialRedirect)) {
       sessionStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
+      localStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
     }
   } catch (e) {}
 }
@@ -486,7 +487,12 @@ const App: React.FC = () => {
     if (window.location.pathname.replace(/\/+$/, '') === '/oauth-consent') return;
 
     const params = new URLSearchParams(window.location.search);
-    const rawRedirect = params.get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+    const rawRedirect =
+      params.get('redirect_url') ||
+      sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
+      sessionStorage.getItem('fodda.pendingOAuthResume') ||
+      localStorage.getItem('fodda.pendingOAuthRedirect') ||
+      localStorage.getItem('fodda.pendingOAuthResume');
     const targetRedirect = normalizeOAuthRedirectUrl(rawRedirect);
     if (!targetRedirect) return;
 
@@ -498,6 +504,8 @@ const App: React.FC = () => {
       console.log('[App] Resuming OAuth redirect to:', targetRedirect);
       sessionStorage.removeItem('fodda.pendingOAuthRedirect');
       sessionStorage.removeItem('fodda.pendingOAuthResume');
+      localStorage.removeItem('fodda.pendingOAuthRedirect');
+      localStorage.removeItem('fodda.pendingOAuthResume');
       window.location.href = targetRedirect;
     }
   }, [isUnlocked, clerkUserId, isAuthLoaded]);
