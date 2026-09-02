@@ -3,6 +3,33 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-02] — Normalize Clerk OAuth Consent Redirect to App Consent Route (`briefs/Brief - Normalize Clerk OAuth Consent Redirect to App Consent Route.md`)
+
+### Fixed
+- **Clerk OAuth Consent Redirect Normalization (`shared/redirectAllowlist.ts`)**:
+  - Implemented and exported `normalizeOAuthRedirectUrl()` to rewrite any redirect URL targeting `accounts.fodda.ai/oauth-consent` to same-origin `/oauth-consent${search}${hash}`.
+  - Ensures unauthenticated users completing login from Claude custom connector OAuth prompts (`https://mcp.fodda.ai/mcp`) land on the dedicated `<OAuthConsentPage />` rather than Clerk's hosted account portal stub.
+- **OAuth Resumption Flow Wiring (`frontend/App.tsx`, `frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`)**:
+  - `frontend/App.tsx`: Applied `normalizeOAuthRedirectUrl` to `redirect_url` and `pendingOAuthRedirect`/`pendingOAuthResume` storage keys before navigating to the target consent route.
+  - `frontend/components/AuthGate.tsx`: Applied `normalizeOAuthRedirectUrl` in OTP sign-in and sign-up completion handlers to directly route authenticated users to `/oauth-consent`.
+  - `frontend/components/SsoCallbackPage.tsx`: Applied `normalizeOAuthRedirectUrl` in fast-path OAuth resume and post-extra-fields completion handler.
+- **Preflight Test Coverage (`scripts/oauth-preflight.mjs`)**:
+  - Added unit test cases for `normalizeOAuthRedirectUrl` asserting correct extraction and rewriting of `accounts.fodda.ai/oauth-consent` URLs with query parameters while preserving non-matching routes and rejecting invalid/malicious domains.
+
+### Verification
+- `npm run preflight` executed and passed 100% (Source Guards, Allowlist Behavior with `normalizeOAuthRedirectUrl`, and Route Wiring checks).
+- `npm run build` executed and passed with zero TypeScript or bundling errors.
+
+### Files Changed
+- `shared/redirectAllowlist.ts`
+- `frontend/App.tsx`
+- `frontend/components/AuthGate.tsx`
+- `frontend/components/SsoCallbackPage.tsx`
+- `scripts/oauth-preflight.mjs`
+- `CHANGELOG.md`
+
+---
+
 ## [2026-08-31] — Fix Account Grouping for Public Email Domains & Remediate Gmail Users
 
 ### Fixed

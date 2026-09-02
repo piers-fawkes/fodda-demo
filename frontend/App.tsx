@@ -40,7 +40,7 @@ import { useDiscovery } from './hooks/useDiscovery';
 import { useAuth, useOrganizationList } from '@clerk/react';
 import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/WelcomeContextPopup';
 import { useLavaWallet } from './hooks/useLavaWallet';
-import { isValidRedirectUrl, isClerkOAuthContinueUrl } from '../shared/redirectAllowlist';
+import { isValidRedirectUrl, isClerkOAuthContinueUrl, normalizeOAuthRedirectUrl } from '../shared/redirectAllowlist';
 
 // Capture ?redirect_url= into sessionStorage immediately on load before any component stripping runs
 if (typeof window !== 'undefined') {
@@ -487,17 +487,18 @@ const App: React.FC = () => {
 
     const params = new URLSearchParams(window.location.search);
     const rawRedirect = params.get('redirect_url') || sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
-    if (!rawRedirect || !isValidRedirectUrl(rawRedirect)) return;
+    const targetRedirect = normalizeOAuthRedirectUrl(rawRedirect);
+    if (!targetRedirect) return;
 
-    const isClerkOAuthContinue = isClerkOAuthContinueUrl(rawRedirect);
+    const isClerkOAuthContinue = isClerkOAuthContinueUrl(targetRedirect);
     // Fast-path for connector consent (clerk.fodda.ai / /oauth-consent): resume as soon as Clerk session is authenticated (clerkUserId),
     // without gating on full app unlock (profile setup). For other app deep links, require isUnlocked.
     const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
     if (canResume) {
-      console.log('[App] Resuming OAuth redirect to:', rawRedirect);
+      console.log('[App] Resuming OAuth redirect to:', targetRedirect);
       sessionStorage.removeItem('fodda.pendingOAuthRedirect');
       sessionStorage.removeItem('fodda.pendingOAuthResume');
-      window.location.href = rawRedirect;
+      window.location.href = targetRedirect;
     }
   }, [isUnlocked, clerkUserId, isAuthLoaded]);
 

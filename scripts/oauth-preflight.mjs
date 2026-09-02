@@ -104,7 +104,7 @@ async function runPreflight() {
   }
 
   if (allowlistModule) {
-    const { isValidRedirectUrl, isInternalAppUrl } = allowlistModule;
+    const { isValidRedirectUrl, isInternalAppUrl, normalizeOAuthRedirectUrl } = allowlistModule;
 
     // Test cases for isValidRedirectUrl
     const shouldReject = [
@@ -174,6 +174,49 @@ async function runPreflight() {
         failures.push(`isInternalAppUrl failed: '${url}' should be TRUE for app destination (returned false)`);
       }
     }
+
+    // Test cases for normalizeOAuthRedirectUrl
+    if (typeof normalizeOAuthRedirectUrl !== 'function') {
+      failures.push('normalizeOAuthRedirectUrl is not exported or not a function');
+    } else {
+      const normalizeCases = [
+        {
+          input: 'https://accounts.fodda.ai/oauth-consent?client_id=foo123&redirect_uri=https%3A%2F%2Fclaude.ai',
+          expected: '/oauth-consent?client_id=foo123&redirect_uri=https%3A%2F%2Fclaude.ai',
+        },
+        {
+          input: 'https://accounts.fodda.ai/oauth-consent',
+          expected: '/oauth-consent',
+        },
+        {
+          input: '/oauth-consent?client_id=foo123',
+          expected: '/oauth-consent?client_id=foo123',
+        },
+        {
+          input: 'https://app.fodda.ai/oauth-consent?client_id=foo123',
+          expected: 'https://app.fodda.ai/oauth-consent?client_id=foo123',
+        },
+        {
+          input: 'https://evilfodda.ai/oauth-consent',
+          expected: null,
+        },
+        {
+          input: null,
+          expected: null,
+        },
+        {
+          input: undefined,
+          expected: null,
+        },
+      ];
+
+      for (const { input, expected } of normalizeCases) {
+        const result = normalizeOAuthRedirectUrl(input);
+        if (result !== expected) {
+          failures.push(`normalizeOAuthRedirectUrl failed for '${input}': expected '${expected}', got '${result}'`);
+        }
+      }
+    }
   }
 
   // =========================================================================
@@ -224,7 +267,7 @@ async function runPreflight() {
   }
 
   console.log('✅ Source Guards: zero forbidden Clerk magic-link tokens & no inline host checks');
-  console.log('✅ Allowlist Behavior: isValidRedirectUrl & isInternalAppUrl passed all test cases');
+  console.log('✅ Allowlist Behavior: isValidRedirectUrl, isInternalAppUrl & normalizeOAuthRedirectUrl passed all test cases');
   console.log('✅ Route Wiring: /oauth-consent route and OAuthConsentPage verified in App.tsx');
   console.log('\n🎉 Preflight suite passed cleanly! Deploy gate is OPEN.\n');
   process.exit(0);

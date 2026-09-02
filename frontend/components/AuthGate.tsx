@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSignIn, useSignUp, useClerk, useAuth } from '@clerk/react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { Eyebrow, Masthead, FieldRule, Margin, GateFrame, Btn, StepBar, WaxSeal, GateFooter } from './AuthGateAtoms';
-import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
+import { isValidRedirectUrl, normalizeOAuthRedirectUrl } from '../../shared/redirectAllowlist';
 
 const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: string; portrait_url?: string }> = {
   retail: { name: 'Future of Retail Graph', owner: 'PSFK', headline: 'Tracking the automation of physical commerce' },
@@ -426,8 +426,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           console.log('[AuthGate] Sign-up verified! Activating session...');
           await signUp.finalize();
           // Explicit navigation to resume OAuth or app home
-          const pendingResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
-          if (pendingResume && isValidRedirectUrl(pendingResume)) {
+          const rawResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          const pendingResume = normalizeOAuthRedirectUrl(rawResume);
+          if (pendingResume) {
             sessionStorage.removeItem('fodda.pendingOAuthRedirect');
             sessionStorage.removeItem('fodda.pendingOAuthResume');
             window.location.href = pendingResume;
@@ -451,8 +452,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           console.log('[AuthGate] Sign-in verified! Activating session...');
           await signIn.finalize();
           // Explicit navigation to resume OAuth or app home
-          const pendingResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
-          if (pendingResume && isValidRedirectUrl(pendingResume)) {
+          const rawResume = sessionStorage.getItem('fodda.pendingOAuthRedirect') || sessionStorage.getItem('fodda.pendingOAuthResume');
+          const pendingResume = normalizeOAuthRedirectUrl(rawResume);
+          if (pendingResume) {
             sessionStorage.removeItem('fodda.pendingOAuthRedirect');
             sessionStorage.removeItem('fodda.pendingOAuthResume');
             window.location.href = pendingResume;

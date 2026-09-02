@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react';
 import { GateFrame, Eyebrow, FieldRule, Btn, Masthead, WaxSeal } from './AuthGateAtoms';
-import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
+import { normalizeOAuthRedirectUrl } from '../../shared/redirectAllowlist';
 
 /**
  * SsoCallbackPage
@@ -35,8 +35,9 @@ export const SsoCallbackPage: React.FC = () => {
     if (!callbackDone || !isUserLoaded || !user) return;
 
     // Fast-path resume for connector consent if pendingOAuthResume / pendingOAuthRedirect is stashed
-    const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
-    if (pendingResume && isValidRedirectUrl(pendingResume)) {
+    const rawResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+    const pendingResume = normalizeOAuthRedirectUrl(rawResume);
+    if (pendingResume) {
       sessionStorage.removeItem('fodda.pendingOAuthResume');
       sessionStorage.removeItem('fodda.pendingOAuthRedirect');
       sessionStorage.removeItem('fodda.oauthPending');
@@ -96,11 +97,12 @@ export const SsoCallbackPage: React.FC = () => {
       // Non-fatal — continue to app
     } finally {
       sessionStorage.removeItem('fodda.oauthPending');
-      const pendingResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
-      if (pendingResume && isValidRedirectUrl(pendingResume)) {
+      const rawResume = sessionStorage.getItem('fodda.pendingOAuthResume') || sessionStorage.getItem('fodda.pendingOAuthRedirect');
+      const pendingResume = normalizeOAuthRedirectUrl(rawResume);
+      if (pendingResume) {
         sessionStorage.removeItem('fodda.pendingOAuthResume');
         sessionStorage.removeItem('fodda.pendingOAuthRedirect');
-        window.location.replace('/?redirect_url=' + encodeURIComponent(pendingResume));
+        window.location.replace(pendingResume);
       } else {
         window.location.replace('/');
       }

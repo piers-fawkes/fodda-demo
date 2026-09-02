@@ -89,3 +89,22 @@ export const isInternalAppUrl = (urlStr: string | null | undefined): boolean => 
     return false;
   }
 };
+
+/**
+ * Normalizes an OAuth redirect URL.
+ * If the URL targets accounts.fodda.ai/oauth-consent, rewrites it to /oauth-consent
+ * on the current origin so the app's dedicated <OAuthConsentPage /> renders the prompt.
+ */
+export const normalizeOAuthRedirectUrl = (urlStr: string | null | undefined): string | null => {
+  if (!urlStr || !isValidRedirectUrl(urlStr)) return null;
+  try {
+    const parsed = new URL(urlStr, 'https://app.fodda.ai');
+    if (parsed.hostname.toLowerCase() === 'accounts.fodda.ai' && parsed.pathname.includes('/oauth-consent')) {
+      return `/oauth-consent${parsed.search}${parsed.hash}`;
+    }
+    return urlStr;
+  } catch {
+    return urlStr;
+  }
+};
+
