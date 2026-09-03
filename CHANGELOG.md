@@ -5,9 +5,17 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-03] — OAuth consent: allow OpenAI host family in CSP form-action
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00544-9h7` (100% traffic)
+- **Commit:** `7198290`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 ### Fixed
-- `server/index.ts`: added `https://openai.com` and `https://*.openai.com` to Helmet CSP `formAction`. The OAuth consent Allow button was blocked for OpenAI's platform-verification connector (a different DCR client than the end-user one) because its redirect chain lands on an openai.com host. Chrome's form-action redirect-chain check reported the violation against the initial clerk.fodda.ai POST, masking the real target. Requires an App service redeploy.
+- `server/index.ts`: added `https://openai.com` and `https://*.openai.com` to Helmet CSP `formAction`. The OAuth consent Allow button was blocked for OpenAI's platform-verification connector (a different DCR client than the end-user one) because its redirect chain lands on an openai.com host. Chrome's form-action redirect-chain check reported the violation against the initial clerk.fodda.ai POST, masking the real target.
 - `server/index.ts`: added `https://img.clerk.com` and `https://images.clerk.dev` to `imgSrc` so Clerk avatars render on the consent page (cosmetic; was console noise, not a blocker).
+
 ## [2026-09-03] — ChatGPT OAuth: CSP form-action + client-neutral sign-in copy
 
 ### Deployment
