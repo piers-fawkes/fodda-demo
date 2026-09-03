@@ -52,6 +52,14 @@ const dateEyebrow = () => {
   return `${d.toLocaleDateString('en', { weekday: 'long' })} · ${d.toLocaleDateString('en', { month: 'long' })} ${d.getDate()} · Sign in`.toUpperCase();
 };
 
+/**
+ * Temporary toggle for ChatGPT Apps Directory reviewer authentication.
+ * Enables password sign-in alongside existing email-code and SSO methods.
+ * Set to false or remove once OpenAI app approval is complete.
+ * Brief: briefs/Brief - Restore Email+Password Sign-In (temporary, for ChatGPT reviewer) — App Agent.md
+ */
+export const ENABLE_PASSWORD_SIGNIN = true;
+
 interface AuthGateProps {
   onUnlock?: (email: string) => Promise<any>;
   onRegister?: (email: string, firstName: string, lastName: string, company: string, jobTitle: string, companyContextRaw?: string, userContextRaw?: string, apiUse?: string, intent?: string, referralGraph?: string, isProfessionalServices?: boolean, promoTag?: string) => void;
@@ -79,7 +87,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const [isSignUp, setIsSignUp] = useState(_hasReferral || _hasExpert);
   const [isJoinTeam, setIsJoinTeam] = useState(false);
   const [step, setStep] = useState(1);
+  const [signInMode, setSignInMode] = useState<'code' | 'password'>('code');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [company, setCompany] = useState('');
@@ -299,6 +309,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
     setErrorHeader(''); setCompanyContextRaw(''); setIsProfessionalServices(false); setUserContextRaw('');
     setSignupCode(''); setIsWaitingForConfirmation(false); setIsUnconfirmed(false); setResendStatus('idle');
     setOtpCode('');
+    setPassword('');
+    setSignInMode('code');
     setFieldErrors({});
   };
 
@@ -366,7 +378,59 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           setIsLoading(false);
           return;
         }
-        
+
+        // Temporary: Password sign-in for ChatGPT reviewer / test credentials
+        if (ENABLE_PASSWORD_SIGNIN && signInMode === 'password') {
+          if (!password.trim()) {
+            setErrorHeader('Please enter your password.');
+            setIsLoading(false);
+            return;
+          }
+
+          console.log('[AuthGate] Starting password sign-in for:', email);
+          const { error: pwdError } = await (signIn as any).password({
+            identifier: email,
+            password: password,
+          });
+
+          if (pwdError) {
+            console.error('[AuthGate] Password sign-in failed:', pwdError);
+            const errorCode = getClerkErrorCode(pwdError);
+            if (errorCode === 'form_identifier_not_found') {
+              setIsSignUp(true);
+              setStep(1);
+              setErrorHeader('');
+              setIsLoading(false);
+              return;
+            }
+            if (errorCode === 'form_password_incorrect') {
+              setErrorHeader('Incorrect password. Please try again.');
+              setIsLoading(false);
+              return;
+            }
+            setErrorHeader(pwdError.longMessage || pwdError.message || 'Password sign-in failed. Please verify your credentials.');
+            setIsLoading(false);
+            return;
+          }
+
+          if (signIn.status === 'complete') {
+            console.log('[AuthGate] Password sign-in complete! Activating session...');
+            await signIn.finalize();
+            const pendingResume = readPendingOAuthRedirect();
+            if (pendingResume) {
+              window.location.href = pendingResume;
+            } else {
+              window.location.href = '/';
+            }
+            return;
+          } else {
+            console.warn('[AuthGate] Unexpected signIn status after password:', signIn.status);
+            setErrorHeader(`Sign in status: ${signIn.status}. Please try another sign-in method.`);
+            setIsLoading(false);
+            return;
+          }
+        }
+
         // Start Clerk Sign In (Core 3 API — methods return { error } rather than throwing)
         console.log('[AuthGate] Starting signIn.create for:', email);
         const { error: createError } = await signIn.create({
@@ -499,7 +563,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const loginMarginalia = (
     <>
       <Margin n="i." label="What is Fodda?" body={"A structured context layer\nthat lets your AI cite real,\ntrusted source graphs."} />
-      <Margin n="ii." label="No password, ever." body={"We mail a 6-digit code.\nIt expires in 15 minutes."} />
+      <Margin
+        n="ii."
+        label={ENABLE_PASSWORD_SIGNIN ? "Fast, secure access." : "No password, ever."}
+        body={ENABLE_PASSWORD_SIGNIN ? "Sign in with email code\nor your account password." : "We mail a 6-digit code.\nIt expires in 15 minutes."}
+      />
       <Margin n="iii." label="Trouble?" body="hello@fodda.ai" />
       <Margin n="iv." label="Setup Guide" body="Quickstart for Claude, Notion, Copilot, API & more" href="/Fodda_Quickstart.md" />
       <Margin n="v." label="Integration Auditor Skill" body="Audit your codebase for Fodda opportunities" href="/Fodda_Integration_Auditor.md" />
@@ -900,28 +968,68 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
 
               {/* Email Form */}
               <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
-                <FieldRule
-                  label="Your email"
-                  hint="6-digit code"
-                  value={email}
-                  onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  disabled={isLoading}
-                  error={errorHeader || undefined}
-                />
-                <div style={{ marginTop: 14 }}>
-                  <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
-                    {isLoading ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />
-                        Sending code…
-                      </span>
-                    ) : (
-                      'Continue with Email →'
-                    )}
-                  </Btn>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <FieldRule
+                    label="Your email"
+                    hint={ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? undefined : "6-digit code"}
+                    value={email}
+                    onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
+                    type="email"
+                    autoComplete="email"
+                    required
+                    disabled={isLoading}
+                    error={errorHeader && (!ENABLE_PASSWORD_SIGNIN || signInMode === 'code' || !password) ? errorHeader : undefined}
+                  />
+
+                  {ENABLE_PASSWORD_SIGNIN && signInMode === 'password' && (
+                    <FieldRule
+                      label="Password"
+                      value={password}
+                      onChange={v => { setPassword(v); if (errorHeader) setErrorHeader(''); }}
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      disabled={isLoading}
+                      error={errorHeader && password ? errorHeader : undefined}
+                    />
+                  )}
+
+                  <div style={{ marginTop: 2 }}>
+                    <Btn brand type="submit" disabled={isLoading} style={{ width: '100%', justifyContent: 'center' }}>
+                      {isLoading ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <ThinkingOrb state="working" size={20} theme="dark" aria-label="Signing in…" />
+                          {ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? 'Signing in…' : 'Sending code…'}
+                        </span>
+                      ) : (
+                        ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? 'Sign in with Password →' : 'Continue with Email →'
+                      )}
+                    </Btn>
+                  </div>
+
+                  {ENABLE_PASSWORD_SIGNIN && (
+                    <div style={{ textAlign: 'center', marginTop: 2 }}>
+                      {signInMode === 'password' ? (
+                        <button
+                          type="button"
+                          onClick={() => { setSignInMode('code'); setErrorHeader(''); }}
+                          className="cursor-pointer hover:underline font-medium"
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 11, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+                        >
+                          or sign in with a code instead
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setSignInMode('password'); setErrorHeader(''); }}
+                          className="cursor-pointer hover:underline font-medium"
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 11, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+                        >
+                          or sign in with password instead
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </form>
 
@@ -953,7 +1061,9 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
         Welcome back to better insight.
       </h2>
       <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 520, lineHeight: 1.6, margin: '0 0 28px' }}>
-        Enter the email you registered with. We'll send a 6-digit code to that address — no password to remember, no token to copy.
+        {ENABLE_PASSWORD_SIGNIN
+          ? "Enter the email you registered with. Sign in with a 6-digit email code or your password."
+          : "Enter the email you registered with. We'll send a 6-digit code to that address — no password to remember, no token to copy."}
       </p>
 
       {legacyMagicLinkDetected && (
@@ -1001,12 +1111,69 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <FieldRule label="Your email" hint="6-digit code · 15 min" value={email} onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }} type="email" autoComplete="email" required disabled={isLoading} error={errorHeader || undefined} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <FieldRule
+                  label="Your email"
+                  hint={ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? undefined : "6-digit code · 15 min"}
+                  value={email}
+                  onChange={v => { setEmail(v); if (errorHeader) setErrorHeader(''); }}
+                  type="email"
+                  autoComplete="email"
+                  required
+                  disabled={isLoading}
+                  error={errorHeader && (!ENABLE_PASSWORD_SIGNIN || signInMode === 'code' || !password) ? errorHeader : undefined}
+                />
+
+                {ENABLE_PASSWORD_SIGNIN && signInMode === 'password' && (
+                  <FieldRule
+                    label="Password"
+                    value={password}
+                    onChange={v => { setPassword(v); if (errorHeader) setErrorHeader(''); }}
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    disabled={isLoading}
+                    error={errorHeader && password ? errorHeader : undefined}
+                  />
+                )}
+
                 <div className="flex items-center gap-3.5" style={{ marginTop: 4 }}>
-                  <Btn brand type="submit" disabled={isLoading}>{isLoading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ThinkingOrb state="working" size={20} theme="dark" aria-label="Sending code…" />Sending code…</span> : 'Continue with Email →'}</Btn>
+                  <Btn brand type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <ThinkingOrb state="working" size={20} theme="dark" aria-label="Signing in…" />
+                        {ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? 'Signing in…' : 'Sending code…'}
+                      </span>
+                    ) : (
+                      ENABLE_PASSWORD_SIGNIN && signInMode === 'password' ? 'Sign in with Password →' : 'Continue with Email →'
+                    )}
+                  </Btn>
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.1em' }}>↩ press return</span>
                 </div>
+
+                {ENABLE_PASSWORD_SIGNIN && (
+                  <div style={{ marginTop: 2 }}>
+                    {signInMode === 'password' ? (
+                      <button
+                        type="button"
+                        onClick={() => { setSignInMode('code'); setErrorHeader(''); }}
+                        className="cursor-pointer hover:underline font-medium"
+                        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+                      >
+                        or sign in with a code instead
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setSignInMode('password'); setErrorHeader(''); }}
+                        className="cursor-pointer hover:underline font-medium"
+                        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-3)', fontSize: 12, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}
+                      >
+                        or sign in with password instead
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </form>
 

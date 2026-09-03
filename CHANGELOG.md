@@ -3,6 +3,19 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — Restore Email + Password Sign-In (temporary, for ChatGPT reviewer) (`briefs/Brief - Restore Email+Password Sign-In (temporary, for ChatGPT reviewer) — App Agent.md`)
+
+### Added & Updated (Temporary Measure)
+- **Password Sign-In Option (`frontend/components/AuthGate.tsx`)**:
+  - Added optional password sign-in path and field behind feature flag `ENABLE_PASSWORD_SIGNIN = true`, enabling username/password authentication for OpenAI's ChatGPT Apps Directory reviewer account (`chatgpt-review@fodda.ai`).
+  - Calls `signIn.password({ identifier: email, password })` and completes via `signIn.finalize()` and `readPendingOAuthRedirect()`, reusing the exact same OAuth resume logic so the ChatGPT connector handshake continues to the consent screen.
+  - Added small UI toggle ("or sign in with password instead" / "or sign in with a code instead") in both the AI assistant connect view (`hasRedirectUrl`) and the standard app login view.
+  - Preserves existing SSO (LinkedIn, Google, GitHub) and 6-digit email-code paths unchanged. Sign-up flow remains code-only.
+  - Updated contradictory copy: adjusted marginalia and sign-in description while password mode is active.
+  - Reversibility: setting `ENABLE_PASSWORD_SIGNIN = false` or removing the gated block cleanly reverts the application to code-only authentication after OpenAI approval.
+
+---
+
 ## [2026-09-03] — OAuth consent: allow OpenAI host family in CSP form-action
 
 ### Deployment
