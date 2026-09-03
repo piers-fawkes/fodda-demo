@@ -639,6 +639,48 @@ router.post("/update", async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Catch-up renewal (Piers, 2026-09-03): when a free-tier account puts a card on file, its
+// monthly $50 of calls should renew right then — not on the next 1st-of-month run — so
+// "add a card and your free calls renew now, and every month" is literally true.
+// Guard: an account under 30 days old with no renewal date yet is NOT renewed (that
+// would be 200 free calls in month one); it qualifies from the next monthly run.
+async function catchUpFreeTierRenewal(accRec: any, source: string): Promise<void> {
+  try {
+    const planId = accRec?.fields?.Plan?.[0];
+    if (!planId) return;
+    const planRes = await queryAirtable(PLANS_TABLE, `RECORD_ID() = '${planId}'`);
+    const plan = planRes.records?.[0]?.fields || {};
+    if (!plan['Is Free Tier']) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const renewal = accRec.fields.nextRenewalDate as string | undefined;
+    const ageDays = accRec.createdTime ? (Date.now() - new Date(accRec.createdTime).getTime()) / 86400000 : 0;
+    const due = renewal ? renewal <= today : ageDays >= 30;
+    if (!due) return;
+
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    nextMonth.setDate(1);
+    await updateAirtableRecord(ACCOUNTS_TABLE, accRec.id, {
+      "queriesUsedThisCycle": 0,
+      "nextRenewalDate": nextMonth.toISOString().split('T')[0]
+    });
+    console.log(`[Renewal] Catch-up renewal for free-tier account ${accRec.id} (${source})`);
+  } catch (e: any) {
+    console.error('[Renewal] Catch-up renewal failed:', e?.message || e);
+  }
+}
+
+// MONTHLY RESET — model decided by Piers Fawkes, 2026-09-03:
+//   Base-Free gets 100 free API calls ($50) every month, but the renewal for a
+//   FREE-TIER account happens ONLY if a card is on file (hasPaymentMethod). No card,
+//   no second month. Paid subscriptions reset via the Stripe renewal webhook regardless.
+// Cloud Scheduler job `fodda` (1st of month) targets this route with the x-cron-secret
+// header. It is PAUSED until the revision carrying the card gate below is deployed —
+// unpause after that deploy. Real path: /api/account/cron/monthly-reset (the router is
+// mounted at /api/account; older docs say /api/cron/... which 404s).
+// ─────────────────────────────────────────────────────────────────────────────
 router.post("/cron/monthly-reset", async (req, res) => {
   try {
     // Finding 5: header only — body param would appear in request body logs
@@ -662,19 +704,38 @@ router.post("/cron/monthly-reset", async (req, res) => {
     nextMonth.setDate(1);
     const nextRenewalDate = nextMonth.toISOString().split('T')[0];
 
+    // Resolve plans once so each account's tier is known. (Accounts has no `planCode`
+    // field, so the old `acc.fields.planCode === 7` Top-Up skip never matched anything;
+    // and `limitReached` is not an Airtable field, so the old update 422'd on every row.)
+    const planRes = await queryAirtable(PLANS_TABLE, '');
+    const planById: Record<string, any> = {};
+    for (const p of planRes.records || []) planById[p.id] = p.fields;
+
+    let reset = 0, skippedNoCard = 0, skippedSubscription = 0, skippedOneTime = 0;
     for (const acc of allAccounts) {
-      if (Number(acc.fields.planCode) === 7) continue;
-      // Skip subscription accounts — Stripe handles their renewal via invoice.payment_succeeded
+      const plan = planById[acc.fields.Plan?.[0]] || {};
+      // Consumable one-time purchases (Top-Up, retired Trial) never renew.
+      if (plan.billingMode === 'one_time' && !plan['Is Free Tier']) { skippedOneTime++; continue; }
+      // Subscription accounts — Stripe handles their renewal via invoice.payment_succeeded.
       const subStatus = acc.fields.subscriptionStatus;
-      if (subStatus === 'active' || subStatus === 'trialing') continue;
+      if (subStatus === 'active' || subStatus === 'trialing') { skippedSubscription++; continue; }
+      // Free tier renews only with a card on file (Piers, 2026-09-03): no card, no second
+      // month. Roll the date so the next run re-checks; do not re-grant.
+      if (plan['Is Free Tier'] && !acc.fields.hasPaymentMethod) {
+        await updateAirtableRecord(ACCOUNTS_TABLE, acc.id, { "nextRenewalDate": nextRenewalDate })
+          .catch(e => console.error(`Reset (date-only) error ${acc.id}:`, e));
+        skippedNoCard++;
+        continue;
+      }
       await updateAirtableRecord(ACCOUNTS_TABLE, acc.id, {
         "queriesUsedThisCycle": 0,
-        "limitReached": false,
         "nextRenewalDate": nextRenewalDate
       }).catch(e => console.error(`Reset error ${acc.id}:`, e));
+      reset++;
     }
 
-    res.json({ ok: true });
+    console.log(`[Monthly Reset] reset=${reset} skippedNoCard=${skippedNoCard} skippedSubscription=${skippedSubscription} skippedOneTime=${skippedOneTime}`);
+    res.json({ ok: true, reset, skippedNoCard, skippedSubscription, skippedOneTime });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -834,7 +895,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
         try {
           await updateAirtableRecord(ACCOUNTS_TABLE, accountId, {
             "bonusTokens": currentBonus + topUpAmount,
-            "limitReached": false,
+            // (limitReached removed — not an Airtable field; it 422'd this update)
           });
         } catch (airtableErr: any) {
           console.error('[Stripe] Top-up Airtable update failed:', airtableErr.message);
@@ -882,7 +943,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
         const accountUpdate: any = {
           "Plan": [planRecord.id],
           "queriesUsedThisCycle": 0,
-          "limitReached": false,
+          // (limitReached removed — not an Airtable field; it 422'd this update)
           "lastPaidDate": todayISO,
           "nextRenewalDate": nextRenewalDate,
           "accountStatus": "active"
@@ -1002,7 +1063,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
       await updateAirtableRecord(ACCOUNTS_TABLE, accountRecord.id, {
         "queriesUsedThisCycle": 0,
-        "limitReached": false,
+        // (limitReached removed — not an Airtable field; it 422'd this update)
         "lastPaidDate": todayISO,
         "nextRenewalDate": nextRenewal.toISOString().split('T')[0],
         "subscriptionStatus": "active",
@@ -1099,6 +1160,8 @@ router.post("/stripe/webhook", async (req: any, res) => {
             hasPaymentMethod: true,
           });
           console.log(`[Stripe] SetupIntent succeeded — payment method saved for account ${accountRecord.id}`);
+          // Card is now on file — renew the free allowance immediately if it was due.
+          await catchUpFreeTierRenewal(accountRecord, 'setup_intent.succeeded');
         }
       }
     }
@@ -2215,7 +2278,7 @@ router.post("/admin/change-plan", async (req, res) => {
     const accountUpdate: any = {
       "Plan": [planRecord.id],
       "queriesUsedThisCycle": 0,
-      "limitReached": false,
+      // (limitReached removed — not an Airtable field; it 422'd this update)
       "lastPaidDate": todayISO,
       "nextRenewalDate": nextRenewalDate,
       "accountStatus": "active",
@@ -2380,6 +2443,9 @@ router.post("/activate-overage", async (req, res) => {
       const subscriptionId = await createOverageSubscription(accountId, customerId);
       console.log(`[Activate Overage] Subscription ${subscriptionId} created for account ${accountId}`);
     }
+
+    // Card is now on file — renew the free allowance immediately if it was due.
+    await catchUpFreeTierRenewal(accRec, 'activate-overage');
 
     res.json({ ok: true, overageEnabled: true });
   } catch (err: any) {
@@ -2779,7 +2845,7 @@ router.post('/convert-to-base', async (req, res) => {
       "Plan": [basePlan.id],
       "queriesUsedThisCycle": 0,
       "monthlyQueries": 0,
-      "limitReached": false,
+      // (limitReached removed — not an Airtable field; it 422'd this update)
       "nextRenewalDate": nextRenewalDate
     });
 

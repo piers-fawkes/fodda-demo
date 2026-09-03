@@ -3,6 +3,51 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — Pricing decisions executed: Studio $2,500 in Stripe + Airtable, Base = $50 of calls/month renewing only with a card, overage billing turned on, monthly-reset cron made real
+
+Decisions by Piers on 2026-09-03 (final, after several revisions the same evening): pricing unit is the **API call at $0.50** (Airtable `Plan.Price Per Call`), charged by volume; the Offerings page is a guide; **Studio = $2,500/mo**; **Base-Free = 100 free API calls ($50) every month, but a free-tier account renews only if a card is on file — then 50¢/call overage**; paid subscriptions renew on their Stripe cycle; **overage billing ON**; **Starter and Team plans deleted** (by Piers, in Airtable).
+
+### Changed — live systems (no code deploy required)
+- **Stripe / Studio**: created `price_1UBhzwAYuoIyU8CGHX3flLYb` ($2,500/mo) on the real "Fodda Studio" product `prod_UPTfX1OPqwVNmF`; product description → "5,000 API calls per month."; new payment link `plink_1UBhzxAYuoIyU8CGHugHcbq9` (`https://buy.stripe.com/bJe5kC3Pr2l7gmY3RN6g80i`); archived the $1,500 price `price_1TQeiIAYuoIyU8CGfCssI9Fd` and link `plink_1TQeiJAYuoIyU8CGWFymQgjb` (0 subscribers affected). Airtable Plan 5: `stripePriceId`, `stripeLink`, `oneOff stripeLink` repointed; `Stripe Product ID` corrected (it pointed at "ENTERPRISE — Single Graph").
+- **Airtable / Base-Free**: `Price Per Call` 0 → 0.5. `Monthly API Limit` stays 100 (it is the allowance field every code path reads).
+- **Cloud Run `fodda-sandbox`**: new revision `fodda-sandbox-00547-jmx` with `STRIPE_OVERAGE_PRICE_ID=price_1TkoMEAYuoIyU8CGkwcDId2u` (the active $0.50 metered price) and `STRIPE_OVERAGE_METER_EVENT=fodda_overage_tokens`. Before this, production had neither var, `createOverageSubscription` took its skip branch, and overage had never billed anyone (0 subscriptions on either overage price). Local `.env` was pointing at the archived $0.20 price; corrected.
+- **Cloud Scheduler job `fodda`** (monthly reset, `0 0 1 * *`): had POSTed to the placeholder `https://your-domain/api/cron/monthly-reset` every month since 2026-03-07 and never succeeded. Now targets the real route `https://app.fodda.ai/api/account/cron/monthly-reset` with the `x-cron-secret` header set, and is **PAUSED until the revision carrying the card-gated reset (below) is deployed — unpause after that deploy**, otherwise the Oct 1 run would renew every free account regardless of card.
+
+### Changed — code
+- **`server/routers/accountRouter.ts` `/cron/monthly-reset`**: rewritten. Resolves each account's Plan; skips Stripe subscriptions (webhook renews them) and consumable one-time plans (Top-Up); **free-tier accounts renew only when `hasPaymentMethod` is true** — otherwise only `nextRenewalDate` is rolled forward. Returns `{ reset, skippedNoCard, skippedSubscription, skippedOneTime }`. Two latent bugs removed on the way: the old Top-Up skip tested `acc.fields.planCode === 7` but Accounts has no `planCode` field (never matched); and the update wrote `limitReached`, which is not an Airtable field, so every per-row update would have 422'd.
+- **Phantom `limitReached` field removed everywhere it was written** (`helpers.ts` `incrementUsage` when a free user hits the wall; five account flows in `accountRouter.ts`) and from the gate in `queryRouter.ts`. Each of those Airtable updates was failing wholesale on the unknown field — e.g. the App-side cycle-counter increment silently stopped persisting exactly when a free user reached the limit.
+- **`deploy_gcp.sh`**: `--set-env-vars` now carries `STRIPE_OVERAGE_PRICE_ID` and `STRIPE_OVERAGE_METER_EVENT` so future deploys keep overage on.
+- **`server/routers/authRouter.ts`**: profile payload adds `billingMode` and `isFreeTier` (from the linked Plan) alongside the earlier `overageRate` / `hasPaymentMethod` / `overageEnabled`.
+- **`frontend/components/BillingPage.tsx`**: free tier without a card shows "Renews monthly with a card on file"; genuinely one-time plans (`billingMode: one_time` and not free tier, e.g. Top-Up) show one-time wording; everything else stays monthly.
+- **`shared/types.ts`**: `Account.billingMode`, `Account.isFreeTier`.
+
+### Deliberately not done / handed off
+- **API side of the same rule** — the API's lazy reset needs the identical card gate, and `nextRenewalDate` must be set at signup (today ~87% of Base accounts have none, so nothing can renew them): `Fodda API/briefs/Brief - Card-Gated Monthly Renewal for Base & nextRenewalDate at Signup (API Agent).md`.
+- **Website copy** — add the renewal condition and "$50 of API calls free every month" framing; remove Starter/Team remnants; verify the Studio button lands on $2,500: `Fodda Website/briefs/Brief - Base One-Time Copy, Studio $2,500 Link & Plan Card Cleanup (Website).md` (content updated to the monthly model; filename kept).
+- **Offerings guide** (`typical_calls` ~10× below what the API meters) — `Fodda API/briefs/Brief - Measure Offering API Calls & Refresh typical_calls Guide (API Agent).md` + `.agents/workflows/measure-offering-calls.md`.
+- One account is flagged `overageEnabled` with no Stripe subscription (has a customer id); no back-charging — Piers to decide whether to subscribe it for future overage.
+- Base-Free `monthlyPriceUSD` was set to 50 in Airtable during the evening and renders as "$50" in `/api/account/plans`; that field is the charged price — awaiting Piers's word to set it back to 0.
+- 4 accounts have no Plan link after the Starter/Team deletion (no Stripe subscriptions); awaiting Piers's word to link them to Base-Free.
+- Top-Up plan: 0 accounts on it, 0 accounts with bonus calls ever, 2 lifetime `Token Purchases` rows — recommended hiding it (`showinApp?` off) and removing the billing-page Top Up button; awaiting Piers's word.
+
+### Verification
+- `npm run build` → `✓ check:undefined — no TS2304 errors in frontend/, shared/, index.tsx` → `✓ built in 2.15s` (after the cron rewrite; re-run after the `limitReached` cleanup recorded below).
+- `npx tsc --noEmit` → 57 errors (unchanged from before this batch); none in `accountRouter.ts`, `BillingPage.tsx`, `authRouter.ts`, `types.ts`, `helpers.ts`, `queryRouter.ts`.
+- Stripe: `GET /v1/prices/price_1UBhzwAYuoIyU8CGHX3flLYb` → `unit_amount 250000, active true, product prod_UPTfX1OPqwVNmF, interval month`; old link/price `active: false`.
+- Airtable Plan 5 PATCH response shows the new `stripePriceId` / `stripeLink` / `Stripe Product ID`; Base-Free PATCH shows `Price Per Call: 0.5`.
+- `gcloud run services describe fodda-sandbox` → `fodda-sandbox-00547-jmx`, both env vars SET. `gcloud scheduler jobs describe fodda` → `PAUSED`, uri `https://app.fodda.ai/api/account/cron/monthly-reset`.
+- Not yet exercised: a real card-add → `/activate-overage` → Stripe subscription creation on the new revision; and the rewritten cron against live Airtable (run it once manually with the header after deploy and check the returned counts). Recommend one test with a Fodda-owned card before announcing.
+
+### Deploy checklist for this batch
+1. Deploy (ships the card-gated cron + `limitReached` cleanup + billing labels).
+2. `curl -X POST -H "x-cron-secret: $CRON_SECRET" https://app.fodda.ai/api/account/cron/monthly-reset` once; confirm `skippedNoCard` ≈ number of free accounts without a card and `reset` is small.
+3. `gcloud scheduler jobs resume fodda --location us-central1`.
+
+### Files Changed
+- `deploy_gcp.sh`, `server/routers/authRouter.ts`, `server/routers/accountRouter.ts`, `server/routers/queryRouter.ts`, `server/helpers.ts`, `frontend/components/BillingPage.tsx`, `shared/types.ts`, `CHANGELOG.md`
+
+---
+
 ## [2026-09-03] — App feedback fixes: Coverage crash, Ask silent failures, billing labels & Airtable-sourced overage rate (Matthew Quint / David Johnson-Igra feedback)
 
 ### Fixed

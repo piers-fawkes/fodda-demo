@@ -733,7 +733,10 @@ router.get("/profile", async (req: any, res) => {
                 fetchedMonthlyQueryLimit: planRec.fields['Monthly API Limit'] || extractNumericLimit(baseAccount, 10),
                 // Airtable is the source of truth for the overage rate (house rule). Raw value:
                 // 0.5 on paid plans, 0 on Base-Free, undefined on Trial/Sandpit/Beta/Lapsed.
-                fetchedPricePerCall: planRec.fields['Price Per Call'], 
+                fetchedPricePerCall: planRec.fields['Price Per Call'],
+                // Base is a one-time allowance (Piers, 2026-09-03); paid subscriptions renew monthly.
+                fetchedBillingMode: planRec.fields['billingMode'] || null,
+                fetchedIsFreeTier: !!planRec.fields['Is Free Tier'], 
                 fetchedIncludesPublicApis: planRec.fields['Includes Public APIs?'] || false 
               };
             }
@@ -793,6 +796,8 @@ router.get("/profile", async (req: any, res) => {
       // Per-call overage rate from the Airtable Plan record; undefined when the plan has none.
       // UI must show "rate unavailable" rather than fall back to a hardcoded figure.
       overageRate: typeof accountData.fetchedPricePerCall === 'number' ? accountData.fetchedPricePerCall : undefined,
+      billingMode: accountData.fetchedBillingMode || undefined,
+      isFreeTier: !!accountData.fetchedIsFreeTier,
       subscriptionStatus: accountData.subscriptionStatus || 'none', 
       planName: accountData.fetchedPlanName || 'Free', 
       planCode: accountData.fetchedPlanCode || 0, 

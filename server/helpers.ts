@@ -480,7 +480,9 @@ export async function incrementUsage(userId: string | undefined, tenantId: strin
               }
             }
           } else {
-            updates["limitReached"] = true;
+            // `limitReached` is not an Airtable field — writing it made this whole update
+            // 422, so the cycle counter silently stopped persisting exactly when a free
+            // user hit the wall. The gate reads queriesUsedThisCycle >= limit instead.
           }
         }
 

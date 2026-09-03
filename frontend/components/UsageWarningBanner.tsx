@@ -28,7 +28,7 @@ export const UsageWarningBanner: React.FC<UsageWarningBannerProps> = ({ used, li
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
                     </span>
                     <p className="text-sm text-amber-800">
-                        You've used <span className="font-bold">{used.toLocaleString()}</span> of <span className="font-bold">{limit.toLocaleString()}</span> API calls. Add a payment method to keep querying{rateLabel ? ` at ${rateLabel}` : ''} beyond your limit.
+                        You've used <span className="font-bold">{used.toLocaleString()}</span> of <span className="font-bold">{limit.toLocaleString()}</span> API calls. Add a payment method to keep querying{rateLabel ? ` at ${rateLabel}` : ''} beyond your limit — and to keep your free 100 API calls renewing each month.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

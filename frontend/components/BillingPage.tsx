@@ -54,6 +54,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
   const overageRateLabel = typeof account.overageRate === 'number' && account.overageRate > 0
     ? `$${account.overageRate.toFixed(2)}/API call`
     : null;
+  // Model (Piers, 2026-09-03): Base gets 100 free API calls every month, but the monthly
+  // renewal for a free-tier account only happens with a card on file. Genuinely one-time
+  // plans (e.g. Top-Up) are the `one_time` billingMode ones that are not the free tier.
+  const isOneTime = account.billingMode === 'one_time' && !account.isFreeTier;
+  const freeNeedsCardToRenew = !!account.isFreeTier && !account.hasPaymentMethod;
 
   useEffect(() => {
     setLoadingPlans(true);
@@ -155,14 +160,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
         return account.resetDate;
       }
     }
-    return 'Monthly reset';
+    if (freeNeedsCardToRenew) return 'Renews monthly with a card on file';
+    return isOneTime ? 'One-time allowance' : 'Monthly reset';
   };
 
   return (
     <PageShell
       eyebrow="Billing & Usage"
       title={planName}
-      subtitle={`${subscriptionStatus} · ${formatResetDate()} · ${apiCallsTotal.toLocaleString()} API calls / month`}
+      subtitle={`${subscriptionStatus} · ${formatResetDate()} · ${apiCallsTotal.toLocaleString()} API calls${isOneTime ? ' (one-time)' : ' / month'}`}
       actions={
         <>
           <button
@@ -192,7 +198,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
       {/* ── Stat Tiles (3 Columns) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-5 bg-paper border border-line rounded-2xl shadow-sm flex flex-col justify-between space-y-2">
-          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">API Calls Used This Cycle</p>
+          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">{isOneTime ? 'API Calls Used' : 'API Calls Used This Cycle'}</p>
           <p className="font-serif italic text-3xl text-ink leading-tight">{apiCallsUsed.toLocaleString()} / {apiCallsTotal.toLocaleString()}</p>
           <p className="text-[11px] font-medium text-ink-3 mt-auto">{formatResetDate()}</p>
         </div>
@@ -220,7 +226,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
           <p className="text-[11px] text-ink-3 mt-auto leading-tight">
             {account.hasPaymentMethod
               ? `Card saved via Stripe. API calls past your monthly allowance continue${overageRateLabel ? ` at ${overageRateLabel}` : " at your plan's overage rate"}. Remove card via Manage Subscription to pause overage.`
-              : `Add a credit card to enable metered overage billing${overageRateLabel ? ` (${overageRateLabel})` : ''} when your monthly allowance is reached.`}
+              : `Add a credit card to enable metered overage billing${overageRateLabel ? ` (${overageRateLabel})` : ''} when your allowance is reached${account.isFreeTier ? ' — and to keep your free 100 API calls renewing each month' : ''}.`}
           </p>
         </div>
 
@@ -263,10 +269,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
             <span className="text-ink-4 block text-[10px] font-mono uppercase">Billing Cycle</span>
-            <span className="text-ink font-medium">Monthly</span>
+            <span className="text-ink font-medium">{isOneTime ? 'One-time' : 'Monthly'}</span>
           </div>
           <div>
-            <span className="text-ink-4 block text-[10px] font-mono uppercase">Monthly Allowance</span>
+            <span className="text-ink-4 block text-[10px] font-mono uppercase">{isOneTime ? 'Allowance' : 'Monthly Allowance'}</span>
             <span className="text-ink font-medium">{apiCallsTotal.toLocaleString()} API calls</span>
           </div>
           <div>
