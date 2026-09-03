@@ -3,6 +3,11 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — OAuth consent: allow OpenAI host family in CSP form-action
+
+### Fixed
+- `server/index.ts`: added `https://openai.com` and `https://*.openai.com` to Helmet CSP `formAction`. The OAuth consent Allow button was blocked for OpenAI's platform-verification connector (a different DCR client than the end-user one) because its redirect chain lands on an openai.com host. Chrome's form-action redirect-chain check reported the violation against the initial clerk.fodda.ai POST, masking the real target. Requires an App service redeploy.
+- `server/index.ts`: added `https://img.clerk.com` and `https://images.clerk.dev` to `imgSrc` so Clerk avatars render on the consent page (cosmetic; was console noise, not a blocker).
 ## [2026-09-03] — ChatGPT OAuth: CSP form-action + client-neutral sign-in copy
 
 ### Deployment

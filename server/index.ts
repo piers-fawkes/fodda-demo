@@ -64,6 +64,8 @@ app.use(helmet({
         "https://chatgpt.com",
         "https://*.chatgpt.com",
         "https://*.oai.com",
+        "https://openai.com",
+        "https://*.openai.com",
       ],
       scriptSrc: [
         "'self'", 
@@ -91,7 +93,7 @@ app.use(helmet({
         "https://*.fodda.ai"
       ],
       frameSrc: ["'self'", "https://js.stripe.com", "https://www.googletagmanager.com", "https://challenges.cloudflare.com"],
-      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://ucarecdn.com", "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://ucarecdn.com", "https://www.google-analytics.com", "https://www.googletagmanager.com", "https://img.clerk.com", "https://images.clerk.dev"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       workerSrc: ["'self'", "blob:"],
