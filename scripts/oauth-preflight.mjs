@@ -220,11 +220,101 @@ async function runPreflight() {
   }
 
   // =========================================================================
-  // Layer 3: Route Wiring Checks
+  // Layer 2.5: OAuth Resume Storage & Expiry Tests
+  // =========================================================================
+  let storageModule;
+  try {
+    const storagePath = path.join(projectRoot, 'shared', 'oauthResumeStorage.ts');
+    storageModule = await import(storagePath);
+  } catch (err) {
+    failures.push(`Failed to import shared/oauthResumeStorage.ts: ${err.message}`);
+  }
+
+  if (storageModule) {
+    const { writePendingOAuthRedirect, readPendingOAuthRedirect, clearPendingOAuthRedirect, OAUTH_REDIRECT_EXPIRY_MS } = storageModule;
+
+    // Set up mock window, sessionStorage, and localStorage for Node environment testing
+    const sessionMap = new Map();
+    const localMap = new Map();
+
+    const mockStorage = (map) => ({
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => map.set(k, String(v)),
+      removeItem: (k) => map.delete(k),
+      clear: () => map.clear(),
+    });
+
+    const prevWindow = global.window;
+    const prevSession = global.sessionStorage;
+    const prevLocal = global.localStorage;
+
+    global.window = {};
+    global.sessionStorage = mockStorage(sessionMap);
+    global.localStorage = mockStorage(localMap);
+
+    try {
+      // 1. Write test
+      writePendingOAuthRedirect('https://accounts.fodda.ai/oauth-consent?client_id=test123');
+      const readVal = readPendingOAuthRedirect();
+      if (readVal !== '/oauth-consent?client_id=test123') {
+        failures.push(`oauthResumeStorage: readPendingOAuthRedirect returned '${readVal}', expected '/oauth-consent?client_id=test123'`);
+      }
+
+      // 2. Expiry test (>15 minutes)
+      const expiredTs = (Date.now() - (OAUTH_REDIRECT_EXPIRY_MS + 5000)).toString();
+      sessionMap.set('fodda.pendingOAuthRedirectAt', expiredTs);
+      localMap.set('fodda.pendingOAuthRedirectAt', expiredTs);
+
+      const expiredVal = readPendingOAuthRedirect();
+      if (expiredVal !== null) {
+        failures.push(`oauthResumeStorage: readPendingOAuthRedirect should return null for timestamp older than 15 min, got '${expiredVal}'`);
+      }
+      if (sessionMap.has('fodda.pendingOAuthRedirect') || localMap.has('fodda.pendingOAuthRedirect')) {
+        failures.push(`oauthResumeStorage: expired entry was not automatically cleared from storage`);
+      }
+
+      // 3. Clear test
+      writePendingOAuthRedirect('/oauth-consent?client_id=fresh');
+      clearPendingOAuthRedirect();
+      if (sessionMap.size > 0 || localMap.size > 0) {
+        failures.push(`oauthResumeStorage: clearPendingOAuthRedirect left keys in storage`);
+      }
+    } finally {
+      global.window = prevWindow;
+      global.sessionStorage = prevSession;
+      global.localStorage = prevLocal;
+    }
+  }
+
+  // =========================================================================
+  // Layer 3: Route Wiring & Effect Guards
   // =========================================================================
   const oauthConsentPagePath = path.join(projectRoot, 'frontend', 'components', 'OAuthConsentPage.tsx');
   if (!fs.existsSync(oauthConsentPagePath)) {
     failures.push(`OAuthConsentPage component missing at ${path.relative(projectRoot, oauthConsentPagePath)}`);
+  }
+
+  const ssoCallbackPath = path.join(projectRoot, 'frontend', 'components', 'SsoCallbackPage.tsx');
+  if (!fs.existsSync(ssoCallbackPath)) {
+    failures.push(`frontend/components/SsoCallbackPage.tsx not found`);
+  } else {
+    const ssoContent = fs.readFileSync(ssoCallbackPath, 'utf8');
+    if (!ssoContent.includes('signInForceRedirectUrl')) {
+      failures.push(`SsoCallbackPage.tsx missing signInForceRedirectUrl on AuthenticateWithRedirectCallback`);
+    }
+  }
+
+  const serverIndexPath = path.join(projectRoot, 'server', 'index.ts');
+  if (!fs.existsSync(serverIndexPath)) {
+    failures.push(`server/index.ts not found`);
+  } else {
+    const serverContent = fs.readFileSync(serverIndexPath, 'utf8');
+    if (!serverContent.includes('formAction') || !serverContent.includes('https://clerk.fodda.ai')) {
+      failures.push(`server/index.ts missing formAction directive containing https://clerk.fodda.ai`);
+    }
+    if (!serverContent.includes('referrerPolicy')) {
+      failures.push(`server/index.ts missing referrerPolicy configuration in helmet`);
+    }
   }
 
   const appTsxPath = path.join(projectRoot, 'frontend', 'App.tsx');
@@ -241,6 +331,12 @@ async function runPreflight() {
     const rendersConsent = /<OAuthConsentPage\s*\/>/.test(appContent);
     if (!rendersConsent) {
       failures.push(`frontend/App.tsx does not render <OAuthConsentPage /> on /oauth-consent route`);
+    }
+
+    // Verify billing and auto-checkout effects guard against /oauth-consent
+    const billingGuardMatch = appContent.includes("pathname === '/oauth-consent' || pathname === '/sso-callback'");
+    if (!billingGuardMatch) {
+      failures.push(`frontend/App.tsx billing or auto-checkout effect missing /oauth-consent pathname guard`);
     }
   }
 
@@ -268,7 +364,8 @@ async function runPreflight() {
 
   console.log('✅ Source Guards: zero forbidden Clerk magic-link tokens & no inline host checks');
   console.log('✅ Allowlist Behavior: isValidRedirectUrl, isInternalAppUrl & normalizeOAuthRedirectUrl passed all test cases');
-  console.log('✅ Route Wiring: /oauth-consent route and OAuthConsentPage verified in App.tsx');
+  console.log('✅ OAuth Resume Storage: 15-minute TTL expiry, persistence, and cleanup verified');
+  console.log('✅ Route Wiring & Effect Guards: /oauth-consent route, OAuthConsentPage, SsoCallbackPage props, Helmet CSP, and App effect guards verified');
   console.log('\n🎉 Preflight suite passed cleanly! Deploy gate is OPEN.\n');
   process.exit(0);
 }

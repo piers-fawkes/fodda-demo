@@ -28,6 +28,22 @@ PROJECT_ID=$TARGET_PROJECT
 
 echo "✅ Deploying to Project: $PROJECT_ID"
 
+# Verify commit ancestor and clean working tree
+DEPLOY_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+echo "🔖 Deploying Commit: $DEPLOY_COMMIT"
+
+if ! git merge-base --is-ancestor 3c176c1 HEAD 2>/dev/null; then
+    echo "🛑 Error: Current commit ($DEPLOY_COMMIT) does not contain load-bearing OAuth commit 3c176c1."
+    echo "   Aborting deploy to prevent regressions."
+    exit 1
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "🛑 Error: Working tree is not clean. Commit or stash changes before deploying."
+    git status --short
+    exit 1
+fi
+
 # Load environment variables from .env file
 if [ -f .env ]; then
     echo "📋 Loading environment variables from .env file..."

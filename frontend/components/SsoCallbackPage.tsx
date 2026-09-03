@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react';
 import { GateFrame, Eyebrow, FieldRule, Btn, Masthead, WaxSeal } from './AuthGateAtoms';
 import { normalizeOAuthRedirectUrl } from '../../shared/redirectAllowlist';
+import { readPendingOAuthRedirect, getOAuthPending, clearOAuthPending } from '../../shared/oauthResumeStorage';
 
 /**
  * SsoCallbackPage
@@ -30,38 +31,25 @@ export const SsoCallbackPage: React.FC = () => {
 
   const { user, isLoaded: isUserLoaded } = useUser();
 
-  const getPendingOAuthResume = (): string | null => {
+  const getResumeTarget = (): string | null => {
     if (typeof window === 'undefined') return null;
-    const raw =
-      sessionStorage.getItem('fodda.pendingOAuthResume') ||
-      sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
-      localStorage.getItem('fodda.pendingOAuthResume') ||
-      localStorage.getItem('fodda.pendingOAuthRedirect');
-    return normalizeOAuthRedirectUrl(raw);
-  };
-
-  const clearPendingOAuthResume = () => {
-    if (typeof window === 'undefined') return;
-    sessionStorage.removeItem('fodda.pendingOAuthResume');
-    sessionStorage.removeItem('fodda.pendingOAuthRedirect');
-    localStorage.removeItem('fodda.pendingOAuthResume');
-    localStorage.removeItem('fodda.pendingOAuthRedirect');
-    sessionStorage.removeItem('fodda.oauthPending');
+    const fromQuery = normalizeOAuthRedirectUrl(new URLSearchParams(window.location.search).get('redirect_url'));
+    return fromQuery || readPendingOAuthRedirect();
   };
 
   // Once Clerk has finished and user object is available, decide next step
   useEffect(() => {
     if (!callbackDone || !isUserLoaded || !user) return;
 
-    // Fast-path resume for connector consent if pendingOAuthResume / pendingOAuthRedirect is stashed
-    const pendingResume = getPendingOAuthResume();
+    // Fast-path resume for connector consent if stashed or passed in query
+    const pendingResume = getResumeTarget();
     if (pendingResume) {
-      clearPendingOAuthResume();
+      clearOAuthPending();
       window.location.replace(pendingResume);
       return;
     }
 
-    const pendingProvider = sessionStorage.getItem('fodda.oauthPending');
+    const pendingProvider = getOAuthPending();
     if (pendingProvider) {
       // Pre-fill name from OAuth profile if available
       // Show extra fields prompt
@@ -112,8 +100,8 @@ export const SsoCallbackPage: React.FC = () => {
       console.error('[SsoCallback] Extra fields submission error:', err);
       // Non-fatal — continue to app
     } finally {
-      const pendingResume = getPendingOAuthResume();
-      clearPendingOAuthResume();
+      clearOAuthPending();
+      const pendingResume = getResumeTarget();
       if (pendingResume) {
         window.location.replace(pendingResume);
       } else {
@@ -134,17 +122,16 @@ export const SsoCallbackPage: React.FC = () => {
 
   // ── Phase 1: Clerk callback in progress ──────────────────────────────
   if (!callbackDone) {
-    const resumeTarget = getPendingOAuthResume();
+    const resumeTarget = getResumeTarget();
     return (
       <>
         {/*
           AuthenticateWithRedirectCallback finalises the OAuth handshake.
-          Pass explicit force/fallback redirect URLs so Clerk routes to the OAuth consent page.
+          Pass explicit force redirect URLs so Clerk routes to the OAuth consent page.
         */}
         <AuthenticateWithRedirectCallback
           signInForceRedirectUrl={resumeTarget || undefined}
           signUpForceRedirectUrl={resumeTarget || undefined}
-          continueSignUpUrl={resumeTarget || undefined}
         />
         {/* Trigger callbackDone once user is loaded (session set by Clerk) */}
         <_SessionWatcher onReady={() => setCallbackDone(true)} />

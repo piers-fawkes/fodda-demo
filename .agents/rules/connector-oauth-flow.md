@@ -30,6 +30,14 @@ Read this before touching ANY file listed at the bottom.
    (`isValidRedirectUrl` / `isClerkOAuthContinueUrl` / `isInternalAppUrl`). Never write an
    inline host check (`endsWith('fodda.ai')` was an open-redirect: `evilfodda.ai` passed), and
    never attach a login token to a URL unless `isInternalAppUrl` is true.
+7. Thread redirect through Clerk native SSO params (`redirectUrl` and `redirectCallbackUrl`);
+   storage is a fallback, not the primary bus.
+8. All pending OAuth redirect storage goes through `shared/oauthResumeStorage.ts` with 15-minute
+   expiry. Never access `fodda.pendingOAuthRedirect` or related keys inline.
+9. App-level effects (billing deep links, auto-checkout) must guard against running on
+   `/oauth-consent` and `/sso-callback` so that OAuth query parameters are not stripped.
+10. Testing must be done with a fresh, previously-unauthorized user in a clean browser profile.
+    An authorized user skips consent and proves nothing.
 
 ## Paired Clerk dashboard state (code and dashboard must change together)
 
@@ -50,5 +58,6 @@ explicitly and do not claim the flow works.
 
 `frontend/components/AuthGate.tsx`, `frontend/App.tsx` (module top + resume effect + billing
 strip), `frontend/components/SsoCallbackPage.tsx`, the `/oauth-consent` route/component,
-`shared/redirectAllowlist.ts`, `server/routers/authRouter.ts` (`/api/auth/confirm`),
-`server/routers/webhookRouter.ts` (OAUTH_WELCOME delay), `index.html` (referrer meta).
+`shared/redirectAllowlist.ts`, `shared/oauthResumeStorage.ts`, `server/routers/authRouter.ts`
+(`/api/auth/confirm`), `server/routers/webhookRouter.ts` (OAUTH_WELCOME delay), `index.html`
+(referrer meta).

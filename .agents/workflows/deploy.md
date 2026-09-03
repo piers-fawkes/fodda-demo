@@ -18,9 +18,9 @@ description: How to deploy the Fodda App to Google Cloud Run
 
 ## Prerequisites
 
-- **Deploy ONLY from clean `main` branch**:
-  - `git checkout main`
-  - `git pull origin main`
+- **Deploy ONLY from clean working tree containing OAuth ancestor commit `3c176c1`**:
+  - Deploy branch should be `main` (or active production branch `fix/graph-trials-canonical-mcp-url` until fast-forwarded to `main`).
+  - Ensure `git merge-base --is-ancestor 3c176c1 HEAD` passes so no deployment lacks critical OAuth consent fixes.
   - Ensure `git status --porcelain` is completely clean (no uncommitted or untracked changes).
   - Record `git rev-parse HEAD` and the resulting Cloud Run revision in `CHANGELOG.md`.
 - `gcloud` CLI installed (located at `/opt/homebrew/bin/gcloud`)
@@ -31,11 +31,13 @@ description: How to deploy the Fodda App to Google Cloud Run
 
 // turbo-all
 
-1. Pre-deploy validation (must be clean `main`):
+1. Pre-deploy validation (must be clean and contain OAuth ancestor `3c176c1`):
 
 ```bash
-# Verify branch and clean working tree
-[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "❌ Deploy must be run from 'main' branch"; exit 1; }
+# Verify commit contains load-bearing OAuth fixes
+git merge-base --is-ancestor 3c176c1 HEAD || { echo "❌ Current commit missing OAuth ancestor 3c176c1"; exit 1; }
+
+# Verify clean working tree
 [ -z "$(git status --porcelain)" ] || { echo "❌ Working directory must be clean before deploying"; exit 1; }
 echo "✅ Deploying from commit $(git rev-parse HEAD)"
 ```

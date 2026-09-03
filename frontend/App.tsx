@@ -41,15 +41,15 @@ import { useAuth, useOrganizationList } from '@clerk/react';
 import { WelcomeContextPopup, shouldShowWelcomePopup } from './components/WelcomeContextPopup';
 import { useLavaWallet } from './hooks/useLavaWallet';
 import { isValidRedirectUrl, isClerkOAuthContinueUrl, normalizeOAuthRedirectUrl } from '../shared/redirectAllowlist';
+import { writePendingOAuthRedirect, readPendingOAuthRedirect, clearPendingOAuthRedirect } from '../shared/oauthResumeStorage';
 
-// Capture ?redirect_url= into sessionStorage & localStorage immediately on load before any component stripping runs
+// Capture ?redirect_url= immediately on load before any component stripping runs
 if (typeof window !== 'undefined') {
   try {
     const initialParams = new URLSearchParams(window.location.search);
     const initialRedirect = initialParams.get('redirect_url');
-    if (initialRedirect && isValidRedirectUrl(initialRedirect)) {
-      sessionStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
-      localStorage.setItem('fodda.pendingOAuthRedirect', initialRedirect);
+    if (initialRedirect) {
+      writePendingOAuthRedirect(initialRedirect);
     }
   } catch (e) {}
 }
@@ -479,21 +479,16 @@ const App: React.FC = () => {
     }
   }, [pendingTopUpModal, isUnlocked]);
 
-  // Deep-link: resume OAuth consent flow if redirect_url query parameter or sessionStorage fallback is present
+  // Deep-link: resume OAuth consent flow if redirect_url query parameter or storage fallback is present
   useEffect(() => {
     if (typeof window === 'undefined' || !isAuthLoaded) return;
 
-    // If currently on /oauth-consent, we are already at the consent destination
-    if (window.location.pathname.replace(/\/+$/, '') === '/oauth-consent') return;
+    // If currently on /oauth-consent or /sso-callback, we are already handling the destination
+    const currentPath = window.location.pathname.replace(/\/+$/, '');
+    if (currentPath === '/oauth-consent' || currentPath === '/sso-callback') return;
 
     const params = new URLSearchParams(window.location.search);
-    const rawRedirect =
-      params.get('redirect_url') ||
-      sessionStorage.getItem('fodda.pendingOAuthRedirect') ||
-      sessionStorage.getItem('fodda.pendingOAuthResume') ||
-      localStorage.getItem('fodda.pendingOAuthRedirect') ||
-      localStorage.getItem('fodda.pendingOAuthResume');
-    const targetRedirect = normalizeOAuthRedirectUrl(rawRedirect);
+    const targetRedirect = normalizeOAuthRedirectUrl(params.get('redirect_url')) || readPendingOAuthRedirect();
     if (!targetRedirect) return;
 
     const isClerkOAuthContinue = isClerkOAuthContinueUrl(targetRedirect);
@@ -502,10 +497,6 @@ const App: React.FC = () => {
     const canResume = isClerkOAuthContinue ? (!!clerkUserId || isUnlocked) : isUnlocked;
     if (canResume) {
       console.log('[App] Resuming OAuth redirect to:', targetRedirect);
-      sessionStorage.removeItem('fodda.pendingOAuthRedirect');
-      sessionStorage.removeItem('fodda.pendingOAuthResume');
-      localStorage.removeItem('fodda.pendingOAuthRedirect');
-      localStorage.removeItem('fodda.pendingOAuthResume');
       window.location.href = targetRedirect;
     }
   }, [isUnlocked, clerkUserId, isAuthLoaded]);
@@ -525,6 +516,10 @@ const App: React.FC = () => {
   //  3. ?view=billing&tab=spt       -> routes to billing / SPT API keys
   //  4. ?plan={planCode}&tier={tierName} -> opens UpgradeModal for specific plan
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/\/+$/, '');
+      if (pathname === '/oauth-consent' || pathname === '/sso-callback') return;
+    }
     if (!isUnlocked || !currentUser || !currentAccount) return;
 
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -696,6 +691,11 @@ const App: React.FC = () => {
     // If the user arrived from fodda.ai/pricing with a plan pre-selected,
     // AuthGate (or direct URL query params) stored the planCode in localStorage.
     // Whenever authenticated, we call the checkout/subscribe endpoint and redirect to Stripe.
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/\/+$/, '');
+      if (pathname === '/oauth-consent' || pathname === '/sso-callback') return;
+    }
+
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const planParam = searchParams?.get('plan');
     if (planParam && !localStorage.getItem('fodda.pendingPlanCode')) {

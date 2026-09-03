@@ -82,10 +82,21 @@ async function runSmoke() {
         }
       }
 
+      // Verify security headers
+      const referrerPolicy = consentRes.headers.get('referrer-policy');
+      if (referrerPolicy !== 'strict-origin-when-cross-origin') {
+        failures.push(`https://app.fodda.ai/oauth-consent referrer-policy is '${referrerPolicy}' (expected 'strict-origin-when-cross-origin')`);
+      }
+
+      const csp = consentRes.headers.get('content-security-policy') || '';
+      if (!csp.includes('form-action') || !csp.includes('https://clerk.fodda.ai')) {
+        failures.push(`https://app.fodda.ai/oauth-consent CSP form-action does not contain https://clerk.fodda.ai`);
+      }
+
       if (!bundleContainsOAuthConsent) {
         failures.push(`Served bundle at https://app.fodda.ai/oauth-consent lacks OAuthConsent marker (${checkedScripts} script(s) inspected)`);
       } else {
-        console.log('✅ Live OAuth Consent Route: https://app.fodda.ai/oauth-consent returned HTTP 200 with OAuthConsent bundle marker');
+        console.log('✅ Live OAuth Consent Route: https://app.fodda.ai/oauth-consent returned HTTP 200, strict-origin referrer, form-action CSP, and OAuthConsent bundle marker');
       }
     }
   } catch (err) {
@@ -93,10 +104,10 @@ async function runSmoke() {
   }
 
   // =========================================================================
-  // Smoke Check 3: GET https://clerk.fodda.ai/v1/environment (Email code-only)
+  // Smoke Check 3: GET https://clerk.fodda.ai/v1/environment (Email code-only & display paths)
   // =========================================================================
   try {
-    const clerkRes = await fetch('https://clerk.fodda.ai/v1/environment?_clerk_js_version=5.100.0', {
+    const clerkRes = await fetch('https://clerk.fodda.ai/v1/environment?_clerk_js_version=6.30.1', {
       signal: AbortSignal.timeout(10000),
     });
 
@@ -126,9 +137,79 @@ async function runSmoke() {
           console.log("✅ Live Clerk Config: verifications and first_factors are strictly ['email_code']");
         }
       }
+
+      // Check display paths in Clerk environment
+      const displayConfig = data?.display_config;
+      if (!displayConfig) {
+        failures.push('Clerk environment response missing display_config');
+      } else {
+        if (displayConfig.oauth_consent_url !== 'https://app.fodda.ai/oauth-consent') {
+          failures.push(`Clerk display_config.oauth_consent_url is '${displayConfig.oauth_consent_url}' (expected 'https://app.fodda.ai/oauth-consent')`);
+        } else {
+          console.log("✅ Live Clerk Config: display_config.oauth_consent_url is 'https://app.fodda.ai/oauth-consent'");
+        }
+
+        if (displayConfig.sign_in_url !== 'https://app.fodda.ai') {
+          failures.push(`Clerk display_config.sign_in_url is '${displayConfig.sign_in_url}' (expected 'https://app.fodda.ai')`);
+        } else {
+          console.log("✅ Live Clerk Config: display_config.sign_in_url is 'https://app.fodda.ai'");
+        }
+      }
     }
   } catch (err) {
     failures.push(`GET https://clerk.fodda.ai/v1/environment failed: ${err.message}`);
+  }
+
+  // =========================================================================
+  // Smoke Check 4: Signed-out Authorize Chain Probe
+  // Probes /oauth/authorize -> /oauth/authorize/continue -> app.fodda.ai?redirect_url=https://app.fodda.ai/oauth-consent
+  // =========================================================================
+  try {
+    let probeUrl = 'https://clerk.fodda.ai/oauth/authorize?response_type=code&client_id=9RijQGa1nndtlWlV&redirect_uri=https%3A%2F%2Fclaude.ai%2Fapi%2Fmcp%2Fauth_callback&scope=profile+email&state=12345678&code_challenge=E9Melhoa2OwvFrGMTJguCH50lK6Zw51L08pfauWB9U8&code_challenge_method=S256';
+    let landedUrl = null;
+
+    for (let hop = 0; hop < 5; hop++) {
+      const hopRes = await fetch(probeUrl, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const loc = hopRes.headers.get('location');
+      if (!loc) break;
+
+      const nextUrl = new URL(loc, probeUrl).toString();
+      probeUrl = nextUrl;
+
+      if (probeUrl.includes('app.fodda.ai')) {
+        landedUrl = probeUrl;
+        break;
+      }
+    }
+
+    if (!landedUrl) {
+      failures.push('Signed-out authorize chain did not redirect to app.fodda.ai within 5 hops');
+    } else {
+      const parsedLanded = new URL(landedUrl);
+      const rawRedirectParam = parsedLanded.searchParams.get('redirect_url');
+      if (!rawRedirectParam) {
+        failures.push(`Signed-out authorize redirect to app.fodda.ai missing 'redirect_url' query parameter: ${landedUrl}`);
+      } else {
+        const parsedRedirect = new URL(rawRedirectParam);
+        if (parsedRedirect.hostname !== 'app.fodda.ai') {
+          failures.push(`Signed-out authorize redirect_url host is '${parsedRedirect.hostname}' (expected 'app.fodda.ai')`);
+        }
+        if (!parsedRedirect.pathname.includes('/oauth-consent')) {
+          failures.push(`Signed-out authorize redirect_url path is '${parsedRedirect.pathname}' (expected '/oauth-consent')`);
+        }
+
+        if (parsedRedirect.hostname === 'app.fodda.ai' && parsedRedirect.pathname.includes('/oauth-consent')) {
+          console.log("✅ Live Authorize Chain: signed-out handoff targets app.fodda.ai with redirect_url to https://app.fodda.ai/oauth-consent");
+        }
+      }
+    }
+  } catch (err) {
+    failures.push(`Signed-out authorize chain probe failed: ${err.message}`);
   }
 
   // =========================================================================

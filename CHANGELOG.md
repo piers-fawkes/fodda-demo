@@ -3,6 +3,40 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-02] — Connector OAuth Resume Hardening & Drift-Proofing (`briefs/connector-oauth-resume-hardening.md`)
+
+### Hardened & Fixed
+- **Clerk-Native SSO Redirect Threading (`frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`)**:
+  - Threaded `resumeTarget` directly through `signIn.sso()` / `signUp.sso()` `redirectUrl` and `redirectCallbackUrl` (`/sso-callback?redirect_url=${encodeURIComponent(resumeTarget)}`).
+  - `SsoCallbackPage.tsx` extracts target from query parameter first, using storage only as fallback. Dropped `continueSignUpUrl`.
+  - Removed premature storage clearing from `SsoCallbackPage.tsx`.
+- **Storage Hygiene & Expiry Helper (`shared/oauthResumeStorage.ts`)**:
+  - Created centralized helper managing `fodda.pendingOAuthRedirect`, `fodda.pendingOAuthResume`, `fodda.pendingOAuthRedirectAt`, and `fodda.oauthPending`.
+  - Enforced 15-minute TTL (`OAUTH_REDIRECT_EXPIRY_MS = 15 * 60 * 1000`); expired entries are discarded and purged automatically on read.
+  - Eliminated inline `sessionStorage`/`localStorage` reads and writes across `AuthGate.tsx`, `SsoCallbackPage.tsx`, `OAuthConsentPage.tsx`, and `App.tsx`.
+  - `OAuthConsentPage.tsx` clears storage keys once `clerkUserId` is confirmed.
+- **App Effect Guards on OAuth Consent Route (`frontend/App.tsx`)**:
+  - Added early-return guards on `/oauth-consent` and `/sso-callback` for both the billing deep-link effect and `handleSessionStart` auto-checkout effect.
+  - Prevents `window.history.replaceState` and automatic checkout from running and stripping `client_id`, `redirect_uri`, `scope`, and `state`.
+- **Clerk Runtime Pinning (`index.tsx`)**:
+  - Pinned `<ClerkProvider clerkJSVersion="6.30.1" />` to protect against unexpected upstream CDN script mutations.
+- **Branch & Deploy Hygiene (`deploy_gcp.sh`, `.agents/workflows/deploy.md`)**:
+  - Added `git merge-base --is-ancestor 3c176c1 HEAD` and clean working tree checks before build/deploy in `deploy_gcp.sh`.
+  - Removed 3 stale detached worktrees in `.claude/worktrees/*`.
+  - Updated deploy documentation to align with current branch and ancestor requirements.
+- **Preflight & Post-Deploy Smoke Checks (`scripts/oauth-preflight.mjs`, `scripts/oauth-smoke.mjs`)**:
+  - Preflight: Added static guards for `signInForceRedirectUrl`, `server/index.ts` CSP/referrer headers, `App.tsx` effect guards, and unit tests verifying 15-minute TTL storage expiry and cleanup.
+  - Smoke: Added live assertions for `display_config.oauth_consent_url`, `display_config.sign_in_url`, response headers (`referrer-policy: strict-origin-when-cross-origin`, CSP `form-action` containing `https://clerk.fodda.ai`), and a signed-out authorize chain probe (`/oauth/authorize` -> `/oauth/authorize/continue` -> landing on `app.fodda.ai` targeting `/oauth-consent`).
+- **Rule Invariants (`.agents/rules/connector-oauth-flow.md`)**:
+  - Appended rules 7–10 (SSO native threading, centralized storage helper, App effect guards, and fresh browser profile testing guidance).
+
+### Verification
+- `npm run preflight`: Passed all 4 layers (source guards, allowlist behavior, storage expiry unit tests, route wiring & effect guards).
+- `npm run build`: Vite build completed cleanly with 0 errors.
+- `node scripts/oauth-smoke.mjs`: Passed all 4 checks against live production endpoints including header inspection and DCR authorize probe.
+
+---
+
 ## [2026-09-02] — Normalize Clerk OAuth Consent Redirect to App Consent Route (`briefs/Brief - Normalize Clerk OAuth Consent Redirect to App Consent Route.md`)
 
 ### Deployment

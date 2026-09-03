@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { OAuthConsent, useAuth } from '@clerk/react';
 import { AuthGate } from './AuthGate';
-import { isValidRedirectUrl } from '../../shared/redirectAllowlist';
+import { writePendingOAuthRedirect, clearPendingOAuthRedirect } from '../../shared/oauthResumeStorage';
 
 /**
  * OAuthConsentPage
@@ -30,17 +30,16 @@ export const OAuthConsentPage: React.FC = () => {
     }
   }, []);
 
-  // When signed out, preserve the current full URL so post-auth resumes back to /oauth-consent
+  // Manage pending OAuth redirect persistence:
+  // - Signed out: preserve full URL so post-auth resumes back to /oauth-consent
+  // - Signed in: clear pending keys from all storage because resume succeeded
   useEffect(() => {
     if (typeof window === 'undefined' || !isAuthLoaded) return;
-    if (!clerkUserId) {
+    if (clerkUserId) {
+      clearPendingOAuthRedirect();
+    } else {
       const fullUrl = window.location.pathname + window.location.search + window.location.hash;
-      if (isValidRedirectUrl(fullUrl)) {
-        sessionStorage.setItem('fodda.pendingOAuthRedirect', fullUrl);
-        sessionStorage.setItem('fodda.pendingOAuthResume', fullUrl);
-        localStorage.setItem('fodda.pendingOAuthRedirect', fullUrl);
-        localStorage.setItem('fodda.pendingOAuthResume', fullUrl);
-      }
+      writePendingOAuthRedirect(fullUrl);
     }
   }, [isAuthLoaded, clerkUserId]);
 
