@@ -7,8 +7,8 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ### Deployment
 - **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
-- **Active Revision:** `fodda-sandbox-00545-p2g` (100% traffic)
-- **Commit:** `f3b75663`
+- **Active Revision:** `fodda-sandbox-00546-4qc` (100% traffic)
+- **Commit:** `9543900d`
 - **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
 - **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
 
