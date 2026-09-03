@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-03] — Fix undeclared `company` reference in Clerk webhook provisioning
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00548-hrg` (100% traffic)
+- **Commit:** `4ade0207`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 ### Fixed
 - **`server/routers/webhookRouter.ts`**: three sites inside `provisionUser` referenced an undeclared identifier `company` (lines 183, 215, 218). Because `tsx` does not type-check, these would throw `ReferenceError: company is not defined` at runtime whenever a Clerk `user.created` webhook provisioned a user — breaking the new-team-member owner notification email and the Streak CRM sync for both expert and non-expert sign-ups.
 - Replaced each with the in-scope, already-cleaned `effectiveCompany` value (the same variable written to the Airtable `Company` field at line 154). `effectiveCompany` falls back to an empty string when no real company name is available, which matches the Clerk-webhook reality of empty company/jobTitle for OAuth sign-ups. Behaviour is otherwise unchanged.
