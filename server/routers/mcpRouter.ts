@@ -92,9 +92,14 @@ router.post("/chat", async (req, res) => {
 
     console.log(`[McpRouter] Starting chat for ${userId} (tenant: ${accountContext || 'none'}) on vertical ${vertical || 'all'}`);
     
+    // "global" is what the Home dashboard sends for "no specific graph"; it is not a graph id.
+    // Passing it through made mcpChat inject "You MUST search the graph \"global\" first",
+    // guaranteeing a tool miss for every new user's first question.
+    const graphScope = (!vertical || vertical === 'global') ? 'all' : vertical;
+
     const result = await mcpChat(
       query,
-      vertical || 'all',
+      graphScope,
       apiKey,
       userId,
       userContext,
@@ -110,20 +115,24 @@ router.post("/chat", async (req, res) => {
     createAirtableRecord(LOGS_TABLE_QUESTIONS, {
       "question": query,
       "userEmail": userId,
-      "graphId": vertical || 'all',
+      "graphId": graphScope,
       "Date": new Date().toISOString(),
       "stepCount": Math.max(1, result.toolCalls?.length || 0),
       "responseTimeMs": result.totalDurationMs || 0,
       "source": 'mcp',
       "accountId": accountContext || '',
-      "taxonomy_node": (vertical || 'all').substring(0, 100),
+      "taxonomy_node": graphScope.substring(0, 100),
       "traceJson": result.traceJson || ''
     }).catch(err => {
       console.error('[McpRouter] Log write failed:', err?.message);
       notifyQueryLogFailure(err?.message || 'Questions write failed in /api/mcp/chat');
     });
 
-    res.json({ ok: true, ...result });
+    // A fatal error inside mcpChat (MCP connect refused, key rejected, model failure) is
+    // returned as { answer: '', failureType, error } rather than thrown. Reporting that as
+    // ok:true made the client render an empty bubble captioned "Unable to route" and
+    // discard the real cause. ok must reflect whether an answer was actually produced.
+    res.json({ ok: !result.error, ...result });
   } catch (err: any) {
     console.error("[McpRouter] Error:", err);
     res.status(500).json({ ok: false, error: err.message });

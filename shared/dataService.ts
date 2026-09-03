@@ -581,6 +581,8 @@ class DataService {
     nextMoveLines?: string[];
     toolCalls?: Array<{ tool: string; args: any; durationMs: number; resultPreview: string }>;
     totalDurationMs?: number;
+    failureType?: 'NO_COVERAGE' | 'DIDNT_ROUTE' | 'TIMEOUT' | null;
+    traceJson?: string;
     error?: string;
   }> {
     try {

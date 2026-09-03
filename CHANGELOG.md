@@ -3,6 +3,42 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — App feedback fixes: Coverage crash, Ask silent failures, billing labels & Airtable-sourced overage rate (Matthew Quint / David Johnson-Igra feedback)
+
+### Fixed
+- **Coverage / My Graphs rendered a completely blank app (`frontend/App.tsx`)**: `onToggleGraph={toggleGraph}` referenced an identifier that was never defined; it threw at render and, with no ErrorBoundary, React 19 unmounted the entire root on `/coverage` and `/graphs`. Defined `toggleGraph` (toggles the user's `disabledGraphs` CSV and persists via `dataService.updateDisabledGraphs`, mirroring `MyGraphsPage`).
+- **Ask rendered an empty bubble on fatal errors (`server/routers/mcpRouter.ts`)**: `mcpChat` returns `{ answer: '', failureType, error }` on MCP-connect / key-rejection / model failures, and the route reported it as `ok: true`, so the client showed nothing captioned "Unable to route" and discarded the cause. Now `ok: !result.error`, so the real error reaches the chat's error bubble.
+- **`"global"` graph id from the Home "Ask Fodda Assistant" CTA (`server/routers/mcpRouter.ts`)**: normalised to `'all'` before `mcpChat` and in the Questions log. Previously injected "You MUST search the graph \"global\" first", guaranteeing a tool miss on a new user's first question.
+- **Sidebar "Ask" did nothing on first click (`frontend/components/Sidebar.tsx`)**: it was a collapsible header with no navigation; opening it now takes the user to the chat (`sandbox`).
+- **Billing page mixed two units under one word (`frontend/components/BillingPage.tsx`)**: the per-cycle counter (API calls) was labelled "queries" next to the lifetime questions-asked rollup, producing "134 / 100" beside "26 all-time" for a user who had asked 26 questions costing 134 API calls. Relabelled to "API Calls Used This Cycle", "Questions Asked (all time)", "N API calls / month", "Monthly Allowance: N API calls"; the lifetime figure no longer falls back to the call count.
+- **Hardcoded `$0.50/call` copy (`BillingPage.tsx`, `UsageWarningBanner.tsx`)**: the rate now comes from the Airtable Plan record (`Price Per Call`) via the profile payload's `overageRate`. When the plan carries 0 or no rate, no figure is named ("your plan's overage rate" / "Per plan — see pricing").
+- **`hasPaymentMethod` / `overageEnabled` never returned by `GET /api/auth/profile` (`server/routers/authRouter.ts`)**: BillingPage therefore always rendered "No Card Saved / Overage Paused" on load. Both Airtable checkboxes are now returned, plus `overageTokensThisCycle` and `overageRate` (from the linked Plan's `Price Per Call`, fetched as `fetchedPricePerCall`).
+- **`UsageWarningBanner` imported but never rendered (`frontend/App.tsx`)**: mounted above both chat views; users at 80% of allowance or over it now get an in-app warning. Banner accepts an `overageRate` prop instead of hardcoding the figure.
+- **Legacy signup `ReferenceError` (`server/routers/authRouter.ts:213`)**: `company` was undefined in scope (req.body destructures it as `rawCompany`), so the Streak sync call threw before `res.json`. Now passes `String(rawCompany || '').trim()`. The same bug at `webhookRouter.ts:183/215/218` is spun off as a separate task.
+- **`dataService.mcpChat` return type (`shared/dataService.ts`)**: added `failureType` and `traceJson`, removing a pre-existing TS2339 in `App.tsx`.
+
+### Added
+- **`frontend/components/ErrorBoundary.tsx`**, wrapped around the app root in `index.tsx`: a render error in one view now shows a reload card instead of a blank page.
+- **Build gate `scripts/check-undefined-identifiers.mjs`** — `npm run build` now runs `check:undefined` before `vite build` and fails on any `TS2304` ("Cannot find name") in `frontend/`, `shared/`, `index.tsx` — the exact class that shipped the Coverage crash, which esbuild does not catch. Deliberately scoped to that class because the repo carries other pre-existing type errors. Also added `npm run typecheck` (`tsc --noEmit`).
+
+### Verification
+- `npm run build` → `✓ check:undefined — no TS2304 errors in frontend/, shared/, index.tsx`, then `vite build` ✓ (1681 modules, built in 2.10s).
+- `npx tsc --noEmit` → **57 errors (60 before this change)**: removed the `toggleGraph` TS2304, the `company` TS2304 in `authRouter.ts`, and the `failureType` TS2339 in `App.tsx`; **none introduced** — zero errors in `BillingPage.tsx`, `UsageWarningBanner.tsx`, `Sidebar.tsx`, `ErrorBoundary.tsx`, `dataService.ts`, `mcpRouter.ts`, `authRouter.ts`, `index.tsx`; remaining `App.tsx` errors are the pre-existing TS2322/TS2345/TS18048/TS2339/TS2367 set.
+- `npm run preflight` → all three OAuth suites passed (Source Guards, Allowlist Behavior, Route Wiring).
+- **Not yet exercised in a running app** (worktree has no `.env`). Needs a manual pass on `/coverage`, Ask (including a forced MCP failure), and `/account/billing` before deploy.
+
+### Deliberately not changed (decisions pending with Piers)
+- Base-Free `Price Per Call` is 0 in Airtable while `createOverageSubscription` attaches the $0.50 Stripe price to any card-adder.
+- Studio is advertised at $2,500 but Airtable Plan 5's `stripePriceId` and `stripeLink` both resolve to the active $1,500 "Fodda Studio" price.
+- `STRIPE_OVERAGE_PRICE_ID` / `STRIPE_OVERAGE_METER_EVENT` / `STRIPE_BASE_PRICE_ID` are absent from `deploy_gcp.sh`'s `--set-env-vars` list, so production skips Stripe subscription creation and overage has never billed (0 subscriptions on either overage price). Local `.env` also points at the archived $0.20 price; the active one is `price_1TkoMEAYuoIyU8CGkwcDId2u` ($0.50).
+
+### Files Changed
+- `frontend/App.tsx`, `frontend/components/BillingPage.tsx`, `frontend/components/UsageWarningBanner.tsx`, `frontend/components/Sidebar.tsx`, `frontend/components/ErrorBoundary.tsx` (new), `index.tsx`
+- `server/routers/mcpRouter.ts`, `server/routers/authRouter.ts`, `shared/dataService.ts`
+- `scripts/check-undefined-identifiers.mjs` (new), `package.json`, `CHANGELOG.md`
+
+---
+
 ## [2026-09-02] — Normalize Clerk OAuth Consent Redirect to App Consent Route (`briefs/Brief - Normalize Clerk OAuth Consent Redirect to App Consent Route.md`)
 
 ### Deployment

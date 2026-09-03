@@ -210,7 +210,9 @@ router.post("/register", async (req, res) => {
     sendSystemEmail('SIGNUP_CONFIRMATION', normalizedEmail, { name: firstName, confirmationLink, intent: intent || 'account' }).catch(e => console.error("Failed to send confirmation email:", e));
 
     // Add to Streak CRM in 'Email Not Confirmed' stage
-    addToStreakPipeline(normalizedEmail, fullName, company, 'Email Not Confirmed', promoTag, { airtableId: userId }).catch(e => console.error("[Streak] Initial sync failed:", e));
+    // `company` was never defined in this scope (req.body destructures it as `rawCompany`),
+    // so this line threw a ReferenceError before res.json on every legacy signup.
+    addToStreakPipeline(normalizedEmail, fullName, String(rawCompany || '').trim(), 'Email Not Confirmed', promoTag, { airtableId: userId }).catch(e => console.error("[Streak] Initial sync failed:", e));
 
     res.json({
       ok: true,
@@ -728,7 +730,10 @@ router.get("/profile", async (req: any, res) => {
                 ...baseAccount, 
                 fetchedPlanName: planRec.fields['Package Name'] || planRec.fields.Name || 'Custom', 
                 fetchedPlanCode: Number(planRec.fields['planCode']) || baseAccount.planCode || 0, 
-                fetchedMonthlyQueryLimit: planRec.fields['Monthly API Limit'] || extractNumericLimit(baseAccount, 10), 
+                fetchedMonthlyQueryLimit: planRec.fields['Monthly API Limit'] || extractNumericLimit(baseAccount, 10),
+                // Airtable is the source of truth for the overage rate (house rule). Raw value:
+                // 0.5 on paid plans, 0 on Base-Free, undefined on Trial/Sandpit/Beta/Lapsed.
+                fetchedPricePerCall: planRec.fields['Price Per Call'], 
                 fetchedIncludesPublicApis: planRec.fields['Includes Public APIs?'] || false 
               };
             }
@@ -779,6 +784,15 @@ router.get("/profile", async (req: any, res) => {
       lifetimeQueries: Number(accountData.lifetimeQueries || accountData.monthlyQueries || accountData.monthlyQuerytotal || accountData.totalQueries || 0),
       totalQueries: Math.max(Number(accountData.lifetimeQueries || accountData.monthlyQueries || accountData.monthlyQuerytotal || accountData.totalQueries || 0), Number(accountData.queriesUsedThisCycle || 0)),
       stripeCustomerId: accountData.stripeCustomerId || '',
+      // Real Airtable checkboxes (set by the setup_intent webhook / overage activation).
+      // Previously omitted, so BillingPage always rendered "No Card Saved" / "Overage Paused"
+      // on load regardless of the account's actual state.
+      hasPaymentMethod: !!accountData.hasPaymentMethod,
+      overageEnabled: !!accountData.overageEnabled,
+      overageTokensThisCycle: Number(accountData.overageTokensThisCycle || 0),
+      // Per-call overage rate from the Airtable Plan record; undefined when the plan has none.
+      // UI must show "rate unavailable" rather than fall back to a hardcoded figure.
+      overageRate: typeof accountData.fetchedPricePerCall === 'number' ? accountData.fetchedPricePerCall : undefined,
       subscriptionStatus: accountData.subscriptionStatus || 'none', 
       planName: accountData.fetchedPlanName || 'Free', 
       planCode: accountData.fetchedPlanCode || 0, 

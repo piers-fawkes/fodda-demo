@@ -280,6 +280,25 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Coverage / My Graphs: toggle a graph on or off for this user and persist it.
+  // Mirrors MyGraphsPage.toggleGraph — `disabledGraphs` is a comma-separated string.
+  // (Previously referenced here without being defined, which threw at render and,
+  // with no ErrorBoundary, blanked the entire app on /coverage and /graphs.)
+  const toggleGraph = useCallback((graphId: string) => {
+    if (!currentUser) return;
+    const disabled = new Set(
+      (currentUser.disabledGraphs || '').split(',').map(s => s.trim()).filter(Boolean)
+    );
+    if (disabled.has(graphId)) disabled.delete(graphId); else disabled.add(graphId);
+    const csv = Array.from(disabled).join(',');
+    setCurrentUser({ ...currentUser, disabledGraphs: csv });
+    if (currentUser.email) {
+      dataService.updateDisabledGraphs(currentUser.email, csv).catch(err => {
+        console.error('[App] Failed to persist disabled graphs:', err?.message || err);
+      });
+    }
+  }, [currentUser]);
+
   // Listen for browser Back/Forward popstate events
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1518,6 +1537,19 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Usage warning — was imported but never rendered, so over-limit users got no
+                in-app signal at all. Shows at 80% of allowance, or when over it. */}
+            {currentAccount && (
+              <div className="px-6 pt-3">
+                <UsageWarningBanner
+                  used={currentAccount.currentQueryCount || 0}
+                  limit={currentAccount.monthlyQueryLimit || 0}
+                  hasPaymentMethod={!!currentAccount.hasPaymentMethod}
+                  overageRate={currentAccount.overageRate}
+                  onAddCard={() => setIsPaymentSetupOpen(true)}
+                />
+              </div>
+            )}
             <div className="flex flex-1 overflow-hidden">
               <ChatInterface
                 messages={messages}
@@ -1809,6 +1841,19 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Usage warning — was imported but never rendered, so over-limit users got no
+                in-app signal at all. Shows at 80% of allowance, or when over it. */}
+            {currentAccount && (
+              <div className="px-6 pt-3">
+                <UsageWarningBanner
+                  used={currentAccount.currentQueryCount || 0}
+                  limit={currentAccount.monthlyQueryLimit || 0}
+                  hasPaymentMethod={!!currentAccount.hasPaymentMethod}
+                  overageRate={currentAccount.overageRate}
+                  onAddCard={() => setIsPaymentSetupOpen(true)}
+                />
+              </div>
+            )}
             <div className="flex flex-1 overflow-hidden">
               <ChatInterface
                 messages={messages}
