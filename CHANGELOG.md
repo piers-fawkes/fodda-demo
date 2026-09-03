@@ -5,8 +5,15 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-03] — ChatGPT OAuth: CSP form-action + client-neutral sign-in copy
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00543-lhh` (100% traffic)
+- **Commit:** `dd89bf9`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 ### Fixed
-- `server/index.ts`: added `https://chatgpt.com`, `https://*.chatgpt.com`, `https://*.oai.com` to Helmet CSP `formAction`. The OAuth consent Allow button silently failed for ChatGPT because the redirect target was blocked by CSP (Claude origins were whitelisted, ChatGPT was not). Requires an App service redeploy to take effect.
+- `server/index.ts`: added `https://chatgpt.com`, `https://*.chatgpt.com`, `https://*.oai.com` to Helmet CSP `formAction`. The OAuth consent Allow button silently failed for ChatGPT because the redirect target was blocked by CSP (Claude origins were whitelisted, ChatGPT was not).
 - `frontend/components/AuthGate.tsx`: sign-in heading/subcopy no longer hardcode "Claude" ("Connect Fodda" / "Sign in to let your AI assistant cite your Fodda knowledge graphs"), so the shared consent page reads correctly for ChatGPT and any MCP client.
 
 ## [2026-09-02] — Connector OAuth Resume Hardening & Drift-Proofing (`briefs/connector-oauth-resume-hardening.md`)
