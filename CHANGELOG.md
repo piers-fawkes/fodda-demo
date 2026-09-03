@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-02] — Connector OAuth Resume Hardening & Drift-Proofing (`briefs/connector-oauth-resume-hardening.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00542-256` (100% traffic)
+- **Commit:** `1c257c0`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 ### Hardened & Fixed
 - **Clerk-Native SSO Redirect Threading (`frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`)**:
   - Threaded `resumeTarget` directly through `signIn.sso()` / `signUp.sso()` `redirectUrl` and `redirectCallbackUrl` (`/sso-callback?redirect_url=${encodeURIComponent(resumeTarget)}`).
