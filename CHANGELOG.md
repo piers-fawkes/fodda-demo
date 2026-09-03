@@ -3,6 +3,12 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — ChatGPT OAuth: CSP form-action + client-neutral sign-in copy
+
+### Fixed
+- `server/index.ts`: added `https://chatgpt.com`, `https://*.chatgpt.com`, `https://*.oai.com` to Helmet CSP `formAction`. The OAuth consent Allow button silently failed for ChatGPT because the redirect target was blocked by CSP (Claude origins were whitelisted, ChatGPT was not). Requires an App service redeploy to take effect.
+- `frontend/components/AuthGate.tsx`: sign-in heading/subcopy no longer hardcode "Claude" ("Connect Fodda" / "Sign in to let your AI assistant cite your Fodda knowledge graphs"), so the shared consent page reads correctly for ChatGPT and any MCP client.
+
 ## [2026-09-02] — Connector OAuth Resume Hardening & Drift-Proofing (`briefs/connector-oauth-resume-hardening.md`)
 
 ### Deployment

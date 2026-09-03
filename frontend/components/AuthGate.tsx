@@ -840,10 +840,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
           </div>
 
           <h2 className="font-serif italic" style={{ fontSize: 28, fontWeight: 400, margin: '0 0 6px', color: 'var(--ink)', lineHeight: 1.15 }}>
-            Claude is requesting access
+            Connect Fodda
           </h2>
           <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 18px' }}>
-            Sign in to allow Claude to cite your Fodda knowledge graphs.
+            Sign in to let your AI assistant cite your Fodda knowledge graphs.
           </p>
 
           {legacyMagicLinkDetected && (

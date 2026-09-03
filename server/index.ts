@@ -61,6 +61,9 @@ app.use(helmet({
         "https://*.clerk.com",
         "https://claude.ai",
         "https://*.claude.ai",
+        "https://chatgpt.com",
+        "https://*.chatgpt.com",
+        "https://*.oai.com",
       ],
       scriptSrc: [
         "'self'", 
