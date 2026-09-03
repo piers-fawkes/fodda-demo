@@ -136,7 +136,8 @@ router.post("/query", async (req, res) => {
         // Track usage percentage for warning headers
         const usagePercent = effectiveLimit > 0 ? Math.round((currentUsage / effectiveLimit) * 100) : 0;
 
-        if (acc.fields.limitReached || currentUsage >= effectiveLimit) {
+        // (`limitReached` is not an Airtable field — it was always undefined here.)
+        if (currentUsage >= effectiveLimit) {
           // Soft cap: allow if payment method on file + overage enabled
           if (acc.fields.hasPaymentMethod && acc.fields.overageEnabled) {
             // Mark as overage — incrementUsage will handle Stripe reporting
