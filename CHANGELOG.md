@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-03] — Fix undeclared `company` reference in Clerk webhook provisioning
+
+### Fixed
+- **`server/routers/webhookRouter.ts`**: three sites inside `provisionUser` referenced an undeclared identifier `company` (lines 183, 215, 218). Because `tsx` does not type-check, these would throw `ReferenceError: company is not defined` at runtime whenever a Clerk `user.created` webhook provisioned a user — breaking the new-team-member owner notification email and the Streak CRM sync for both expert and non-expert sign-ups.
+- Replaced each with the in-scope, already-cleaned `effectiveCompany` value (the same variable written to the Airtable `Company` field at line 154). `effectiveCompany` falls back to an empty string when no real company name is available, which matches the Clerk-webhook reality of empty company/jobTitle for OAuth sign-ups. Behaviour is otherwise unchanged.
+
+### Verification
+- `npx tsc --noEmit 2>&1 | grep TS2304 | grep webhookRouter.ts` → no output (zero `TS2304` errors in `webhookRouter.ts`).
+
+### Files Changed
+- `server/routers/webhookRouter.ts`
+
 ## [2026-09-03] — Restore Email + Password Sign-In (temporary, for ChatGPT reviewer) (`briefs/Brief - Restore Email+Password Sign-In (temporary, for ChatGPT reviewer) — App Agent.md`)
 
 ### Deployment

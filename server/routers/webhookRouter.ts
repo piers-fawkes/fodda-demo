@@ -180,7 +180,7 @@ async function provisionUserFromClerk(
             sendSystemEmail('NEW_USER_JOINED', ownerEmail, {
               newUserName: fullName,
               newUserEmail: normalizedEmail,
-              accountName: existingAccountRecord?.fields?.['Account Name'] || company,
+              accountName: existingAccountRecord?.fields?.['Account Name'] || effectiveCompany,
               adminLink: 'https://app.fodda.ai/account/team'
             }).catch(e => console.error('[Clerk Webhook] Owner notification email failed:', e));
             console.log(`[Clerk Webhook] Notified owner ${ownerEmail} about new team member ${normalizedEmail}`);
@@ -212,10 +212,10 @@ async function provisionUserFromClerk(
 
   // Add user to Streak pipeline — experts go to 'Fodda Experts', everyone else to 'Fodda Sales'
   if (intent === 'expert') {
-    addToStreakPipeline(normalizedEmail, fullName, company, STAGE_SELF_EXPERT, undefined, { airtableId: userId }, 'Fodda Experts')
+    addToStreakPipeline(normalizedEmail, fullName, effectiveCompany, STAGE_SELF_EXPERT, undefined, { airtableId: userId }, 'Fodda Experts')
       .catch(e => console.error("[Clerk Webhook] Streak CRM sync failed:", e));
   } else {
-    addToStreakPipeline(normalizedEmail, fullName, company, STAGE_SELF_DEMO, undefined, { airtableId: userId })
+    addToStreakPipeline(normalizedEmail, fullName, effectiveCompany, STAGE_SELF_DEMO, undefined, { airtableId: userId })
       .catch(e => console.error("[Clerk Webhook] Streak CRM sync failed:", e));
   }
 }
