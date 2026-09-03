@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-03] — Restore Email + Password Sign-In (temporary, for ChatGPT reviewer) (`briefs/Brief - Restore Email+Password Sign-In (temporary, for ChatGPT reviewer) — App Agent.md`)
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00545-p2g` (100% traffic)
+- **Commit:** `f3b75663`
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 ### Added & Updated (Temporary Measure)
 - **Password Sign-In Option (`frontend/components/AuthGate.tsx`)**:
   - Added optional password sign-in path and field behind feature flag `ENABLE_PASSWORD_SIGNIN = true`, enabling username/password authentication for OpenAI's ChatGPT Apps Directory reviewer account (`chatgpt-review@fodda.ai`).
