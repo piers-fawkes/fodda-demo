@@ -124,7 +124,7 @@ When you give the agent a high-level goal, it autonomously chains tools:
 - **Plans (Stripe)**: Monthly subscription at app.fodda.ai for researchers.
 - **Lava PAYG**: Metered pay-as-you-go billing for developers.
 - **API Call Top-Up**: One-time inline Stripe Checkout when credit is low.
-- **SPT Auth**: Stripe Payment Tokens. Zero-onboarding per-request payment.
+- **SPT Auth**: Shared Payment Tokens (Stripe agentic commerce). Zero-onboarding per-request payment.
 
 ### RULE: CreditExhaustionRouting
 - Developer accounts MUST be routed to Lava PAYG.
@@ -133,7 +133,7 @@ When you give the agent a high-level goal, it autonomously chains tools:
 - API responses SHALL include an `agent_checkout` block containing the Stripe checkout URL.
 
 ### RULE: ZeroOnboardingAgentAccess
-- Autonomous agents MAY authenticate via OIDC or Stripe Payment Tokens (SPT).
+- Autonomous agents MAY authenticate via OIDC or Shared Payment Tokens (SPT).
 - Send header: `X-Stripe-SPT: spt_xxx`. The system charges the Stripe Link wallet directly without an account.
 
 ---
