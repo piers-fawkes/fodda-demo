@@ -748,7 +748,10 @@ router.get("/plans", async (req, res) => {
       id: r.id,
       name: r.fields["Package Name"] || "Unnamed Plan",
       description: r.fields["Package Description"] || "",
-      price: r.fields["monthlyPriceUSD"] != null ? `$${r.fields["monthlyPriceUSD"]}` : "$0",
+      // Free-tier plans always display "Free" — monthlyPriceUSD is computed as
+      // Monthly API Limit × Price Per Call (100 × 0.5 = $50 for Base), which is the value
+      // of the allowance, not a charge. Never show that as the price of a free plan.
+      price: r.fields["Is Free Tier"] ? "Free" : (r.fields["monthlyPriceUSD"] != null ? `$${r.fields["monthlyPriceUSD"]}` : "$0"),
       monthlyQueryLimit: r.fields["Monthly API Limit"] || 0,
       planCode: Number(r.fields["planCode"]) || 0,
       stripeLink: r.fields["stripeLink"] || r.fields["Stripe Link"] || "",
@@ -2175,7 +2178,7 @@ router.post("/admin/lookup", async (req, res) => {
               name: planRec.fields['Package Name'] || 'Unknown',
               planCode: Number(planRec.fields['planCode'] || 0),
               monthlyQueryLimit: Number(planRec.fields['Monthly API Limit'] || 0),
-              price: planRec.fields['monthlyPriceUSD'] != null ? `$${planRec.fields['monthlyPriceUSD']}` : '$0',
+              price: planRec.fields['Is Free Tier'] ? 'Free' : (planRec.fields['monthlyPriceUSD'] != null ? `$${planRec.fields['monthlyPriceUSD']}` : '$0'),
               graphsIncluded: planRec.fields['Graphs Included'] || '',
             };
           }
