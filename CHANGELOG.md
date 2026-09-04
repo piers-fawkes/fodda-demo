@@ -5,6 +5,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-03] — Pricing decisions executed: Studio $2,500 in Stripe + Airtable, Base = $50 of calls/month renewing only with a card, overage billing turned on, monthly-reset cron made real
 
+### Deployment
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00549-b26` (100% traffic)
+- **Commit:** `54ba6690` (merges `97321677` and `3032e445` into `fix/graph-trials-canonical-mcp-url`)
+- **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
+- **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
+
 Decisions by Piers on 2026-09-03 (final, after several revisions the same evening): pricing unit is the **API call at $0.50** (Airtable `Plan.Price Per Call`), charged by volume; the Offerings page is a guide; **Studio = $2,500/mo**; **Base-Free = 100 free API calls ($50) every month, but a free-tier account renews only if a card is on file — then 50¢/call overage**; paid subscriptions renew on their Stripe cycle; **overage billing ON**; **Starter and Team plans deleted** (by Piers, in Airtable).
 
 ### Changed — live systems (no code deploy required)
