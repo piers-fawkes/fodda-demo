@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Account, Plan } from '../../shared/types';
 import { dataService } from '../../shared/dataService';
-import { useLavaWallet } from '../hooks/useLavaWallet';
 import { UsageMeter } from './UsageMeter';
 import { PageShell } from './PageShell';
 
@@ -20,7 +19,6 @@ interface QueryPrice {
 }
 
 export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavigate, onViewPlans, onSetupPayment }) => {
-  const { launchLavaWallet, loading: lavaLoading } = useLavaWallet();
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -171,14 +169,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
       subtitle={`${subscriptionStatus} · ${formatResetDate()} · ${apiCallsTotal.toLocaleString()} API calls${isOneTime ? ' (one-time)' : ' / month'}`}
       actions={
         <>
-          <button
-            onClick={() => launchLavaWallet(user.email, account.id)}
-            disabled={lavaLoading}
-            className="px-3.5 py-2 bg-gradient-to-r from-[#ff5a1f] to-[#ff7a00] text-white font-bold text-xs rounded-xl hover:opacity-90 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <span>🔥</span>
-            <span>{lavaLoading ? 'Opening…' : 'Lava Wallet'}</span>
-          </button>
+          {/* Lava Wallet dropped 2026-09-04 (Piers) — no adoption benefit; focus on SPT.
+              Stripe "Top Up" remains the non-subscription top-up path. */}
           <button
             onClick={handleTopUp}
             disabled={topUpLoading}
