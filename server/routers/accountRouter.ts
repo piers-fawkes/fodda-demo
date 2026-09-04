@@ -664,6 +664,7 @@ async function catchUpFreeTierRenewal(accRec: any, source: string): Promise<void
     nextMonth.setDate(1);
     await updateAirtableRecord(ACCOUNTS_TABLE, accRec.id, {
       "queriesUsedThisCycle": 0,
+      "overageTokensThisCycle": 0,
       "nextRenewalDate": nextMonth.toISOString().split('T')[0]
     });
     console.log(`[Renewal] Catch-up renewal for free-tier account ${accRec.id} (${source})`);
@@ -729,6 +730,7 @@ router.post("/cron/monthly-reset", async (req, res) => {
       }
       await updateAirtableRecord(ACCOUNTS_TABLE, acc.id, {
         "queriesUsedThisCycle": 0,
+        "overageTokensThisCycle": 0,
         "nextRenewalDate": nextRenewalDate
       }).catch(e => console.error(`Reset error ${acc.id}:`, e));
       reset++;
@@ -946,6 +948,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
         const accountUpdate: any = {
           "Plan": [planRecord.id],
           "queriesUsedThisCycle": 0,
+          "overageTokensThisCycle": 0,
           // (limitReached removed — not an Airtable field; it 422'd this update)
           "lastPaidDate": todayISO,
           "nextRenewalDate": nextRenewalDate,
@@ -1066,6 +1069,7 @@ router.post("/stripe/webhook", async (req: any, res) => {
 
       await updateAirtableRecord(ACCOUNTS_TABLE, accountRecord.id, {
         "queriesUsedThisCycle": 0,
+        "overageTokensThisCycle": 0,
         // (limitReached removed — not an Airtable field; it 422'd this update)
         "lastPaidDate": todayISO,
         "nextRenewalDate": nextRenewal.toISOString().split('T')[0],
@@ -2281,6 +2285,7 @@ router.post("/admin/change-plan", async (req, res) => {
     const accountUpdate: any = {
       "Plan": [planRecord.id],
       "queriesUsedThisCycle": 0,
+      "overageTokensThisCycle": 0,
       // (limitReached removed — not an Airtable field; it 422'd this update)
       "lastPaidDate": todayISO,
       "nextRenewalDate": nextRenewalDate,
@@ -2847,7 +2852,8 @@ router.post('/convert-to-base', async (req, res) => {
     await updateAirtableRecord(ACCOUNTS_TABLE, accountId, {
       "Plan": [basePlan.id],
       "queriesUsedThisCycle": 0,
-      "monthlyQueries": 0,
+      "overageTokensThisCycle": 0,
+      // ("monthlyQueries": 0 removed — it is a computed Airtable rollup and 422'd this update)
       // (limitReached removed — not an Airtable field; it 422'd this update)
       "nextRenewalDate": nextRenewalDate
     });
