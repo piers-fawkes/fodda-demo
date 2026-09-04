@@ -7,8 +7,8 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ### Deployment
 - **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
-- **Active Revision:** `fodda-sandbox-00549-b26` (100% traffic)
-- **Commit:** `54ba6690` (merges `97321677` and `3032e445` into `fix/graph-trials-canonical-mcp-url`)
+- **Active Revision:** `fodda-sandbox-00550-shg` (100% traffic)
+- **Commit:** `8c181159` (merges `fd68884a`, `97321677`, and `3032e445` into `fix/graph-trials-canonical-mcp-url`)
 - **Preflight Gate:** `npm run preflight` → Passed cleanly (source guards, allowlist behavior, 15m storage TTL expiry unit tests, route wiring & effect guards)
 - **Post-Deploy Smoke Check:** `npm run smoke:oauth` → Passed HTTP 200 checks on `/`, `/oauth-consent` with bundle marker + strict-origin referrer + form-action CSP, Clerk code-only configuration, Clerk display_config paths, and signed-out authorize chain probe
 
@@ -21,6 +21,7 @@ Decisions by Piers on 2026-09-03 (final, after several revisions the same evenin
 - **Cloud Scheduler job `fodda`** (monthly reset, `0 0 1 * *`): had POSTed to the placeholder `https://your-domain/api/cron/monthly-reset` every month since 2026-03-07 and never succeeded. Now targets the real route `https://app.fodda.ai/api/account/cron/monthly-reset` with the `x-cron-secret` header set, and is **PAUSED until the revision carrying the card-gated reset (below) is deployed — unpause after that deploy**, otherwise the Oct 1 run would renew every free account regardless of card.
 
 ### Changed — code
+- **`server/routers/accountRouter.ts` (commit `fd68884a`)**: Base allowance stays 100 (`Monthly API Limit`). Emits price string `"Free"` in `/api/account/plans` and `/admin/lookup` for any plan flagged `Is Free Tier`, preventing the computed `monthlyPriceUSD` ($50 = 100 calls × $0.50 allowance value) from showing as a charged price in the UI.
 - **`server/routers/accountRouter.ts` `/cron/monthly-reset`**: rewritten. Resolves each account's Plan; skips Stripe subscriptions (webhook renews them) and consumable one-time plans (Top-Up); **free-tier accounts renew only when `hasPaymentMethod` is true** — otherwise only `nextRenewalDate` is rolled forward. Returns `{ reset, skippedNoCard, skippedSubscription, skippedOneTime }`. Two latent bugs removed on the way: the old Top-Up skip tested `acc.fields.planCode === 7` but Accounts has no `planCode` field (never matched); and the update wrote `limitReached`, which is not an Airtable field, so every per-row update would have 422'd.
 - **Phantom `limitReached` field removed everywhere it was written** (`helpers.ts` `incrementUsage` when a free user hits the wall; five account flows in `accountRouter.ts`) and from the gate in `queryRouter.ts`. Each of those Airtable updates was failing wholesale on the unknown field — e.g. the App-side cycle-counter increment silently stopped persisting exactly when a free user reached the limit.
 - **`deploy_gcp.sh`**: `--set-env-vars` now carries `STRIPE_OVERAGE_PRICE_ID` and `STRIPE_OVERAGE_METER_EVENT` so future deploys keep overage on.
