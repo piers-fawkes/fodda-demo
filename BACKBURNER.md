@@ -4,6 +4,38 @@ Low-priority improvements and optimizations to revisit when time permits.
 
 ---
 
+## 🟡 Monthly Plan: 10% Overage Forgiveness + 4-Month Deposit (App + API)
+
+**Added**: 2026-09-04  
+**Priority**: Low until trigger — do NOT build early  
+**Trigger**: The first customer subscribes to a Monthly Plan (Airtable Plan 5 Studio $2,500 or Plan 6 Business $4,600). The day that happens, pick this up before their first cycle ends.  
+**Brief**: `briefs/backburner_monthly_plan_overage_forgiveness_and_deposit.md`  
+**Owners**: App agent (this repo: overage subscription + cycle reset) and `api-agent` (metering / credit check).  
+
+**Context**: The marketing website now advertises on the Monthly Plan cards:
+- 10% overage forgiveness, then overage at 50¢ per call
+- 4 month deposit required for new users
+
+Neither is enforced by code today. Decision made on 2026-09-04: ship the copy on the website now, defer the billing and enforcement work until a customer actually subscribes.
+
+**Current billing behavior**:
+- Overage: once `queriesUsedThisCycle` passes `Monthly API Limit`, every extra call is metered to Stripe at `STRIPE_OVERAGE_PRICE_ID` ($0.50) from the first call over. No forgiveness band.
+- Deposit: Stripe payment links for Plans 5 and 6 charge one month. No deposit is collected or tracked.
+
+**What has to change when trigger fires**:
+1. **Forgiveness band**: Overage metering for Monthly Plan accounts starts at `Monthly API Limit × 1.10` (5,500 for Studio, 10,120 for Business), not at the limit. Implement as a per-plan Airtable field (e.g. `Overage Forgiveness Pct`) read by both App gating (`helpers.ts` effective-limit calc) and API credit check. Base stays at 0%.
+2. **Deposit**: No deposit exists in Stripe or Airtable today. Decide and record what "4 month deposit" means in dollars, whether it is held or applied to the first months, and how it is collected (Stripe invoice, payment link, manual). Then a Stripe setup or a manual runbook, plus an Airtable field marking the deposit as received so the App can show it.
+3. **Reset path**: The six cycle-reset sites in `accountRouter.ts` already zero `overageTokensThisCycle`; confirm the forgiveness band does not need its own counter.
+4. **Copy check**: Once built, make sure the website bullet, the app billing page and the Stripe invoice description all say the same thing.
+
+**Do Not**:
+- Do not silently change what Base or Pay-as-they-go accounts are charged.
+- Do not derive any price from `TOKEN_COSTS × SPT_RATE_CENTS`. Airtable is the source of truth.
+
+**Companion entry**: Tracked in Website repo (`/Users/piersfawkes/Documents/Fodda Website/BACKBURNER.md`).
+
+---
+
 ## Switch Claude connection rec from tokenized URL → OAuth
 
 **Added**: 2026-08-01

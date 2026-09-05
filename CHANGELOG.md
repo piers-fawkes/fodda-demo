@@ -3,6 +3,10 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-04] — Backburner note: Monthly Plan overage forgiveness + deposit
+
+- Added `briefs/backburner_monthly_plan_overage_forgiveness_and_deposit.md`. Piers decided the Monthly Plan card on the website will state "10% overage forgiveness, then overage at 50¢ per call" and "4 month deposit required for new users" as copy now; the App/API billing work is deferred until the first Monthly Plan subscriber. Docs only; no code changed. Verification: file present, no build impact.
+
 ## [2026-09-03] — Pricing decisions executed: Studio $2,500 in Stripe + Airtable, Base = $50 of calls/month renewing only with a card, overage billing turned on, monthly-reset cron made real
 
 ### Deployment
