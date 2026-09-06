@@ -227,6 +227,14 @@ router.post('/me/flag', async (req: any, res) => {
       expertFlags: JSON.stringify(updatedFlags)
     });
 
+    return res.json({ ok: true, flags: updatedFlags });
+  } catch (err: any) {
+    if (err instanceof DatabaseUnavailableError) return res.status(503).json({ ok: false, error: err.message });
+    console.error('[ExpertRouter] POST /me/flag failed:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // GET /api/expert/me/activity
 // Returns query count in the last 7 days and recent questions for the expert.
