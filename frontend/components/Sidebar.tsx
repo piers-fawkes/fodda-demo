@@ -167,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Header / Brand */}
         <div className="h-14 flex items-center px-4 border-b border-line shrink-0 relative">
-          <div className="flex items-center gap-3 text-ink group cursor-pointer" onClick={() => onNavigate('profile')}>
+          <div className="flex items-center gap-3 text-ink group cursor-pointer" onClick={() => onNavigate('home')}>
             <div className="w-6 h-6 flex items-center justify-center rounded group-hover:opacity-90 transition-opacity shadow-sm overflow-hidden"><img src="https://ucarecdn.com/6e7893d7-6b14-426b-83bc-574a3f72d6bc/foddaminilogo.png" alt="Fodda" className="w-6 h-6 object-contain" /></div>
             <span className="font-semibold text-sm tracking-tight text-ink group-hover:text-brand transition-colors">Fodda</span>
           </div>
@@ -188,44 +188,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
           />
 
-          {/* 2. ASK (Query Library + Test Bench) */}
-          <div>
-            <SectionHeader
-              label="Ask"
-              isExpanded={expandedSections.demo || activeView === 'sandbox' || activeView === 'library' || activeView === 'expert-chat'}
-              onToggle={() => {
-                // Opening "Ask" should take you to the chat, not just expand a sub-menu —
-                // the first click previously did nothing visible ("Ask doesn't work at all").
-                const opening = !expandedSections.demo;
-                toggleSection('demo');
-                if (opening && !isActive('sandbox') && !isActive('expert-chat')) {
-                  onNavigate('sandbox');
-                  onClose();
-                }
-              }}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>}
-            />
-            <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${(expandedSections.demo || activeView === 'sandbox' || activeView === 'library' || activeView === 'expert-chat') ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              {/* Query Library hidden 2026-08-14 per Piers — page still exists at components/QueryLibraryPage.tsx
-              <NavItem label="Query Library" onClick={() => { onNavigate('library'); onClose(); }} isActive={isActive('library')} indent /> */}
-              <NavItem label="Test Bench" onClick={() => { onNavigate('sandbox'); onClose(); }} isActive={isActive('sandbox') || isActive('expert-chat')} indent />
-            </div>
-          </div>
-
-          {/* 3. EXPERTS */}
+          {/* 2. ASK FODDA */}
           <NavItem
-            label="Experts"
-            onClick={() => { onNavigate('directory'); onClose(); }}
-            isActive={isActive('directory')}
-            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
-          />
-
-          {/* 4. COVERAGE */}
-          <NavItem
-            label="Coverage"
-            onClick={() => { onNavigate('coverage'); onClose(); }}
-            isActive={isActive('coverage') || isActive('my-graphs')}
-            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>}
+            label="Ask Fodda"
+            onClick={() => { onNavigate('sandbox'); onClose(); }}
+            isActive={isActive('sandbox') || isActive('expert-chat')}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>}
           />
 
           {/* 5. ACCESS */}

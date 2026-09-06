@@ -3,6 +3,42 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-06] — Home, Profile, and Navigation Restructuring
+
+### Navigation & Sidebar (`frontend/components/Sidebar.tsx`, `frontend/App.tsx`)
+- Replaced collapsible "Ask" accordion with a direct top-level navigation item labeled **"Ask Fodda"** routing directly to `sandbox`.
+- Removed "Experts" (`/directory`) and "Coverage" (`/coverage`) links from the sidebar navigation.
+- Updated brand header link to route directly to `home`.
+
+### Home Page (`frontend/components/HomeDashboard.tsx`)
+- Reworked into the primary Account & Access Portal:
+  - Plan tier and allowance banner at top (`account.planName`, `account.planLevel`, `account.monthlyLimit`).
+  - Account Details elevated higher up (Organization, Role, Account Owner, Renewal Status, and Access/Restrictions status e.g. "Restricted to: Retail only" vs "Full Catalog Access").
+  - Access Credentials section with API Key (reveal, copy, rotate modal) and MCP Endpoint URL (copy).
+  - If user is a registered expert (`user.isExpert`): displays Twin Activity block showing 7-day query count and list of recent questions asked of their twin.
+  - "Your Research Persona" placed at the bottom with confirmed/unconfirmed status and link to profile context.
+
+### Profile Page (`frontend/components/ProfilePage.tsx`)
+- Reworked into Usage & Recent Executions Activity center:
+  - Account & User info modal at the top.
+  - Non-duplicated 3-column stats card: Queries Used, Queries Remaining, and All-Time Queries.
+  - Removed Daily Query Volume chart, Knowledge Domain breakdown, and Sample Workflows ("What to Ask").
+  - Recent Executions table with clickable rows opening the Answer Receipt drawer.
+
+### Access Page (`frontend/components/ConnectionsPage.tsx`)
+- Added Claude to Card 1 title: `MCP (OAuth) — Claude`.
+- Swapped lines under card titles to highlight supported platforms:
+  - Card 1: `Supported on Claude, ChatGPT, Copilot` directly below title; OAuth auth explanation moved to footer.
+  - Card 2: `Supported on Cursor, Gemini, Perplexity, Notion` directly below title; token auth explanation moved to footer.
+
+### Backend & Data Service (`server/routers/expertRouter.ts`, `shared/dataService.ts`)
+- Added `GET /api/expert/me/activity` endpoint retrieving 7-day query count and recent questions from `LOGS_TABLE_QUESTIONS` filtered by `analystId`.
+- Added `dataService.getExpertActivity()` for client-side telemetry fetching.
+
+### Verification
+- `npm run build`: Passed cleanly (`✓ check:undefined`, vite build successful).
+
+
 ## [2026-09-04] — Backburner note: Monthly Plan overage forgiveness + deposit
 
 - Added `briefs/backburner_monthly_plan_overage_forgiveness_and_deposit.md`. Piers decided the Monthly Plan card on the website will state "10% overage forgiveness, then overage at 50¢ per call" and "4 month deposit required for new users" as copy now; the App/API billing work is deferred until the first Monthly Plan subscriber. Docs only; no code changed. Verification: file present, no build impact.

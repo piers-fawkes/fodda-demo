@@ -1109,6 +1109,16 @@ const App: React.FC = () => {
             setSelectedReceiptId(receiptId);
             setIsReceiptOpen(true);
           }}
+          onUpdate={(updatedUser, updatedAccount) => {
+            if (updatedUser) {
+              setCurrentUser(updatedUser);
+              if (updatedUser.userContext) setUserContext(updatedUser.userContext);
+            }
+            if (updatedAccount) {
+              setCurrentAccount(updatedAccount);
+              if (updatedAccount.accountContext) setAccountContext(updatedAccount.accountContext);
+            }
+          }}
         />
       );
     }
@@ -1305,6 +1315,10 @@ const App: React.FC = () => {
             }
           }}
           onNavigate={(view: string) => setActiveView(view as any)}
+          onOpenReceipt={(receiptId) => {
+            setSelectedReceiptId(receiptId);
+            setIsReceiptOpen(true);
+          }}
         />
       );
     }
@@ -1901,6 +1915,16 @@ const App: React.FC = () => {
             setSelectedReceiptId(receiptId);
             setIsReceiptOpen(true);
           }}
+          onUpdate={(updatedUser, updatedAccount) => {
+            if (updatedUser) {
+              setCurrentUser(updatedUser);
+              if (updatedUser.userContext) setUserContext(updatedUser.userContext);
+            }
+            if (updatedAccount) {
+              setCurrentAccount(updatedAccount);
+              if (updatedAccount.accountContext) setAccountContext(updatedAccount.accountContext);
+            }
+          }}
         />
       );
     }
@@ -1973,6 +1997,10 @@ const App: React.FC = () => {
           }
         }}
         onNavigate={(view: string) => setActiveView(view as any)}
+        onOpenReceipt={(receiptId) => {
+          setSelectedReceiptId(receiptId);
+          setIsReceiptOpen(true);
+        }}
       />
     );
   };

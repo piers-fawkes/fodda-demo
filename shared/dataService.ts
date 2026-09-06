@@ -856,6 +856,17 @@ class DataService {
     }
   }
 
+  async getExpertActivity(): Promise<{ ok: boolean; queryCount7d: number; recentQuestions: any[] }> {
+    try {
+      const res = await fetch('/api/expert/me/activity');
+      if (!res.ok) return { ok: false, queryCount7d: 0, recentQuestions: [] };
+      return await res.json();
+    } catch (e: any) {
+      console.error('[DataService] getExpertActivity failed:', e);
+      return { ok: false, queryCount7d: 0, recentQuestions: [] };
+    }
+  }
+
   async getLogs(): Promise<UserLog[]> {
     try {
       const res = await fetch(API_ENDPOINTS.GET_LOGS);

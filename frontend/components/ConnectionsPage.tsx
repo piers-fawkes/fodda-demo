@@ -680,8 +680,8 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
             </div>
 
             <div>
-              <h2 className="text-base font-bold text-ink">MCP (OAuth)</h2>
-              <p className="text-xs text-ink-3">Browser OAuth sign-in (Google, LinkedIn, or GitHub)</p>
+              <h2 className="text-base font-bold text-ink">MCP (OAuth) — Claude</h2>
+              <p className="text-xs text-ink font-medium">Supported on Claude, ChatGPT, Copilot</p>
             </div>
 
             {/* URL Input Box */}
@@ -725,7 +725,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
           </div>
 
           <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3">
-            Supported on <span className="font-bold text-ink-2">Claude.ai</span>, <span className="font-bold text-ink-2">ChatGPT</span>, <span className="font-bold text-ink-2">Copilot</span>.
+            Browser OAuth sign-in (Google, LinkedIn, or GitHub)
           </div>
         </section>
 
@@ -749,7 +749,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
 
             <div>
               <h2 className="text-base font-bold text-ink">MCP (Token)</h2>
-              <p className="text-xs text-ink-3">No-auth clients &amp; background agents</p>
+              <p className="text-xs text-ink font-medium">Supported on Cursor, Gemini, Perplexity, Notion</p>
             </div>
 
             {/* Tokenized URL Input Box */}
@@ -796,7 +796,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
           </div>
 
           <div className="pt-2 border-t border-line-soft text-[11px] text-ink-3">
-            Supported on <span className="font-bold text-ink-2">Cursor</span>, <span className="font-bold text-ink-2">Gemini</span>, <span className="font-bold text-ink-2">Perplexity</span>, <span className="font-bold text-ink-2">Notion</span>.
+            No-auth clients &amp; background agents (token embedded in URL)
           </div>
         </section>
 

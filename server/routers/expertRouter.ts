@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import {
   queryAirtable,
+  queryAirtableAll,
   queryAirtableCE,
   updateAirtableCERecord,
   escapeAirtableString,
-  DatabaseUnavailableError
+  DatabaseUnavailableError,
+  LOGS_TABLE_QUESTIONS
 } from '../db.js';
 import { USERS_TABLE, CE_ANALYSTS_TABLE } from '../constants.js';
 
@@ -225,11 +227,41 @@ router.post('/me/flag', async (req: any, res) => {
       expertFlags: JSON.stringify(updatedFlags)
     });
 
-    console.log(`[ExpertRouter] Flag submitted for ${expert.analystId} section "${section}"`);
-    return res.json({ ok: true, flag: newFlag });
+// ---------------------------------------------------------------------------
+// GET /api/expert/me/activity
+// Returns query count in the last 7 days and recent questions for the expert.
+// ---------------------------------------------------------------------------
+router.get('/me/activity', async (req: any, res) => {
+  try {
+    const expert = await resolveExpert(req);
+    if (!expert) return res.status(403).json({ ok: false, error: 'Not a registered expert' });
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const cleanId = escapeAirtableString(expert.analystId);
+    
+    // Filter by graphId or vertical matching analystId, or matching expert email
+    const filter = `AND(IS_AFTER({Date}, '${sevenDaysAgo}'), NOT(FIND('[Coverage Request]', {question}) > 0), OR({graphId} = '${cleanId}', FIND('${cleanId}', {graphId}) > 0, {vertical} = '${cleanId}'))`;
+
+    const logsRes = await queryAirtableAll(LOGS_TABLE_QUESTIONS, filter);
+    const records = logsRes.records || [];
+
+    const recentQuestions = records.slice(0, 15).map((r: any) => ({
+      id: r.id,
+      question: r.fields?.question || r.fields?.apiCall || 'Query',
+      timestamp: r.fields?.Date || new Date().toISOString(),
+      source: r.fields?.source || 'mcp',
+      graphId: r.fields?.graphId || expert.analystId,
+      userEmail: r.fields?.userEmail || 'anonymous'
+    }));
+
+    return res.json({
+      ok: true,
+      queryCount7d: records.length,
+      recentQuestions
+    });
   } catch (err: any) {
     if (err instanceof DatabaseUnavailableError) return res.status(503).json({ ok: false, error: err.message });
-    console.error('[ExpertRouter] POST /me/flag failed:', err);
+    console.error('[ExpertRouter] GET /me/activity failed:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

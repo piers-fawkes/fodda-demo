@@ -4,6 +4,26 @@ Low-priority improvements and optimizations to revisit when time permits.
 
 ---
 
+## 🟡 Base Tier: Card-Gated Daily Burst Unlock & Overage Auto-Continuation (API Agent)
+
+**Added**: 2026-09-05  
+**Priority**: Medium / Opportunity-driven  
+**Brief**: `briefs/Brief - Base-Free Daily 50-Call Burst Cap with Card-Gated Unlock (API Agent).md`  
+**Owner**: `api-agent` (Cloud Functions / credit-check middleware / Firestore counter)  
+
+**Context**:
+Accounts on the **Base - Free** plan receive 100 API calls/month ($50 value at $0.50/call). To prevent bot abuse, Base accounts without a card on file are subject to a **50 calls/day burst ceiling**.
+Currently, hitting 50 calls in a day blocks the user until tomorrow. When high-intent users or agencies hit 50 calls researching a brief, stopping them loses momentum.
+
+**Opportunity**:
+- **No card on file**: Hard daily ceiling at 50 calls. Block with HTTP 403 `DAILY_LIMIT_EXCEEDED` containing a one-click Stripe `setupUrl` to add a payment card.
+- **Card on file (`hasPaymentMethod === true`)**:
+  - The daily 50-call burst limit is completely bypassed.
+  - Queries continue drawing down from their 100/month Base allowance.
+  - Once the 100/mo allowance is exhausted, queries seamlessly flow into Stripe metered overage at 50¢ per API call.
+
+---
+
 ## 🟡 Monthly Plan: 10% Overage Forgiveness + 4-Month Deposit (App + API)
 
 **Added**: 2026-09-04  
