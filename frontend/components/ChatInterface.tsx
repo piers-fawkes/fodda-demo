@@ -161,7 +161,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [jobInput, setJobInput] = useState<string>('');
 
   // ─── Dynamic 4 Catalog Chips (Selected Graph + Popular Categories) ───
   const welcomeChips = useMemo(() => {
@@ -312,13 +311,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     e.preventDefault();
     if (!inputValue.trim() || isProcessing) return;
     onSendMessage(inputValue);
-  };
-
-  const handleJobSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!jobInput.trim() || isProcessing) return;
-    onSendMessage(jobInput.trim(), undefined, 'job_scoped');
-    setJobInput('');
   };
 
   useEffect(() => {
@@ -531,46 +523,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div >
 
       <div className="px-4 md:px-8 py-4 bg-paper border-t border-line z-10 shrink-0 pb-safe">
-        {messages.length === 0 && (
-          <div className="max-w-3xl mx-auto mb-3 space-y-2.5 pl-0.5 animate-fade-in-up">
-            {/* Part 1: Job intake input */}
-            <form onSubmit={handleJobSubmit} className="relative flex items-center bg-paper border border-line rounded-[14px] shadow-2xs focus-within:border-brand/40 focus-within:ring-1 focus-within:ring-brand/20 transition-all px-3 py-1">
-              <input
-                type="text"
-                value={jobInput}
-                onChange={(e) => setJobInput(e.target.value)}
-                placeholder="What are you working on? (a brand, a category, or an audience)"
-                className="flex-1 bg-transparent border-none text-xs text-ink placeholder:text-ink-3 focus:outline-none focus:ring-0 font-sans h-8"
-                disabled={isProcessing}
-              />
-              <button
-                type="submit"
-                disabled={!jobInput.trim() || isProcessing}
-                className="px-2.5 py-1 bg-brand text-white font-mono text-[10px] uppercase font-bold rounded-lg hover:bg-brand-dark disabled:opacity-20 transition-all shrink-0 ml-1.5 shadow-2xs"
-              >
-                Set Job ↵
-              </button>
-            </form>
-
-            {/* Part 2: 4 Catalog Chips */}
-            <div className="flex flex-wrap gap-2">
-              {welcomeChips.map((chip, i) => (
-                <button
-                  key={i}
-                  onClick={() => onSendMessage(chip.text, chip.terms, chip.source)}
-                  className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm active:scale-95 text-left"
-                >
-                  {chip.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {contextChips && (
           <div className="max-w-3xl mx-auto mb-2 pl-0.5">
             {contextChips}
           </div>
         )}
+
+        {/* Main Prompt Input */}
         <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto flex items-center bg-paper border border-line rounded-[14px] shadow-sm focus-within:border-brand/40 focus-within:ring-1 focus-within:ring-brand/20 transition-all">
           <input
             type="text"
@@ -594,6 +553,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             )}
           </button>
         </form>
+
+        {/* Suggested Prompts (Chips) below the main prompt */}
+        {messages.length === 0 && (
+          <div className="max-w-3xl mx-auto mt-3 space-y-2 pl-0.5 animate-fade-in-up">
+            <div className="flex flex-wrap gap-2">
+              {welcomeChips.map((chip, i) => (
+                <button
+                  key={i}
+                  onClick={() => onSendMessage(chip.text, chip.terms, chip.source)}
+                  className="px-3 py-1.5 bg-paper border border-line rounded-full text-xs font-medium text-ink-2 hover:text-brand hover:border-brand/30 hover:bg-brand-soft transition-all shadow-sm active:scale-95 text-left"
+                >
+                  {chip.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="max-w-3xl mx-auto mt-2 text-[10px] text-ink-4 text-center font-sans">
           Fodda can make mistakes. Verify important information.
         </div>

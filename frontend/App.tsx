@@ -1643,9 +1643,9 @@ const App: React.FC = () => {
             {/* Page Header — title + focus selector + diagnostic console */}
             <div className="px-8 pt-8 pb-2 shrink-0 flex items-start justify-between relative z-20">
               <div>
-                <p className="eyebrow mb-1">Graph Chat</p>
-                <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Research Graphs</h1>
-                <p className="text-sm text-ink-3 mt-1">Ask anything — the agent picks the right graphs and tools.</p>
+                <p className="eyebrow mb-1">Research & Intelligence</p>
+                <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">Ask Fodda</h1>
+                <p className="text-sm text-ink-3 mt-1">Research across curated knowledge graphs, expert twins, and market intelligence.</p>
               </div>
               
               <div className="flex items-center gap-3 shrink-0">

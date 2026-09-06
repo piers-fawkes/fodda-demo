@@ -174,7 +174,93 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       )}
 
-      {/* ── 1. Headline Stat Cards (3 Columns, Single Row — No Duplication) ── */}
+      {/* ── 1. User Information & Research Profile ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* User Information Card */}
+        <section className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">User Information</p>
+              <button
+                onClick={() => {
+                  setUserForm({
+                    firstName: user.name?.split(' ')[0] || '',
+                    lastName: user.name?.split(' ').slice(1).join(' ') || '',
+                    jobTitle: user.jobTitle || '',
+                    company: user.company || '',
+                    email: user.email || ''
+                  });
+                  setIsUserModalOpen(true);
+                }}
+                className="text-xs font-bold text-brand hover:underline"
+              >
+                Edit Profile →
+              </button>
+            </div>
+            <h3 className="font-serif italic text-xl text-ink font-bold mb-4">{displayName}</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-cream/50 rounded-xl border border-line/40">
+                <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Email Address</span>
+                <span className="font-medium text-ink truncate block" title={user.email}>{user.email || '—'}</span>
+              </div>
+              <div className="p-3 bg-cream/50 rounded-xl border border-line/40">
+                <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Account Role</span>
+                <span className="font-bold text-ink">{user.role || 'Member'}</span>
+              </div>
+              <div className="p-3 bg-cream/50 rounded-xl border border-line/40">
+                <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Job Title</span>
+                <span className="font-medium text-ink truncate block">{user.jobTitle || '—'}</span>
+              </div>
+              <div className="p-3 bg-cream/50 rounded-xl border border-line/40">
+                <span className="text-[10px] font-mono uppercase text-ink-4 block mb-0.5">Company / Org</span>
+                <span className="font-medium text-ink truncate block">{user.company || account?.name || '—'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-line/40 flex items-center justify-between text-[11px] text-ink-3">
+            <span>Organization: <strong className="text-ink font-semibold">{account?.name || 'Fodda'}</strong></span>
+            <button
+              onClick={() => onNavigate?.('home')}
+              className="text-brand font-bold hover:underline"
+            >
+              Account Portal →
+            </button>
+          </div>
+        </section>
+
+        {/* Research Profile & Persona Card */}
+        <section className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Research Profile & Persona</p>
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${user.personaConfirmed ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                {user.personaConfirmed ? 'Confirmed' : 'Needs Review'}
+              </span>
+            </div>
+            <h3 className="font-serif italic text-xl text-ink font-bold mb-3">Your Research Context</h3>
+
+            <div className="p-4 bg-cream/60 border border-line/60 rounded-xl min-h-[90px] flex items-center">
+              <p className="font-serif italic text-sm text-ink-2 leading-relaxed">
+                "{user.userContext || 'No research profile defined yet. Set up your persona to automatically steer search queries to your specific industry focus and strategic priorities.'}"
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-line/40 flex items-center justify-between text-xs">
+            <span className="text-ink-3 text-[11px]">Injected into every query you execute.</span>
+            <button
+              onClick={() => onNavigate?.('profile-context')}
+              className="px-3 py-1.5 bg-brand text-white font-bold text-xs rounded-xl hover:bg-brand-dark transition-colors shadow-sm"
+            >
+              Edit Persona →
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {/* ── 2. Usage Stats (Queries Used, Remaining, All-Time) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Queries Used */}
         <div className="p-5 bg-paper border border-line rounded-2xl shadow-sm space-y-2 flex flex-col justify-between">

@@ -19,11 +19,15 @@ Format: newest entries at the top. Each entry should include the date, a short t
   - "Your Research Persona" placed at the bottom with confirmed/unconfirmed status and link to profile context.
 
 ### Profile Page (`frontend/components/ProfilePage.tsx`)
-- Reworked into Usage & Recent Executions Activity center:
-  - Account & User info modal at the top.
-  - Non-duplicated 3-column stats card: Queries Used, Queries Remaining, and All-Time Queries.
-  - Removed Daily Query Volume chart, Knowledge Domain breakdown, and Sample Workflows ("What to Ask").
-  - Recent Executions table with clickable rows opening the Answer Receipt drawer.
+- Displayed User Information card at the top (Full Name, Email, Role, Job Title, Company, Organization) with direct "Edit Profile" modal action.
+- Displayed Research Profile & Persona card (Confirmed/Unconfirmed status, persona quote context, and "Edit Persona" action).
+- 3-column stats card: Queries Used, Queries Remaining, and All-Time Queries.
+- Recent Executions table with clickable rows opening the Answer Receipt drawer.
+
+### Chat / Ask Fodda (`frontend/components/ChatInterface.tsx`, `frontend/App.tsx`)
+- Removed the confusing "What are you working on?" job intake input field.
+- Placed the main prompt input above the suggested prompt chips for a cleaner, unified input experience.
+- Updated header in `App.tsx`: eyebrow to "Research & Intelligence", title to "Ask Fodda", and subtitle to "Research across curated knowledge graphs, expert twins, and market intelligence."
 
 ### Access Page (`frontend/components/ConnectionsPage.tsx`)
 - Added Claude to Card 1 title: `MCP (OAuth) — Claude`.
