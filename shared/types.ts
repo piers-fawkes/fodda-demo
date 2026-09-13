@@ -58,6 +58,8 @@ export interface KnowledgeGraph {
   // ── Expert deep-link fields ──
   expert_slug?: string;
   image_url?: string;
+  callPrice?: string;
+  bookUrl?: string;
 }
 
 export interface Article {

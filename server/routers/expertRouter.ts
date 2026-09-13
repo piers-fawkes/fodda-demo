@@ -93,6 +93,10 @@ router.get('/me', async (req: any, res) => {
       expertFlags: allFlags.filter((f: any) => f.status !== 'resolved'),
       analystName: record.fields['Analyst Name'] || record.fields['Name'] || '',
       portraitUrl: record.fields['Portrait URL'] || record.fields['portrait_url'] || '',
+      callPrice: record.fields['callPrice'] || record.fields['Call Price'] || record.fields['call_price'] || null,
+      bookUrl: record.fields['bookUrl'] || record.fields['bookURL'] || record.fields['Book URL'] || record.fields['Channel Link'] || null,
+      expertIn: record.fields['expertIn'] || record.fields['Expertise'] || record.fields['Niche'] || null,
+      expertSlug: record.fields['expertSlug'] || record.fields['Slug'] || expert.analystId,
     });
   } catch (err: any) {
     if (err instanceof DatabaseUnavailableError) return res.status(503).json({ ok: false, error: err.message });

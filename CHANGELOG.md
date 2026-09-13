@@ -3,6 +3,35 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-12] — Align Fodda App with Website Expert Booking & Inquiry Flow
+
+### Expert Booking & Consultation Modal (`frontend/components/BookCallModal.tsx`)
+- Ported `<BookCallModal>` from Fodda Website to Fodda App.
+- Automatically pre-populates authenticated Clerk session email using `@clerk/react` (`useUser()`, `useAuth()`) and `window.Clerk`.
+- Dispatches `expert_video_call_booking` event payload to `/api/intent` with bearer token authentication when signed in.
+- Surfaces loading states, success screen ("Request Received" with note to look for an email from `team@fodda.ai`), and error banners.
+- Emits analytics event (`expert_book_call_submit`) via `trackEvent`.
+
+### Consultation CTA on Active Expert Pages (`frontend/components/ExpertTwinPage.tsx`)
+- Added "Book 1-on-1 with {Name} ({callPrice})" button to the active expert profile header / action bar.
+- Added `formatCallPrice` helper to display `callPrice` read from Airtable (formatting rates like `$750` or `$500/hr`, mapping `"No Calls"` to `"On request"`, and defaulting to `$750` / `"On request"`).
+- Extended `ExpertData` interface with `callPrice`, `bookUrl`, `expertIn`, and `expertSlug`.
+- Integrated `<BookCallModal>` controlled by `isBookModalOpen` state.
+
+### Backend Intent Proxy & Routing (`server/routers/intentRouter.ts`, `server/index.ts`, `server/routers/expertRouter.ts`)
+- Created `POST /api/intent` server-side proxy route in `server/routers/intentRouter.ts` with rate-limiting and Clerk session identity resolution.
+- Proxies validated booking and inquiry payloads to Fodda Sales Agent webhook (`INTENT_WEBHOOK_URL`) using secret authorization header (`x-fodda-webhook-secret`).
+- Mounted `intentRouter` at `/api/intent` in `server/index.ts`.
+- Updated `GET /api/expert/me` in `server/routers/expertRouter.ts` to return `callPrice`, `bookUrl`, `expertIn`, and `expertSlug` directly from the CE Analyst Airtable record.
+- Added `callPrice` and `bookUrl` fields to `KnowledgeGraph` in `shared/types.ts`.
+- Added `INTENT_WEBHOOK_URL` and `INTENT_WEBHOOK_SECRET` to `.env`, `.env.example`, and `deploy_gcp.sh`.
+
+### Manual Verification
+- **Vite Build (`npm run build`)**: Passed cleanly (`check:undefined` 0 errors, 1,684 modules transformed in 3.19s).
+- **Format Helper Unit Verification**: Verified `formatCallPrice` against 8 input permutations (`$750`, `500`, `No Calls`, `no calls`, `""`, `null`, `undefined`, `$500/hr`). All passed.
+- **Express `/api/intent` Hop Verification**: Ran ephemeral server dispatch test (`scratch/verify_express_route.ts`), confirmed 200 OK and `{ ok: true }`.
+- **Airtable Table Record Confirmation (`tbl3sPI8A7p497jOa`)**: Dispatched test booking for `piers.fawkes@psfk.com` (Analyst: `Ben Dietz`, `ben-dietz-sic`). Confirmed record created in `tbl3sPI8A7p497jOa` (`recSB67zBSaGQbZRW`) with status `Pending Qualification`.
+
 ## [2026-09-06] — Home, Profile, and Navigation Restructuring
 
 ### Navigation & Sidebar (`frontend/components/Sidebar.tsx`, `frontend/App.tsx`)

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Video } from 'lucide-react';
 import { User } from '../../shared/types';
+import { BookCallModal } from './BookCallModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,9 +52,22 @@ interface ExpertData {
   voiceProfile: VoiceProfile | null;
   crossGraphConnections: any[];
   expertFlags: ExpertFlag[];
+  callPrice?: string | null;
+  bookUrl?: string | null;
+  expertIn?: string | null;
+  expertSlug?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export const formatCallPrice = (price?: string | null): string => {
+  if (!price || price.trim() === '') return '$750';
+  const clean = price.trim();
+  if (clean.toLowerCase() === 'no calls') return 'On request';
+  if (clean.startsWith('$') || clean.toLowerCase().includes('request')) return clean;
+  if (!isNaN(Number(clean))) return `$${clean}`;
+  return clean;
+};
 
 const TIER_STYLES: Record<string, { pill: string; label: string }> = {
   core:        { pill: 'bg-violet-100 text-violet-700 border-violet-200', label: 'Core' },
@@ -617,6 +632,7 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
 
   // Per-field saving state
   const [saving, setSaving] = useState<Partial<Record<string, boolean>>>({});
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   // Supplier Console State
   const [earningsData, setEarningsData] = useState<any>(null);
@@ -812,12 +828,13 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
   if (!data) return null;
 
   const voiceFlags = data.expertFlags.filter(f => f.section === 'Voice Profile');
+  const effectiveCallPrice = formatCallPrice(data.callPrice);
+  const firstName = (data.analystName || 'Expert').split(' ')[0] || 'Expert';
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
-      {/* Page Header */}
-      <div className="px-8 pt-8 pb-4 shrink-0">
-        <p className="eyebrow mb-1">Expert Twin</p>
+      {/* Page Header & Action Bar */}
+      <div className="px-8 pt-8 pb-4 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {data.portraitUrl && (
             <img
@@ -827,6 +844,12 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
             />
           )}
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="eyebrow mb-0">Expert Twin</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                Active
+              </span>
+            </div>
             <h1 className="font-serif italic text-3xl font-normal text-ink tracking-tight">
               {data.analystName || 'My Twin'}
             </h1>
@@ -834,6 +857,18 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
               Review and refine the data that powers your Digital Twin.
             </p>
           </div>
+        </div>
+
+        {/* Action Bar / Consultation CTA */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsBookModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-[#663399] hover:bg-[#52297a] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer shadow-md shadow-[#663399]/20"
+          >
+            <Video className="w-4 h-4" />
+            <span>Book 1-on-1 with {firstName} ({effectiveCallPrice})</span>
+          </button>
         </div>
       </div>
 
@@ -1098,6 +1133,19 @@ export const ExpertTwinPage: React.FC<ExpertTwinPageProps> = ({ user }) => {
 
         </div>
       </div>
+
+      {/* Consultation Booking Modal */}
+      <BookCallModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        expertId={data.analystId}
+        expertName={data.analystName}
+        expertIn={data.expertIn || (data.expertiseMap?.[0]?.topic) || ''}
+        expertSlug={data.expertSlug || data.analystId}
+        callPrice={effectiveCallPrice}
+        bookUrl={data.bookUrl || undefined}
+        isUnclaimed={false}
+      />
     </div>
   );
 };

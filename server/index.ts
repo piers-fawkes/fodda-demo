@@ -21,6 +21,7 @@ import creatorRouter from "./routers/creatorRouter.js";
 import expertRouter from "./routers/expertRouter.js";
 import unclaimedRouter from "./routers/unclaimedRouter.js";
 import coverageRouter from "./routers/coverageRouter.js";
+import intentRouter from "./routers/intentRouter.js";
 import { resolveIdentity, isPendingKey, handleLegacyTrialKey } from './helpers.js';
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { getQueryLogFailureCount } from "./services/queryReconciliationService.js";
@@ -241,6 +242,7 @@ app.use("/api/creator", creatorRouter);
 app.use("/api/expert", requireAuth(), expertRouter);
 app.use("/api/unclaimed", unclaimedRouter);
 app.use("/api/coverage", coverageRouter);
+app.use("/api/intent", intentRouter);
 
 // Health Check
 app.get("/health", (req, res) => res.json({ 
