@@ -20,6 +20,19 @@ export const MCP_BASE_URL = process.env.MCP_BASE_URL || 'https://mcp.fodda.ai';
 const MAX_TOOL_ITERATIONS = 8;
 const TOTAL_TIMEOUT_MS = 45_000;
 
+const EXCLUDED_SANDBOX_TOOLS = new Set([
+  'begin_expert_onboarding',
+  'submit_basic_info',
+  'submit_mcp_source',
+  'finalize_byo_mcp_onboarding',
+  'verify_byo_mcp_token',
+  'update_user_profile',
+  'sign_up_free_account',
+  'draft_linkedin_post',
+  'draft_linkedin_article',
+  'manage_scheduled_reports',
+]);
+
 interface ToolCallLog {
   tool: string;
   args: Record<string, any>;
@@ -128,8 +141,12 @@ export async function mcpChat(
     const mcpTools = toolsResult.tools || [];
     console.log(`[McpChat] Connected. ${mcpTools.length} tools available.`);
 
+    // Filter out non-research tools before passing declarations to Gemini
+    const filteredTools = mcpTools.filter(t => !EXCLUDED_SANDBOX_TOOLS.has(t.name));
+    console.log(`[McpChat] Filtered to ${filteredTools.length} research tools.`);
+
     // Convert to Gemini function declarations
-    const geminiFunctions = mcpToolsToGeminiFunctions(mcpTools);
+    const geminiFunctions = mcpToolsToGeminiFunctions(filteredTools);
 
     // 3. Build the prompt
     let systemPrompt = `You are a research analyst using Fodda's tools to answer user queries.
@@ -192,9 +209,9 @@ Never use bullet lists, fan-out option trees, section headers, or emojis for nex
       iterations++;
       console.log(`[McpChat] Iteration ${iterations}/${MAX_TOOL_ITERATIONS}`);
 
-      // Use ANY mode on first iteration to force a tool call (prevents empty output).
-      // Use AUTO on subsequent iterations so the model can choose to call tools or respond with text.
-      const callingMode = iterations === 1 ? 'ANY' : 'AUTO';
+      // Use AUTO mode so Gemini does not construct an overly constrained grammar DFA.
+      // If ANY mode is desired, only use it if tool count is small (<= 20).
+      const callingMode = (iterations === 1 && geminiFunctions.length <= 20) ? 'ANY' : 'AUTO';
 
       let result: any;
       try {
@@ -210,10 +227,11 @@ Never use bullet lists, fan-out option trees, section headers, or emojis for nex
           },
         });
       } catch (genErr: any) {
-        // Handle empty model output error — break loop and fall through to fallback synthesis
-        if (/both be empty|output.*empty|no.*output|cannot.*empty/i.test(genErr.message)) {
-          console.warn(`[McpChat] Empty model output on iteration ${iterations} (mode=${callingMode}):`, genErr.message);
-          // If this was ANY mode, retry once with AUTO before giving up
+        const isConstraintError = /too many states for serving|constraint|schema/i.test(genErr.message);
+        const isEmptyOutput = /both be empty|output.*empty|no.*output|cannot.*empty/i.test(genErr.message);
+
+        if (isConstraintError || isEmptyOutput) {
+          console.warn(`[McpChat] Model generation error on iteration ${iterations} (mode=${callingMode}):`, genErr.message);
           if (callingMode === 'ANY') {
             try {
               console.warn('[McpChat] Retrying iteration 1 with AUTO mode');
@@ -229,14 +247,14 @@ Never use bullet lists, fan-out option trees, section headers, or emojis for nex
                 },
               });
             } catch (retryErr: any) {
-              console.error('[McpChat] Retry also failed:', retryErr.message);
-              break; // fall through to fallback synthesis
+              console.error('[McpChat] Retry with AUTO also failed:', retryErr.message);
+              break;
             }
           } else {
-            break; // fall through to fallback synthesis
+            break;
           }
         } else {
-          throw genErr; // re-throw non-empty-output errors
+          throw genErr;
         }
       }
 

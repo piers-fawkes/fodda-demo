@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-15] — Fix Gemini Schema Constraint Error in Web Chat Sandbox
+
+### Agentic Calling Mode & Toolset Pruning (`server/services/mcpChatService.ts`)
+- Configured `callingMode` to default to `'AUTO'` for toolsets with > 20 tools (or only use `'ANY'` if tool count is <= 20), preventing Gemini 2.5 Flash from exceeding internal `MAX_GRAMMAR_STATES` when constructing the grammar DFA.
+- Pruned non-research tools (`begin_expert_onboarding`, `submit_basic_info`, `submit_mcp_source`, `finalize_byo_mcp_onboarding`, `verify_byo_mcp_token`, `update_user_profile`, `sign_up_free_account`, `draft_linkedin_post`, `draft_linkedin_article`, `manage_scheduled_reports`) via `EXCLUDED_SANDBOX_TOOLS` before passing declarations to Gemini, decreasing schema size from 52 to ~38 tools and saving latency and context budget.
+- Broadened model generation error handling to catch schema constraint errors (`/too many states for serving|constraint|schema/i`) in addition to empty output errors, automatically retrying with `'AUTO'` mode.
+
+### Error Sanitization in Web Chat (`frontend/App.tsx`)
+- Sanitized raw Gemini schema compiler errors (`/too many states for serving|schema.*constraint/i`) to present a friendly user-facing notice ("We encountered a temporary processing error with the research model. Please try submitting your question again.") instead of exposing internal compiler details.
+
 ## [2026-09-14] — Polar Agentic Accessibility & Headless Adoption Enhancements
 
 ### Invoices & Receipts Self-Service (`frontend/components/BillingPage.tsx`)

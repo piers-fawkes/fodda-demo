@@ -947,6 +947,10 @@ const App: React.FC = () => {
         }
       }
 
+      if (/too many states for serving|schema.*constraint/i.test(displayError) || /too many states for serving|schema.*constraint/i.test(err?.message || '')) {
+        displayError = "We encountered a temporary processing error with the research model. Please try submitting your question again.";
+      }
+
       const errorMsg: Message = {
         id: generateUUID(),
         role: 'assistant',
