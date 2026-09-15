@@ -49,6 +49,7 @@ const app = express();
 // Use Helmet for security headers, allowing external assets like GTM, GA, Tailwind, ESM.sh, Clerk, and Stripe
 app.use(helmet({
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  crossOriginOpenerPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],

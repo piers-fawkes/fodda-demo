@@ -5,10 +5,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 ## [2026-09-14] — Fix OAuth Consent Allow Button Hang in Polar Browser (CSP form-action Redirect Block)
 
-### Content Security Policy (`server/index.ts`)
+### Content Security Policy & Cross-Origin Opener Policy (`server/index.ts`)
 - Added `https://polarbrowser.com`, `https://*.polarbrowser.com`, and wildcard scheme `"https:"` to Helmet's CSP `formAction` directive.
 - Fixed indefinite hang on the OAuth consent screen (`/oauth-consent`) when connecting Fodda as an MCP connector in Polar Browser (`polarbrowser.com`). Per W3C CSP specifications, `form-action` governs the entire post-submission redirect chain following form POST to `clerk.fodda.ai`; because Polar Browser callback domains were omitted from `formAction`, the browser terminated the redirect chain upon clicking **Allow**.
 - The addition of wildcard `"https:"` alongside explicit entries permanently accommodates RFC 7591 Dynamic Client Registration (DCR) for compliant MCP clients and browsers (e.g. Polar, Cursor, Windsurf, Zed) without requiring manual allowlist updates for each new client domain.
+- Set `crossOriginOpenerPolicy: false` in Helmet. By default, Helmet sent `Cross-Origin-Opener-Policy: same-origin`, which severed `window.opener` on OAuth popup windows. Disabling COOP preserves `window.opener` so client popup callbacks (e.g. Polar Browser) can successfully post `{type: 'polar:connector:ok'}` to the opener and auto-close via `window.close()`.
 
 ### Verification
 - Ran preflight test suite (`node scripts/oauth-preflight.mjs`): 4 layers passed cleanly (Source guards, Allowlist behavior, OAuth resume storage, and Route wiring/CSP guards).
