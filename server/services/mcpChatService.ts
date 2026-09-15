@@ -105,17 +105,21 @@ export async function mcpChat(
   let mcpClient: Client | null = null;
 
   try {
-    // 1. Connect to MCP server (Internal service-to-service call; intentionally legacy URL format)
-    const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(apiKey)}&user_id=${encodeURIComponent(userEmail)}`;
-
+    // 1. Connect to MCP server via Bearer auth and headers (v1.46.67+)
     mcpClient = new Client({
       name: 'fodda-sandbox',
       version: '1.0.0',
     });
 
-    const transport = new StreamableHTTPClientTransport(
-      new URL(mcpUrl)
-    );
+    const transport = new StreamableHTTPClientTransport(new URL(`${MCP_BASE_URL}/mcp`), {
+      requestInit: {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'X-User-Email': userEmail,
+          'X-Fodda-Session-Kind': 'internal-test',
+        },
+      },
+    });
 
     await mcpClient.connect(transport);
 
@@ -538,10 +542,17 @@ Never use bullet lists, fan-out option trees, section headers, or emojis for nex
 export async function listMcpTools(apiKey: string, userEmail: string): Promise<any[]> {
   let mcpClient: Client | null = null;
   try {
-    // Internal service-to-service metadata call; intentionally legacy URL format
-    const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(apiKey)}&user_id=${encodeURIComponent(userEmail)}`;
+    // Internal service-to-service metadata call via Bearer auth and headers (v1.46.67+)
     mcpClient = new Client({ name: 'fodda-metadata-fetcher', version: '1.0.0' });
-    const transport = new StreamableHTTPClientTransport(new URL(mcpUrl));
+    const transport = new StreamableHTTPClientTransport(new URL(`${MCP_BASE_URL}/mcp`), {
+      requestInit: {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'X-User-Email': userEmail,
+          'X-Fodda-Session-Kind': 'internal-test',
+        },
+      },
+    });
     await mcpClient.connect(transport);
     const result = await mcpClient.listTools();
     await mcpClient.close();

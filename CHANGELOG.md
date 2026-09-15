@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-14] — Web Chat Sandbox Bearer Auth & Error Sanitization (Companion to MCP v1.46.67)
+
+### MCP Client Transport Modernization (`server/services/mcpChatService.ts`, `server/services/svgConstellationService.ts`)
+- Modernized `StreamableHTTPClientTransport` connections to pass `Authorization: Bearer <apiKey>`, `X-User-Email`, `X-User-Id`, and `X-Fodda-Session-Kind: internal-test` via `requestInit.headers` rather than legacy URL query parameters (`/mcp?api_key=...&user_id=...`).
+- Aligned `mcpChat()`, `listMcpTools()`, and `callMcpVisualTool()` with `fodda-mcp` v1.46.67's deprecation bypass rules, preventing API keys from leaking into Cloud Run HTTP URL logs.
+
+### Chat Error Bubble Sanitization (`frontend/App.tsx`)
+- Updated research agent error handler to parse JSON-RPC error blobs (or raw `{...}` strings) and display clean, user-facing error messages instead of raw JSON-RPC structures in the assistant chat bubble.
+
 ## [2026-09-14] — Customer Bulk Exports (Usage, Invoices, Briefings) for App & Polar Agentic Compatibility
 
 ### Usage & Query History Export (`frontend/components/UsageMeter.tsx`, `frontend/components/ProfilePage.tsx`, `server/routers/accountRouter.ts`)

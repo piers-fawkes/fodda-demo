@@ -48,15 +48,21 @@ async function callMcpVisualTool(input: ConstellationInput): Promise<string | nu
   let mcpClient: Client | null = null;
 
   try {
-    // Internal service-to-service call for SVG generation; intentionally legacy URL format
-    const mcpUrl = `${MCP_BASE_URL}/mcp?api_key=${encodeURIComponent(MCP_INTERNAL_KEY)}&user_id=system-svg-gen`;
-
+    // Internal service-to-service call for SVG generation via Bearer auth and headers (v1.46.67+)
     mcpClient = new Client({
       name: 'fodda-svg-generator',
       version: '1.0.0',
     });
 
-    const transport = new StreamableHTTPClientTransport(new URL(mcpUrl));
+    const transport = new StreamableHTTPClientTransport(new URL(`${MCP_BASE_URL}/mcp`), {
+      requestInit: {
+        headers: {
+          'Authorization': `Bearer ${MCP_INTERNAL_KEY}`,
+          'X-User-Id': 'system-svg-gen',
+          'X-Fodda-Session-Kind': 'internal-test',
+        },
+      },
+    });
     await mcpClient.connect(transport);
 
     // Call the generate_visual tool with constellation data

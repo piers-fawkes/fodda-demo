@@ -937,10 +937,20 @@ const App: React.FC = () => {
         return;
       }
 
+      let displayError = err.message || "Failed to connect to research agent.";
+      if (typeof displayError === 'string' && (displayError.trim().startsWith('{') || displayError.includes('"jsonrpc"'))) {
+        try {
+          const parsed = JSON.parse(displayError);
+          displayError = parsed.error?.message || "Unable to connect to research agent. Please try again.";
+        } catch {
+          displayError = "Unable to connect to research agent. Please try again.";
+        }
+      }
+
       const errorMsg: Message = {
         id: generateUUID(),
         role: 'assistant',
-        content: `Error: ${err.message || "Failed to connect to research agent."}`,
+        content: `Error: ${displayError}`,
         timestamp: Date.now()
       };
       setMessages((prev: Message[]) => [...prev, errorMsg]);
