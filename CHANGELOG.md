@@ -3,6 +3,27 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-14] — Customer Bulk Exports (Usage, Invoices, Briefings) for App & Polar Agentic Compatibility
+
+### Usage & Query History Export (`frontend/components/UsageMeter.tsx`, `frontend/components/ProfilePage.tsx`, `server/routers/accountRouter.ts`)
+- Added `GET /api/account/usage/export?format=csv|json` (aliased under `/v1/user/usage/export` and `/api/user/usage/export`).
+- Downloads query history from `LOGS_TABLE_QUESTIONS` with `Timestamp (UTC)`, `Request ID`, `Question / Query`, `Graph / Source ID`, `Channel`, `Status`, `API Calls Billed`.
+- Honors enterprise zero query retention agreements: queries for contract accounts automatically render `[zero-retention contract]`.
+- Mounted 1-step direct download buttons on Recent Executions in `UsageMeter.tsx` and `ProfilePage.tsx` with `data-testid="export-usage-csv"`, `data-testid="export-usage-json"`, and accessible `aria-label`s.
+
+### Invoices & Billing Summary Export (`frontend/components/BillingPage.tsx`, `server/routers/accountRouter.ts`)
+- Added `GET /api/account/invoices/export?format=csv` (aliased under `/v1/user/invoices/export` and `/api/user/invoices/export`).
+- Aggregates Stripe customer invoice history via Stripe SDK and Airtable token purchases into a clean CSV with `Invoice / Charge ID`, `Date (UTC)`, `Description`, `Amount (USD)`, `Payment Rail`, `Status`, `Hosted Invoice URL`, `PDF Download URL`.
+- Mounted "Export Invoices (CSV)" button under Invoices & Receipts on `BillingPage.tsx` with `data-testid="export-invoices-csv"` and `aria-label="Export invoice history as CSV"`.
+
+### Briefings & Research Deliverables Export (`frontend/components/ProfilePage.tsx`, `server/routers/accountRouter.ts`)
+- Added `GET /api/account/briefings/export?format=json` (aliased under `/v1/user/briefings/export` and `/api/user/briefings/export`).
+- Packages archived research briefings, questions, citations, and answers formatted as Markdown with YAML frontmatter.
+- Mounted "Export All Briefings" button on `ProfilePage.tsx` with `data-testid="export-briefings-all"` and `aria-label="Export all research briefings and deliverables"`.
+
+### Agentic Browser & Polar Guarantees
+- All export triggers are standard native `<a href="..." download>` elements without multi-step confirmation dialogs or blocking modals, allowing Polar Browser and headless agents to initiate instant file downloads in 1 step.
+
 ## [2026-09-14] — Fix OAuth Consent Allow Button Hang in Polar Browser (CSP form-action Redirect Block)
 
 ### Content Security Policy & Cross-Origin Opener Policy (`server/index.ts`)

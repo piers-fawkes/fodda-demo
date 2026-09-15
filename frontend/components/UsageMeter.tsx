@@ -159,11 +159,36 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({ user, account, className
       {/* ─── Recent Query Executions ─── */}
       {recentQueries.length > 0 && (
         <div className="p-7 bg-white border border-line rounded-3xl shadow-sm space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Recent Executions</h3>
-            <span className="text-[11px] font-bold text-ink-3 bg-cream border border-line px-3 py-1 rounded-full">
-              Latest Activity
-            </span>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Recent Executions</h3>
+              <p className="text-[11px] text-ink-3 mt-0.5">Audit log of questions and API calls</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/api/account/usage/export?format=csv${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+                download
+                data-testid="export-usage-csv"
+                aria-label="Export query usage as CSV"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:bg-cream text-ink text-[11px] font-bold rounded-xl transition-colors shadow-sm"
+              >
+                <svg className="w-3.5 h-3.5 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Export CSV
+              </a>
+              <a
+                href={`/api/account/usage/export?format=json${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+                download
+                data-testid="export-usage-json"
+                aria-label="Export query usage as JSON"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:bg-cream text-ink text-[11px] font-bold rounded-xl transition-colors shadow-sm"
+              >
+                <svg className="w-3.5 h-3.5 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Export JSON
+              </a>
+              <span className="text-[11px] font-bold text-ink-3 bg-cream border border-line px-3 py-1 rounded-full">
+                Latest Activity
+              </span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">

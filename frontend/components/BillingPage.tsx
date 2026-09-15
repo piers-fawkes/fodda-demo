@@ -291,6 +291,29 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
         )}
       </section>
 
+      {/* ── Invoices & Receipts Section ── */}
+      <section className="p-5 bg-paper border border-line rounded-2xl space-y-3 shadow-sm">
+        <div className="flex items-center justify-between flex-wrap gap-3 border-b border-line pb-3">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Billing History</p>
+            <h3 className="font-serif italic text-xl text-ink font-bold">Invoices & Receipts</h3>
+          </div>
+          <a
+            href={`/api/account/invoices/export?format=csv${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+            download
+            data-testid="export-invoices-csv"
+            aria-label="Export invoice history as CSV"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-line hover:bg-cream text-ink text-xs font-bold rounded-xl transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Export Invoices (CSV)
+          </a>
+        </div>
+        <p className="text-xs text-ink-3 leading-relaxed">
+          Download a consolidated CSV ledger of all historical Stripe subscription invoices, card charges, and payment receipts with direct hosted and PDF receipt links.
+        </p>
+      </section>
+
       {/* ── Usage Meter & sparkline ── */}
       <div className="pt-2">
         <UsageMeter user={user} account={account} hideStatTiles={true} />

@@ -10,8 +10,14 @@ import {
 import { USERS_TABLE, API_KEYS_TABLE } from '../constants.js';
 import { authenticateSession, rewriteContext } from '../helpers.js';
 import { getActiveKeysForAccount, buildMcpConnection } from '../services/mcpConnectionService.js';
+import accountRouter from './accountRouter.js';
 
 const router = Router();
+
+// --- Export Endpoints (Forwarded to accountRouter) ---
+router.get('/usage/export', (req, res, next) => accountRouter(req, res, next));
+router.get('/invoices/export', (req, res, next) => accountRouter(req, res, next));
+router.get('/briefings/export', (req, res, next) => accountRouter(req, res, next));
 
 // --- User Preference Endpoints ---
 

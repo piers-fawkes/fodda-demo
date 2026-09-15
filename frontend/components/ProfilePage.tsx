@@ -296,14 +296,46 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* ── 2. Recent Query Executions Table ── */}
       <section className="p-6 bg-paper border border-line rounded-2xl shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Execution History</p>
-            <h3 className="font-serif italic text-xl text-ink font-bold">Recent Queries</h3>
+            <h3 className="font-serif italic text-xl text-ink font-bold">Recent Queries & Research Deliverables</h3>
           </div>
-          <span className="text-[11px] font-mono font-bold text-ink-3 bg-cream border border-line px-3 py-1 rounded-full">
-            Click row for Answer Receipt
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={`/api/account/briefings/export?format=json${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+              download
+              data-testid="export-briefings-all"
+              aria-label="Export all research briefings and deliverables"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-white hover:bg-brand-dark text-[11px] font-bold rounded-xl transition-colors shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Export All Briefings
+            </a>
+            <a
+              href={`/api/account/usage/export?format=csv${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+              download
+              data-testid="export-usage-csv"
+              aria-label="Export query usage as CSV"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:bg-cream text-ink text-[11px] font-bold rounded-xl transition-colors shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Export CSV
+            </a>
+            <a
+              href={`/api/account/usage/export?format=json${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+              download
+              data-testid="export-usage-json"
+              aria-label="Export query usage as JSON"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-line hover:bg-cream text-ink text-[11px] font-bold rounded-xl transition-colors shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Export JSON
+            </a>
+            <span className="text-[11px] font-mono font-bold text-ink-3 bg-cream border border-line px-3 py-1 rounded-full">
+              Click row for Answer Receipt
+            </span>
+          </div>
         </div>
 
         {loadingUsage ? (

@@ -239,6 +239,7 @@ app.use("/api", queryRouter); // Search, log, and gemini-search are often called
 app.use("/api/mcp", mcpRouter);
 app.use("/api", catalogRouter);
 app.use("/api/user", userRouter);
+app.use("/v1/user", userRouter);
 app.use("/api/cron", cronRouter);
 app.use("/api/slack/events", slackEventsRouter);
 app.use("/api/contributions", contributionRouter);

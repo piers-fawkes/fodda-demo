@@ -14,7 +14,8 @@ import {
   USERS_TABLE, 
   ACCOUNTS_TABLE, 
   PLANS_TABLE,
-  LOGS_TABLE_QUESTIONS
+  LOGS_TABLE_QUESTIONS,
+  TOKEN_PURCHASES_TABLE
 } from '../constants.js';
 import { 
   extractNumericLimit, 
@@ -23,6 +24,7 @@ import {
   isPublicEmailDomain,
   isRateLimited,
   authenticateSession,
+  resolveIdentity,
   rewriteContext
 } from '../helpers.js';
 import { sendSystemEmail, sendDirectEmail } from "../services/emailService.js";
@@ -267,6 +269,378 @@ router.get('/usage', async (req, res) => {
     return res.json(payload);
   } catch (err: any) {
     console.error('[GET /api/account/usage] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * Helper to escape CSV cell values
+ */
+function escapeCsv(val: any): string {
+  if (val == null) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * GET /api/account/usage/export (also aliased under /v1/user/usage/export)
+ * Streams/downloads query records in CSV or JSON format.
+ * Preserves [zero-retention contract] redaction for enterprise contract accounts.
+ */
+router.get('/usage/export', async (req, res) => {
+  try {
+    let accountId: string | undefined;
+    let isZeroRetention = false;
+
+    const user = await authenticateSession(req);
+    if (user) {
+      accountId = (req.query.accountId as string) || user.accountId;
+      if (accountId !== user.accountId && user.role !== 'Owner' && user.role !== 'Admin') {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    } else {
+      const apiKey = (req.headers['x-api-key'] as string) || 
+        (req.headers.authorization?.startsWith('Bearer sk_') ? req.headers.authorization.slice(7) : undefined);
+      if (apiKey) {
+        const identity = await resolveIdentity(apiKey);
+        if (identity?.tenantId) {
+          accountId = identity.tenantId;
+        }
+      }
+    }
+
+    if (!accountId) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized: valid session or API key required' });
+    }
+
+    // Check zeroQueryRetention contract flag on Account
+    try {
+      const accQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+      const accRec = accQuery.records?.[0];
+      if (accRec?.fields) {
+        const af = accRec.fields;
+        isZeroRetention = !!(af.zeroQueryRetention || af.zeroRetentionContract || af['Zero Retention'] || af.isZeroRetention);
+      }
+    } catch (e) {
+      console.warn('[UsageExport] Account zero-retention lookup warning:', e);
+    }
+
+    const format = ((req.query.format as string) || 'csv').toLowerCase();
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+
+    // Resolve member emails
+    const accountMembersRes = await queryAirtable(USERS_TABLE, `FIND('${escapeAirtableString(accountId)}', {Account})`);
+    const memberEmails = new Set(
+      (accountMembersRes.records || []).map((r: any) => (r.fields?.email || '').toLowerCase().trim()).filter(Boolean)
+    );
+    if (user?.email) memberEmails.add(user.email.toLowerCase().trim());
+
+    const userOrAccountFilters: string[] = [
+      `{accountId} = '${escapeAirtableString(accountId)}'`,
+      `{accessKey} = '${escapeAirtableString(accountId)}'`
+    ];
+    memberEmails.forEach(email => {
+      userOrAccountFilters.push(`LOWER({userEmail}) = '${escapeAirtableString(String(email))}'`);
+    });
+
+    const andConditions: string[] = [
+      `NOT(FIND('[Coverage Request]', {question}) > 0)`,
+      `OR(${userOrAccountFilters.join(', ')})`
+    ];
+
+    if (startDate) {
+      andConditions.push(`IS_AFTER({Date}, '${escapeAirtableString(startDate)}')`);
+    }
+    if (endDate) {
+      andConditions.push(`IS_BEFORE({Date}, '${escapeAirtableString(endDate)}')`);
+    }
+
+    const logsFilter = `AND(${andConditions.join(', ')})`;
+    const logsRes = await queryAirtableAll(LOGS_TABLE_QUESTIONS, logsFilter);
+    const records = logsRes.records || [];
+
+    records.sort((a: any, b: any) => {
+      const tA = a.fields?.Date ? new Date(a.fields.Date).getTime() : 0;
+      const tB = b.fields?.Date ? new Date(b.fields.Date).getTime() : 0;
+      return tB - tA;
+    });
+
+    const exportRows = records.map((r: any) => {
+      const f = r.fields || {};
+      const rawQuestion = f.question || f.apiCall || '';
+      const question = isZeroRetention ? '[zero-retention contract]' : rawQuestion;
+      const timestamp = f.Date || r.createdTime || '';
+      const requestId = f.requestId || r.id || '';
+      const graphId = f.graphId || f.vertical || 'default';
+      const channel = (f.source || 'REST').toUpperCase();
+      const status = f.status || (f.error ? 'Error' : 'Success');
+      const apiCallsBilled = f.apiCallsBilled ?? f.stepCount ?? 1;
+
+      return {
+        timestamp,
+        requestId,
+        question,
+        graphId,
+        channel,
+        status,
+        apiCallsBilled
+      };
+    });
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="fodda-usage-${todayStr}.json"`);
+      return res.json(exportRows);
+    }
+
+    // CSV format
+    // Columns: Timestamp (UTC), Request ID, Question / Query, Graph / Source ID, Channel, Status, API Calls Billed
+    const headers = ['Timestamp (UTC)', 'Request ID', 'Question / Query', 'Graph / Source ID', 'Channel', 'Status', 'API Calls Billed'];
+    const csvLines = [headers.join(',')];
+
+    for (const row of exportRows) {
+      csvLines.push([
+        escapeCsv(row.timestamp),
+        escapeCsv(row.requestId),
+        escapeCsv(row.question),
+        escapeCsv(row.graphId),
+        escapeCsv(row.channel),
+        escapeCsv(row.status),
+        escapeCsv(row.apiCallsBilled),
+      ].join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="fodda-usage-${todayStr}.csv"`);
+    return res.send(csvLines.join('\n'));
+  } catch (err: any) {
+    console.error('[GET /api/account/usage/export] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/account/invoices/export (also aliased under /v1/user/invoices/export)
+ * Downloads CSV ledger of historical Stripe invoices and purchase receipts.
+ */
+router.get('/invoices/export', async (req, res) => {
+  try {
+    let accountId: string | undefined;
+
+    const user = await authenticateSession(req);
+    if (user) {
+      accountId = (req.query.accountId as string) || user.accountId;
+      if (accountId !== user.accountId && user.role !== 'Owner' && user.role !== 'Admin') {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    } else {
+      const apiKey = (req.headers['x-api-key'] as string) || 
+        (req.headers.authorization?.startsWith('Bearer sk_') ? req.headers.authorization.slice(7) : undefined);
+      if (apiKey) {
+        const identity = await resolveIdentity(apiKey);
+        if (identity?.tenantId) {
+          accountId = identity.tenantId;
+        }
+      }
+    }
+
+    if (!accountId) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized: valid session or API key required' });
+    }
+
+    const accQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountId)}'`);
+    const accRec = accQuery.records?.[0];
+    const stripeCustomerId = accRec?.fields?.stripeCustomerId;
+
+    const invoices: any[] = [];
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+    if (stripeCustomerId && stripeKey) {
+      try {
+        const Stripe = (await import('stripe')).default;
+        const stripe = new Stripe(stripeKey);
+        const stripeInvoices = await stripe.invoices.list({
+          customer: String(stripeCustomerId),
+          limit: 100,
+        });
+
+        for (const inv of stripeInvoices.data) {
+          const dateStr = inv.created ? new Date(inv.created * 1000).toISOString() : '';
+          const amountUSD = (inv.total / 100).toFixed(2);
+          const description = inv.description || inv.lines?.data?.[0]?.description || 'Subscription / Metered Usage';
+          const status = inv.status || 'paid';
+          const hostedUrl = inv.hosted_invoice_url || '';
+          const pdfUrl = inv.invoice_pdf || '';
+
+          invoices.push({
+            id: inv.id,
+            date: dateStr,
+            description,
+            amountUSD,
+            paymentRail: 'Stripe',
+            status,
+            hostedUrl,
+            pdfUrl
+          });
+        }
+      } catch (stripeErr) {
+        console.warn('[InvoicesExport] Stripe invoices lookup failed:', stripeErr);
+      }
+    }
+
+    // Also check Airtable Token Purchases
+    try {
+      const purchasesRes = await queryAirtable(TOKEN_PURCHASES_TABLE, `FIND('${escapeAirtableString(accountId)}', {Account})`);
+      for (const p of purchasesRes.records || []) {
+        const pf = p.fields || {};
+        invoices.push({
+          id: p.id,
+          date: pf.Date || p.createdTime || '',
+          description: pf.Description || 'Token / Credit Top-Up',
+          amountUSD: pf.AmountUSD ? Number(pf.AmountUSD).toFixed(2) : (pf.Amount ? Number(pf.Amount).toFixed(2) : '0.00'),
+          paymentRail: pf.Rail || 'Lava / Card',
+          status: pf.Status || 'Paid',
+          hostedUrl: pf.ReceiptUrl || '',
+          pdfUrl: pf.ReceiptPdf || ''
+        });
+      }
+    } catch (purchaseErr) {
+      console.warn('[InvoicesExport] Token purchases lookup failed:', purchaseErr);
+    }
+
+    invoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const headers = ['Invoice / Charge ID', 'Date (UTC)', 'Description', 'Amount (USD)', 'Payment Rail', 'Status', 'Hosted Invoice URL', 'PDF Download URL'];
+    const csvLines = [headers.join(',')];
+
+    for (const inv of invoices) {
+      csvLines.push([
+        escapeCsv(inv.id),
+        escapeCsv(inv.date),
+        escapeCsv(inv.description),
+        escapeCsv(inv.amountUSD),
+        escapeCsv(inv.paymentRail),
+        escapeCsv(inv.status),
+        escapeCsv(inv.hostedUrl),
+        escapeCsv(inv.pdfUrl),
+      ].join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="fodda-invoices-summary-${todayStr}.csv"`);
+    return res.send(csvLines.join('\n'));
+  } catch (err: any) {
+    console.error('[GET /api/account/invoices/export] Error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/account/briefings/export (also aliased under /v1/user/briefings/export)
+ * Downloads JSON bundle of saved research briefings, questions, and answers with citations and YAML frontmatter.
+ */
+router.get('/briefings/export', async (req, res) => {
+  try {
+    let accountId: string | undefined;
+
+    const user = await authenticateSession(req);
+    if (user) {
+      accountId = (req.query.accountId as string) || user.accountId;
+      if (accountId !== user.accountId && user.role !== 'Owner' && user.role !== 'Admin') {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    } else {
+      const apiKey = (req.headers['x-api-key'] as string) || 
+        (req.headers.authorization?.startsWith('Bearer sk_') ? req.headers.authorization.slice(7) : undefined);
+      if (apiKey) {
+        const identity = await resolveIdentity(apiKey);
+        if (identity?.tenantId) {
+          accountId = identity.tenantId;
+        }
+      }
+    }
+
+    if (!accountId) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized: valid session or API key required' });
+    }
+
+    const accountMembersRes = await queryAirtable(USERS_TABLE, `FIND('${escapeAirtableString(accountId)}', {Account})`);
+    const memberEmails = new Set(
+      (accountMembersRes.records || []).map((r: any) => (r.fields?.email || '').toLowerCase().trim()).filter(Boolean)
+    );
+    if (user?.email) memberEmails.add(user.email.toLowerCase().trim());
+
+    const userOrAccountFilters: string[] = [
+      `{accountId} = '${escapeAirtableString(accountId)}'`,
+      `{accessKey} = '${escapeAirtableString(accountId)}'`
+    ];
+    memberEmails.forEach(email => {
+      userOrAccountFilters.push(`LOWER({userEmail}) = '${escapeAirtableString(String(email))}'`);
+    });
+
+    const logsFilter = `AND(NOT(FIND('[Coverage Request]', {question}) > 0), OR(${userOrAccountFilters.join(', ')}))`;
+    const logsRes = await queryAirtableAll(LOGS_TABLE_QUESTIONS, logsFilter);
+    const records = logsRes.records || [];
+
+    records.sort((a: any, b: any) => {
+      const tA = a.fields?.Date ? new Date(a.fields.Date).getTime() : 0;
+      const tB = b.fields?.Date ? new Date(b.fields.Date).getTime() : 0;
+      return tB - tA;
+    });
+
+    const briefings = records.map((r: any) => {
+      const f = r.fields || {};
+      const date = f.Date || r.createdTime || '';
+      const topic = f.question || f.apiCall || 'Research Briefing';
+      const graphId = f.graphId || f.vertical || 'default';
+      const answer = f.answer || f.response || f.summary || '';
+      const citations = f.citations || f.sources || [];
+      const model = f.model || 'Fodda Research Engine';
+
+      const frontmatter = [
+        '---',
+        `title: "${topic.replace(/"/g, '\\"')}"`,
+        `date: "${date}"`,
+        `domain: "${graphId}"`,
+        `analyst_or_model: "${model}"`,
+        '---',
+        '',
+        `# ${topic}`,
+        '',
+        answer || '_No narrative answer archived._',
+        ''
+      ].join('\n');
+
+      return {
+        id: r.id,
+        date,
+        topic,
+        graphId,
+        analystOrModel: model,
+        markdownWithFrontmatter: frontmatter,
+        citations: Array.isArray(citations) ? citations : [citations].filter(Boolean),
+        source: f.source || 'api'
+      };
+    });
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="fodda-briefings-${todayStr}.json"`);
+    return res.json({
+      exportedAt: new Date().toISOString(),
+      account: accountId,
+      totalBriefings: briefings.length,
+      briefings
+    });
+  } catch (err: any) {
+    console.error('[GET /api/account/briefings/export] Error:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
