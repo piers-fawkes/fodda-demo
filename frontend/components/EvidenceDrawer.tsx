@@ -331,7 +331,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ articles, trends
               <span className="bg-brand-soft text-brand text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border border-brand/20">{totalEvidence}</span>
             )}
           </div>
-          <button onClick={onClose} className="p-2 -mr-2 text-ink-4 hover:text-ink transition-colors">
+          <button onClick={onClose} aria-label="Close evidence drawer" className="p-2 -mr-2 text-ink-4 hover:text-ink transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>

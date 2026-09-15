@@ -277,12 +277,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
           </div>
         </div>
 
-        {hasActiveSubscription && (
+        {(hasActiveSubscription || account?.hasPaymentMethod || account?.stripeCustomerId) && (
           <div className="pt-3 border-t border-line flex items-center justify-between">
             <span className="text-xs text-ink-3">Managed securely via Stripe</span>
             <button
               onClick={handleManageSubscription}
               disabled={portalLoading}
+              aria-label="Manage subscription and payment method in Stripe"
               className="px-3.5 py-1.5 bg-ink text-white font-bold text-xs rounded-xl hover:bg-ink-2 transition-colors shadow-sm disabled:opacity-50"
             >
               {portalLoading ? 'Opening Portal…' : 'Manage Subscription →'}
@@ -298,20 +299,37 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user, account, onNavig
             <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink-3">Billing History</p>
             <h3 className="font-serif italic text-xl text-ink font-bold">Invoices & Receipts</h3>
           </div>
-          <a
-            href={`/api/account/invoices/export?format=csv${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
-            download
-            data-testid="export-invoices-csv"
-            aria-label="Export invoice history as CSV"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-line hover:bg-cream text-ink text-xs font-bold rounded-xl transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Export Invoices (CSV)
-          </a>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(account?.hasPaymentMethod || account?.stripeCustomerId || hasActiveSubscription) && (
+              <button
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                aria-label="Open Stripe Customer Invoices and Receipts Portal"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-ink text-white font-bold text-xs rounded-xl hover:bg-ink-2 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {portalLoading ? 'Opening Portal…' : 'Stripe Invoices Portal →'}
+              </button>
+            )}
+            <a
+              href={`/api/account/invoices/export?format=csv${account?.id ? `&accountId=${encodeURIComponent(account.id)}` : ''}`}
+              download
+              data-testid="export-invoices-csv"
+              aria-label="Export invoice history as CSV"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-line hover:bg-cream text-ink text-xs font-bold rounded-xl transition-colors shadow-sm"
+            >
+              <svg className="w-4 h-4 text-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Export Invoices (CSV)
+            </a>
+          </div>
         </div>
         <p className="text-xs text-ink-3 leading-relaxed">
-          Download a consolidated CSV ledger of all historical Stripe subscription invoices, card charges, and payment receipts with direct hosted and PDF receipt links.
+          Download a consolidated CSV ledger of all historical Stripe subscription invoices, card charges, and payment receipts, or open the Stripe Customer Portal for itemized PDF receipts and tax invoices.
         </p>
+        {portalError && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">
+            {portalError}
+          </p>
+        )}
       </section>
 
       {/* ── Usage Meter & sparkline ── */}

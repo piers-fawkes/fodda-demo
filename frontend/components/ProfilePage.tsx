@@ -126,7 +126,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       {toast && (
         <div className={`fixed top-4 right-4 z-[300] px-4 py-3 rounded-xl border shadow-lg animate-fade-in-up flex items-center gap-3 max-w-sm ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
           <span className="text-xs font-medium">{toast.msg}</span>
-          <button onClick={() => setToast(null)} className="text-ink-4 hover:text-ink shrink-0">
+          <button onClick={() => setToast(null)} className="text-ink-4 hover:text-ink shrink-0" aria-label="Dismiss notification">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -138,7 +138,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <div className="bg-paper rounded-2xl shadow-xl w-full max-w-lg p-6 m-4 animate-fade-in-up border border-line" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-ink">Edit Profile</h3>
-              <button onClick={() => setIsUserModalOpen(false)} className="text-ink-4 hover:text-ink">
+              <button onClick={() => setIsUserModalOpen(false)} className="text-ink-4 hover:text-ink" aria-label="Close modal">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>

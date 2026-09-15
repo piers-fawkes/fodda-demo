@@ -1665,6 +1665,7 @@ const App: React.FC = () => {
                   <div className="relative">
                     <div className="flex items-center gap-1.5">
                       <button
+                        data-testid="model-picker"
                         onClick={() => setIsGraphSelectorOpen(prev => !prev)}
                         className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm ${
                           isFocused && activeGraph
@@ -1733,6 +1734,7 @@ const App: React.FC = () => {
                             {graphSearchQuery && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setGraphSearchQuery(''); }}
+                                aria-label="Clear search query"
                                 className="text-ink-4 hover:text-ink p-0.5"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -132,18 +132,22 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       subtitle={`${account?.name || 'Your Org'} · ${planName} · ${remainingQueries.toLocaleString()} queries remaining`}
       actions={
         <div className="flex items-center gap-2">
+          <a
+            href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpFullUrl || 'https://mcp.fodda.ai/mcp')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Add Fodda to Claude in one click"
+            className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+          >
+            <span>⚡</span>
+            <span>Add to Claude</span>
+          </a>
           <button
             onClick={() => onNavigate('sandbox')}
-            className="px-4 py-2 bg-brand text-white font-bold text-xs rounded-xl hover:bg-brand-dark transition-all shadow-sm flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-white border border-line hover:bg-cream text-ink font-bold text-xs rounded-xl transition-colors shadow-2xs flex items-center gap-1.5"
           >
             <span>Ask Fodda</span>
             <span>💬</span>
-          </button>
-          <button
-            onClick={() => onNavigate('connections')}
-            className="px-3.5 py-2 bg-white border border-line text-ink font-bold text-xs rounded-xl hover:bg-cream transition-colors shadow-2xs"
-          >
-            Connect AI
           </button>
         </div>
       }
@@ -152,7 +156,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {toast && (
         <div className={`fixed top-4 right-4 z-[300] px-4 py-3 rounded-xl border shadow-lg animate-fade-in-up flex items-center gap-3 max-w-sm ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
           <span className="text-xs font-medium">{toast.msg}</span>
-          <button onClick={() => setToast(null)} className="text-ink-4 hover:text-ink shrink-0">
+          <button onClick={() => setToast(null)} className="text-ink-4 hover:text-ink shrink-0" aria-label="Dismiss notification">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -164,7 +168,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <div className="bg-paper rounded-2xl shadow-xl w-full max-w-md p-6 m-4 animate-fade-in-up border border-line" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-ink">Rotate API Key</h3>
-              <button onClick={() => setIsRotateModalOpen(false)} className="text-ink-4 hover:text-ink">
+              <button onClick={() => setIsRotateModalOpen(false)} className="text-ink-4 hover:text-ink" aria-label="Close modal">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -285,6 +289,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               {showApiKey ? 'Hide' : 'Reveal'}
             </button>
             <button
+              data-testid="copy-api-key"
               onClick={() => {
                 if (account?.apiKey) {
                   navigator.clipboard.writeText(account.apiKey);
@@ -301,22 +306,32 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         <div className="pt-2 border-t border-line/60">
           <label className="block text-[10px] font-mono font-bold text-ink-4 uppercase mb-1">Personal MCP Endpoint</label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <input
               type="text"
               value={mcpMaskedUrl}
               readOnly
-              className="flex-1 bg-cream border border-line rounded-xl px-3 py-2 text-xs font-mono text-ink-3 focus:outline-none"
+              className="flex-1 min-w-[180px] bg-cream border border-line rounded-xl px-3 py-2 text-xs font-mono text-ink-3 focus:outline-none"
             />
             <button
               onClick={copyMcpUrl}
-              className="px-3.5 py-2 bg-brand-soft text-brand font-bold text-xs rounded-xl hover:bg-brand-softer border border-brand/20 shadow-sm"
+              className="px-3.5 py-2 bg-brand-soft text-brand font-bold text-xs rounded-xl hover:bg-brand-softer border border-brand/20 shadow-sm shrink-0"
             >
               {mcpCopied ? '✓ Copied' : 'Copy MCP URL'}
             </button>
+            <a
+              href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(mcpFullUrl || 'https://mcp.fodda.ai/mcp')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Add Fodda connector to Claude"
+              className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors shrink-0 flex items-center gap-1.5"
+            >
+              <span>⚡</span>
+              <span>Add to Claude</span>
+            </a>
           </div>
           <p className="text-[11px] text-ink-3 mt-1.5 flex items-center justify-between">
-            <span>Paste directly into Claude, Cursor, ChatGPT, or Gemini.</span>
+            <span>Connect directly to Claude, Cursor, ChatGPT, or Gemini.</span>
             <button onClick={() => onNavigate('connections')} className="text-brand font-bold hover:underline">
               Setup Guides →
             </button>

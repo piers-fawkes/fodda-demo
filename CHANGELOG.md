@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-14] — Polar Agentic Accessibility & Headless Adoption Enhancements
+
+### Invoices & Receipts Self-Service (`frontend/components/BillingPage.tsx`)
+- Broadened Stripe Customer Portal access to accounts on Base tier with a credit card on file (`hasPaymentMethod` or `stripeCustomerId`), eliminating the limitation where only recurring subscriptions could access the billing portal.
+- Added "Stripe Invoices Portal →" direct action button to the Invoices & Receipts section alongside "Export Invoices (CSV)" for instant self-serve receipt/invoice viewing and PDF downloads.
+
+### 1-Click "Add to Claude" Promotion (`frontend/components/HomeDashboard.tsx`, `frontend/components/ConnectionsPage.tsx`)
+- Added prominent 1-click "⚡ Add to Claude" deep link (`claude.ai/customize/connectors?...`) to the Home dashboard header and Personal MCP Endpoint card.
+- Added a full-width 1-click "⚡ Add to Claude in One Click" action button directly on the "MCP (OAuth) — Claude" card on the Connections index overview.
+
+### Accessibility Tree Optimization (`aria-label`s)
+- Added explicit accessible labels to icon-only controls across the app to streamline autonomous agent navigation (Polar, Operator, etc.) and screen reader compliance:
+  - `ChatInterface.tsx`: Added `aria-label="Open sidebar menu"` to mobile menu toggle and `aria-label="Send query"` to submit button.
+  - `EvidenceDrawer.tsx`: Added `aria-label="Close evidence drawer"` to close `X` button.
+  - `ConnectionsPage.tsx`: Added `aria-label="Back to connections overview"` and `aria-label="Close modal"`.
+  - `ProfilePage.tsx`: Added `aria-label="Dismiss notification"` and `aria-label="Close modal"`.
+  - `HomeDashboard.tsx`: Added `aria-label="Dismiss notification"` and `aria-label="Close modal"`.
+  - `App.tsx`: Added `aria-label="Clear search query"` on graph filter search input.
+
 ## [2026-09-14] — Web Chat Sandbox Bearer Auth & Error Sanitization (Companion to MCP v1.46.67)
 
 ### MCP Client Transport Modernization (`server/services/mcpChatService.ts`, `server/services/svgConstellationService.ts`)

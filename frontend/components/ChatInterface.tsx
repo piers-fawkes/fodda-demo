@@ -364,7 +364,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="h-16 border-b border-line flex items-center justify-center bg-paper/95 backdrop-blur-md sticky top-0 z-30 shrink-0 md:hidden">
         <div className="w-full max-w-3xl flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center">
-            <button onClick={onToggleSidebar} className="md:hidden p-2 -ml-2 mr-2 text-ink-3 hover:text-ink hover:bg-line-soft rounded-md transition-colors">
+            <button onClick={onToggleSidebar} aria-label="Open sidebar menu" className="md:hidden p-2 -ml-2 mr-2 text-ink-3 hover:text-ink hover:bg-line-soft rounded-md transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div className="flex items-center h-16 relative">
@@ -533,13 +533,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto flex items-center bg-paper border border-line rounded-[14px] shadow-sm focus-within:border-brand/40 focus-within:ring-1 focus-within:ring-brand/20 transition-all">
           <input
             type="text"
+            data-testid="prompt-input"
             value={inputValue}
             onChange={(e) => onInputChange(e.target.value)}
             placeholder={isBaseline ? "Ask a question..." : isUnscoped ? "Ask anything — research across all live graphs..." : `Identify signals in ${vertical.toLowerCase()}...`}
             className="flex-1 bg-transparent border-none rounded-[14px] px-3 py-2.5 text-ink text-sm placeholder:text-ink-4 focus:outline-none focus:ring-0 transition-all h-10 font-sans"
             disabled={isProcessing}
           />
-          <button type="submit" disabled={!inputValue.trim() || isProcessing} className="p-2 mr-1 text-ink-4 hover:text-brand disabled:opacity-20 transition-all shrink-0 rounded hover:bg-brand-soft">
+          <button type="submit" data-testid="run-button" disabled={!inputValue.trim() || isProcessing} aria-label="Send query" className="p-2 mr-1 text-ink-4 hover:text-brand disabled:opacity-20 transition-all shrink-0 rounded hover:bg-brand-soft">
             {isProcessing ? (
               <ThinkingOrb
                 state={orbState}

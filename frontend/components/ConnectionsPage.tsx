@@ -470,6 +470,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
         <div className="mb-2">
           <button
             onClick={() => handleNavigate('index')}
+            aria-label="Back to connections overview"
             className="text-[11.5px] font-medium text-ink-3 hover:text-ink transition-colors flex items-center gap-1"
           >
             <span>←</span>
@@ -616,6 +617,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
                   {showApiKey ? 'Hide' : 'Reveal'}
                 </button>
                 <button
+                  data-testid="copy-api-key"
                   onClick={() => handleCopy(account.apiKey, 'cfg-apikey')}
                   className="px-2 py-1 bg-paper border border-line rounded text-[10px] font-bold text-ink-3 hover:text-ink transition-colors"
                 >
@@ -683,6 +685,18 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
               <h2 className="text-base font-bold text-ink">MCP (OAuth) — Claude</h2>
               <p className="text-xs text-ink font-medium">Supported on Claude, ChatGPT, Copilot</p>
             </div>
+
+            {/* One-Click Deep Link */}
+            <a
+              href={`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Fodda&connectorUrl=${encodeURIComponent(stdEndpoint)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+              aria-label="Add Fodda connector to Claude in one click"
+            >
+              <span>⚡</span>
+              <span>Add to Claude in One Click</span>
+            </a>
 
             {/* URL Input Box */}
             <div className="space-y-1">
@@ -996,7 +1010,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({
           <div className="bg-paper rounded-2xl shadow-xl w-full max-w-md p-6 m-4 border border-line" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-red-600">Delete Account</h3>
-              <button onClick={() => setIsDeleteModalOpen(false)} className="text-ink-4 hover:text-ink">
+              <button onClick={() => setIsDeleteModalOpen(false)} className="text-ink-4 hover:text-ink" aria-label="Close modal">
                 ✕
               </button>
             </div>
