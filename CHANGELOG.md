@@ -16,6 +16,13 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Error Sanitization in Web Chat (`frontend/App.tsx`)
 - Sanitized raw Gemini schema compiler errors (`/too many states for serving|schema.*constraint/i`) to present a friendly user-facing notice ("We encountered a temporary processing error with the research model. Please try submitting your question again.") instead of exposing internal compiler details.
 
+### Deployed
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00562-l86` (100% traffic)
+- **Deployment URL:** `https://fodda-sandbox-p3uz7zw7ja-uc.a.run.app` (`https://app.fodda.ai`)
+- **Preflight & Smoke:** `npm run preflight` and `npm run smoke:oauth` passed cleanly. Health check returned HTTP 200 `{"status":"ok","uptime":...,"queryLogFailures":0}`.
+
+
 ## [2026-09-14] — Polar Agentic Accessibility & Headless Adoption Enhancements
 
 ### Invoices & Receipts Self-Service (`frontend/components/BillingPage.tsx`)
