@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# Agent search exclusions
+briefs/archive/
+CHANGELOG_archive.md
