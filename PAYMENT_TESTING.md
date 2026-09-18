@@ -87,8 +87,35 @@ node scripts/spt-probe.mjs settle spt_xxx --yes-charge-50-cents
 ```
 Expect `HTTP 200` + graph data, and a ~$0.50 charge that lands in the `@fodda` profile. Reconcile/refund in Stripe. This is the only step that proves an agent can truly pay end-to-end.
 
-### Getting an `spt_xxx`
-The token comes from **Stripe Link** on the buyer side (Stripe's agentic-commerce / MPP flow). `api.fodda.ai` runs **live** keys, so it needs a **live** SPT (real 50¢, refundable). A *test* SPT only works against the API in test mode — which requires the separate `fodda-api-v4` repo running locally with test keys (out of scope for this app repo). Since the `@fodda` receive profile was just enabled, confirm with Stripe how to mint a buyer-side SPT for a controlled first settlement.
+### Getting an `spt_xxx` (buyer/agent side)
+An SPT is **scoped to ONE seller** — it must be minted against **Fodda's own Stripe profile**
+(`network_business_profile` = the `@fodda` profile enabled 2026-09-18). Find the profile id in
+Stripe Dashboard → Profiles. Mint via the Stripe API (preview):
+
+```bash
+curl https://api.stripe.com/v1/shared_payment/issued_tokens \
+  -u "$STRIPE_SECRET_KEY:" \
+  -H "Stripe-Version: 2026-04-22.preview" \
+  -d "payment_method=pm_xxx" \
+  -d "seller_details[network_business_profile]=<FODDA_PROFILE_ID>" \
+  -d "usage_limits[currency]=usd" \
+  -d "usage_limits[max_amount]=200" \
+  -d "usage_limits[expires_at]=<unix+1h>" \
+  --data-urlencode "return_url=https://app.fodda.ai?checkout=return"
+```
+Returns `spt_...`. The `pm_xxx` PaymentMethod comes from the buyer's card via Stripe.js
+Payment Element (browser). Shortcut: `npm i -g @stripe/cli && stripe agent setup`.
+
+- **Test mode:** use test seller profile `profile_test_61TU90nIeGjU7NNVXA6TU90m7ISQWsBxpcx9lASWWXTk`
+  + a test pm — BUT a test SPT only validates against a TEST-mode API, so it needs `fodda-api-v4`
+  running locally with test keys (not this repo). This is the ONLY no-real-money way to settle.
+- **Live settlement (the real proof):** mint a LIVE SPT scoped to Fodda's live profile with a small
+  cap (`max_amount=200` = $2) using a real card, then:
+  `node scripts/spt-probe.mjs settle spt_xxx --yes-charge-50-cents` → ~50¢ lands in `@fodda`.
+  Reconcile/refund; revoke leftover cap: `POST /v1/shared_payment/issued_tokens/spt_xxx/revoke`.
+
+**Key gotcha:** the SPT must carry Fodda's profile id, and `api.fodda.ai` runs LIVE keys — so a
+live settlement needs a live SPT. There is no way to settle against the live API for free.
 
 ---
 
@@ -98,6 +125,6 @@ The token comes from **Stripe Link** on the buyer side (Stripe's agentic-commerc
 - Never commit `.env`, `sk_*`, `pk_*`, `whsec_`, or any `spt_`/`css_live_` token.
 
 ## Known gaps found during this audit
-- `402` docs link `https://fodda.ai/llms.txt` returns **empty** — a bot following it gets nothing. Populate it.
+- `402` docs link `https://fodda.ai/llms.txt` is **fine** — it 301-redirects to `www.fodda.ai/llms.txt`, a complete 105-line agent doc that documents the SPT/402 handshake. (Earlier "empty" claim was a mistake — the 301 wasn't followed.) Optional micro-nit: point the 402 `docs` field at the final `www.` URL to save a redirect hop.
 - In-app agent-payment nudge is disabled in prod (`DISABLE_AGENT_PAYMENT_NUDGE=true`) and `AgentPaymentBanner` isn't rendered — the only "you must pay" signal for agents is the API `402`.
 - Lava is half-removed (Upgrade modal + API still live; Billing page button gone). Decide: fully remove or re-surface.

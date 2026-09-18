@@ -23,7 +23,7 @@ Audited Base upgrade / agentic-SPT / Lava end-to-end and added a way to test the
 - `POST /api/account/checkout/agent-session` mints a live `cs_live_…` $100/200-call checkout unauthenticated.
 - **Lava is not fully dropped**: `api.fodda.ai/api/checkout/lava-session` still mints live `css_live_` sessions; still wired in `App.tsx` / `UpgradeModal.tsx` / `AgentPaymentBanner.tsx` (only BillingPage removed it).
 - Never exercised on any rail: a real card/SPT actually settling and crediting an account (the "last mile").
-- Gaps: `402` docs link `https://fodda.ai/llms.txt` returns empty; `DISABLE_AGENT_PAYMENT_NUDGE=true` + unmounted `AgentPaymentBanner` mean the API `402` is the only agent pay signal.
+- Gaps: `DISABLE_AGENT_PAYMENT_NUDGE=true` + unmounted `AgentPaymentBanner` mean the API `402` is the only agent pay signal. (Note: `fodda.ai/llms.txt` is NOT empty — it 301-redirects to `www.fodda.ai/llms.txt`, a full agent doc that documents the SPT/402 handshake.)
 
 ### Verification
 - `node --check` passes on both new scripts.
