@@ -22,6 +22,12 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - Updated Clerk `user.created` webhook to backfill `apiUse` and `onboardingIntent` if a matching existing user is found with default attribution.
 - Updated Clerk `user.updated` webhook to sync `meta.apiUse` and `meta.signupIntent` into Airtable `Users` table (`tblGWh6XpdEZxw8AE`).
 
+### Deployed
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00565-rv5` (100% traffic)
+- **Deployment URL:** `https://fodda-sandbox-p3uz7zw7ja-uc.a.run.app` (`https://app.fodda.ai`)
+- **Preflight & Smoke:** `npm run preflight` and `npm run smoke:oauth` passed cleanly. Verified live OAuth consent endpoint HTTP 200, strict-origin referrer, form-action CSP, and live Clerk configuration.
+
 ## [2026-09-18] — Fix OAuth Consent Allow Button Block for Grok & Desktop Clients (CSP form-action)
 
 ### Content Security Policy (`server/index.ts`)
