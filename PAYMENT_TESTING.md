@@ -128,8 +128,21 @@ keys for a live settlement, or `sk_test_`/`pk_test_` to mint a test SPT. (Shortc
   `node scripts/spt-probe.mjs settle spt_xxx --yes-charge-50-cents` → ~50¢ lands in `@fodda`.
   Reconcile/refund; revoke leftover cap: `POST /v1/shared_payment/issued_tokens/spt_xxx/revoke`.
 
-**Key gotcha:** the SPT must carry Fodda's profile id, and `api.fodda.ai` runs LIVE keys — so a
+**Key gotcha #1 — the SPT must carry Fodda's profile id, and `api.fodda.ai` runs LIVE keys**, so a
 live settlement needs a live SPT. There is no way to settle against the live API for free.
+
+**Key gotcha #2 — the minting (agent) Stripe account MUST be different from Fodda's.** You cannot
+mint an SPT with Fodda's own `sk_live_` key scoped to Fodda's own profile — Stripe rejects it:
+"the network_id … is the same as the counterparty network_id." The agent side is a *separate*
+party. To run a real settlement you need one of:
+- a **second Stripe account** acting as the agent/buyer (its own `sk_`, a real card) minting an SPT
+  scoped to Fodda's profile, then settle against `api.fodda.ai` (~50¢); OR
+- the whole loop in **test mode** with `fodda-api-v4` running locally on test keys + Stripe's test
+  seller profile `profile_test_61TU…` (no money, but needs the API repo); OR
+- simplest real-world proof: let an **actual external agent** (a Grok bot / partner) hit
+  `api.fodda.ai` and pay — discovery + Fodda's receive side are already proven, so the first real
+  external agent payment *is* the end-to-end test.
+So `scripts/spt-mint/server.mjs` is only useful when run with a NON-Fodda Stripe account's keys.
 
 ---
 
