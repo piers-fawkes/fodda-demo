@@ -537,14 +537,15 @@ router.patch('/patch-oauth-metadata', requireAuth(), async (req: any, res) => {
       return res.status(401).json({ ok: false, error: 'Unauthorized' });
     }
 
-    const { company: rawCompany, jobTitle, apiUse } = req.body;
-    if (!rawCompany || !jobTitle) {
-      return res.status(400).json({ ok: false, error: 'company and jobTitle are required' });
+    const { company: rawCompany, jobTitle, apiUse, signupIntent } = req.body;
+    if (!rawCompany && !jobTitle && !apiUse && !signupIntent) {
+      return res.status(400).json({ ok: false, error: 'At least one metadata field is required' });
     }
 
-    const company = String(rawCompany).trim();
-    const normalizedJobTitle = String(jobTitle).trim();
-    const normalizedApiUse = String(apiUse || 'Mainly Claude').trim();
+    const company = rawCompany ? String(rawCompany).trim() : '';
+    const normalizedJobTitle = jobTitle ? String(jobTitle).trim() : '';
+    const normalizedApiUse = apiUse ? String(apiUse).trim() : '';
+    const normalizedIntent = signupIntent ? String(signupIntent).trim() : '';
 
     // Find the user record by clerkUserId
     const userQuery = await queryAirtable(USERS_TABLE, `{clerkUserId} = '${escapeAirtableString(clerkUserId)}'`);
@@ -556,34 +557,40 @@ router.patch('/patch-oauth-metadata', requireAuth(), async (req: any, res) => {
     }
 
     // Update User record
-    await updateAirtableRecord(USERS_TABLE, userRecord.id, {
-      'Job Title': normalizedJobTitle,
-      'Company': company,
-      'apiUse': normalizedApiUse,
-    });
+    const userUpdates: Record<string, any> = {};
+    if (normalizedJobTitle) userUpdates['Job Title'] = normalizedJobTitle;
+    if (company) userUpdates['Company'] = company;
+    if (normalizedApiUse) userUpdates['apiUse'] = normalizedApiUse;
+    if (normalizedIntent) userUpdates['onboardingIntent'] = normalizedIntent;
+
+    if (Object.keys(userUpdates).length > 0) {
+      await updateAirtableRecord(USERS_TABLE, userRecord.id, userUpdates);
+    }
 
     // If the user's Account has a placeholder name (email domain or default),
     // update it to the real company name.
-    const accountIds: string[] = userRecord.fields.Account || [];
-    if (accountIds[0]) {
-      const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountIds[0])}'`);
-      const accountRecord = accountQuery.records?.[0];
-      if (accountRecord) {
-        const existingName = String(accountRecord.fields['Account Name'] || '');
-        // Only overwrite if current name looks like an auto-generated placeholder
-        // (email domain, "Default Company", or a bare email address)
-        const looksLikePlaceholder =
-          existingName === 'Default Company' ||
-          existingName.includes('@') ||
-          isGenericEmailDomain(existingName) ||
-          /^[a-z0-9.-]+\.[a-z]{2,}$/.test(existingName.toLowerCase());
+    if (company) {
+      const accountIds: string[] = userRecord.fields.Account || [];
+      if (accountIds[0]) {
+        const accountQuery = await queryAirtable(ACCOUNTS_TABLE, `RECORD_ID() = '${escapeAirtableString(accountIds[0])}'`);
+        const accountRecord = accountQuery.records?.[0];
+        if (accountRecord) {
+          const existingName = String(accountRecord.fields['Account Name'] || '');
+          // Only overwrite if current name looks like an auto-generated placeholder
+          // (email domain, "Default Company", or a bare email address)
+          const looksLikePlaceholder =
+            existingName === 'Default Company' ||
+            existingName.includes('@') ||
+            isGenericEmailDomain(existingName) ||
+            /^[a-z0-9.-]+\.[a-z]{2,}$/.test(existingName.toLowerCase());
 
-        if (looksLikePlaceholder) {
-          await updateAirtableRecord(ACCOUNTS_TABLE, accountIds[0], {
-            'Account Name': company,
-            'legalName': company,
-          });
-          console.log(`[AuthRouter] patch-oauth-metadata: updated Account name to "${company}" for ${clerkUserId}`);
+          if (looksLikePlaceholder) {
+            await updateAirtableRecord(ACCOUNTS_TABLE, accountIds[0], {
+              'Account Name': company,
+              'legalName': company,
+            });
+            console.log(`[AuthRouter] patch-oauth-metadata: updated Account name to "${company}" for ${clerkUserId}`);
+          }
         }
       }
     }

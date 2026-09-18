@@ -292,10 +292,17 @@ router.post('/clerk', async (req: Request, res: Response) => {
 
       if (existingUser) {
         console.log(`[Clerk Webhook] User ${email} already exists in Airtable. Linking clerkUserId.`);
-        await updateAirtableRecord(USERS_TABLE, existingUser.id, { 
+        const userUpdates: Record<string, any> = { 
           clerkUserId: clerkUserId,
           emailConfirmed: true // Clerk emails are pre-verified
-        });
+        };
+        if (apiUse && (!existingUser.fields.apiUse || existingUser.fields.apiUse === 'Mainly Claude')) {
+          userUpdates.apiUse = apiUse;
+        }
+        if (intent && (!existingUser.fields.onboardingIntent || existingUser.fields.onboardingIntent === 'account')) {
+          userUpdates.onboardingIntent = intent;
+        }
+        await updateAirtableRecord(USERS_TABLE, existingUser.id, userUpdates);
 
         // Activate any pending API keys for the account since Clerk verified the email
         const confirmAccountIds: string[] = existingUser.fields.Account || [];
@@ -336,29 +343,42 @@ router.post('/clerk', async (req: Request, res: Response) => {
       const email = data.email_addresses?.[0]?.email_address;
       const firstName = data.first_name || '';
       const lastName = data.last_name || '';
+      const meta = data.unsafe_metadata || {};
 
       const userQuery = await queryAirtable(USERS_TABLE, `{clerkUserId} = '${escapeAirtableString(clerkUserId)}'`);
       const userRecord = userQuery.records?.[0];
 
       if (userRecord) {
         console.log(`[Clerk Webhook] Updating user details for clerkUserId: ${clerkUserId}`);
-        await updateAirtableRecord(USERS_TABLE, userRecord.id, {
+        const userUpdates: Record<string, any> = {
           "First Name": firstName,
           "Last Name": lastName,
           "User Full Name": `${firstName} ${lastName}`.trim()
-        });
+        };
+        if (meta.apiUse) userUpdates.apiUse = meta.apiUse;
+        if (meta.signupIntent) userUpdates.onboardingIntent = meta.signupIntent;
+        if (meta.company && !userRecord.fields.Company) userUpdates.Company = meta.company;
+        if (meta.jobTitle && !userRecord.fields['Job Title']) userUpdates['Job Title'] = meta.jobTitle;
+
+        await updateAirtableRecord(USERS_TABLE, userRecord.id, userUpdates);
       } else if (email) {
         // Fallback to match by email if clerkUserId was not set yet
         const userByEmailQuery = await queryAirtable(USERS_TABLE, `LOWER({email}) = '${escapeAirtableString(email.toLowerCase())}'`);
         const userByEmail = userByEmailQuery.records?.[0];
         if (userByEmail) {
           console.log(`[Clerk Webhook] Updating user details by email match for: ${email}`);
-          await updateAirtableRecord(USERS_TABLE, userByEmail.id, {
+          const userUpdates: Record<string, any> = {
             clerkUserId: clerkUserId,
             "First Name": firstName,
             "Last Name": lastName,
             "User Full Name": `${firstName} ${lastName}`.trim()
-          });
+          };
+          if (meta.apiUse) userUpdates.apiUse = meta.apiUse;
+          if (meta.signupIntent) userUpdates.onboardingIntent = meta.signupIntent;
+          if (meta.company && !userByEmail.fields.Company) userUpdates.Company = meta.company;
+          if (meta.jobTitle && !userByEmail.fields['Job Title']) userUpdates['Job Title'] = meta.jobTitle;
+
+          await updateAirtableRecord(USERS_TABLE, userByEmail.id, userUpdates);
         }
       }
     } 

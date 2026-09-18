@@ -3,6 +3,24 @@
 All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
+## [2026-09-18] — Grok Bot & MCP Connector Signup Detection & Airtable Attribution
+
+### Attribution Detection (`shared/platformDetection.ts`)
+- Added centralized connector origin detection `derivePlatformFromUrl()` parsing query parameters (`resource`, `redirect_uri`, `platform`, `onboarding`, `client_id`) across direct hits and nested `redirect_url` targets.
+- Detects Grok Bot / xAI connector flows (`grok-brand-context`, `earnings-intelligence`, `x.ai`, `grok.com`, loopback `:8787`, Grok client IDs):
+  - Sets `apiUse: "Grok Bot (Earnings)"`, `intent: "grok"`, and `source: "grok_earnings"` for earnings intelligence resources.
+  - Sets `apiUse: "Grok Bot"`, `intent: "grok"`, and `source: "grok_brand_context"` for brand context.
+- Detects Claude connector (`claude.ai` redirect / `claude` platform), ChatGPT app (`chatgpt.com` / `chatgpt` platform), and generic MCP servers (`/mcp` / `mcp.fodda.ai`).
+- Provides `deriveIntentFromApiUse()` mapping connector choices to legacy intent values.
+
+### AuthGate & SSO Callback (`frontend/components/AuthGate.tsx`, `frontend/components/SsoCallbackPage.tsx`)
+- Updated `AuthGate.tsx` to initialize `apiUse` via `derivePlatformFromUrl()`, added `'Grok Bot'` to `API_USE_OPTIONS`, and passed `signupSource` along with accurate `signupIntent` in `signUp.create({ unsafeMetadata })`.
+- Updated `SsoCallbackPage.tsx` fast-path resume to extract connector attribution from the target consent URL, patching Clerk `user.update({ unsafeMetadata })` and dispatching `/api/auth/patch-oauth-metadata` to ensure Google and LinkedIn SSO signups on `/oauth-consent` are accurately attributed before redirecting.
+
+### Metadata Sync & Airtable Attribution (`server/routers/authRouter.ts`, `server/routers/webhookRouter.ts`)
+- Updated `PATCH /api/auth/patch-oauth-metadata` to allow optional company/jobTitle when updating connector attribution (`apiUse` and `signupIntent`), preventing 400 errors during fast-path consent resumes.
+- Updated Clerk `user.created` webhook to backfill `apiUse` and `onboardingIntent` if a matching existing user is found with default attribution.
+- Updated Clerk `user.updated` webhook to sync `meta.apiUse` and `meta.signupIntent` into Airtable `Users` table (`tblGWh6XpdEZxw8AE`).
 
 ## [2026-09-18] — Fix OAuth Consent Allow Button Block for Grok & Desktop Clients (CSP form-action)
 

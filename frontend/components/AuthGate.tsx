@@ -4,6 +4,7 @@ import { ThinkingOrb } from 'thinking-orbs';
 import { Eyebrow, Masthead, FieldRule, Margin, GateFrame, Btn, StepBar, WaxSeal, GateFooter } from './AuthGateAtoms';
 import { isValidRedirectUrl, normalizeOAuthRedirectUrl } from '../../shared/redirectAllowlist';
 import { writePendingOAuthRedirect, readPendingOAuthRedirect, clearPendingOAuthRedirect, setOAuthPending } from '../../shared/oauthResumeStorage';
+import { derivePlatformFromUrl, deriveIntentFromApiUse } from '../../shared/platformDetection';
 
 const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: string; portrait_url?: string }> = {
   retail: { name: 'Future of Retail Graph', owner: 'PSFK', headline: 'Tracking the automation of physical commerce' },
@@ -21,13 +22,11 @@ const GRAPH_LOOKUP: Record<string, { name: string; owner: string; headline: stri
 
 /** Derive the legacy signupIntent value from the user's apiUse selection */
 const deriveIntent = (apiUse: string): string => {
-  if (apiUse === 'Self-Demo') return 'demo';
-  if (apiUse === 'Graph Seller') return 'sell';
-  if (apiUse === 'Mainly API Access') return 'api';
-  return 'account';
+  return deriveIntentFromApiUse(apiUse);
 };
 
 const API_USE_OPTIONS: [string, string, string][] = [
+  ['Grok Bot', 'Grok Bot', 'xAI Grok Bot via MCP connector'],
   ['Mainly Claude', 'Mainly Claude', 'Claude Desktop, Code, web'],
   ['ChatGPT', 'Mainly ChatGPT', 'Desktop, web — via MCP'],
   ['Mainly Perplexity', 'Mainly Perplexity', 'Perplexity Pro, web'],
@@ -97,24 +96,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
   const [signupCode, setSignupCode] = useState('');
   const [companyContextRaw, setCompanyContextRaw] = useState('');
   const [userContextRaw, setUserContextRaw] = useState('');
-  const [apiUse, setApiUse] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const onboard = params.get('platform') || params.get('onboarding');
-      if (onboard) {
-        const lower = onboard.toLowerCase();
-        if (lower.includes('mcp')) return 'Mainly MCP Use';
-        if (lower.includes('chatgpt') || lower.includes('openai')) return 'Mainly ChatGPT';
-        if (lower.includes('claude')) return 'Mainly Claude';
-        if (lower.includes('perplexity')) return 'Mainly Perplexity';
-        if (lower.includes('notion')) return 'Mainly Notion';
-        if (lower.includes('copilot') || lower.includes('co-pilot')) return 'Mainly MSFT Co-pilot';
-        if (lower.includes('gemini')) return 'Mainly Gemini';
-        if (lower.includes('vertex') || lower.includes('api')) return 'Mainly API Access';
-      }
-    }
-    return 'Mainly Claude';
-  });
+  const [platformInfo] = useState(() => derivePlatformFromUrl());
+  const [apiUse, setApiUse] = useState(() => platformInfo.apiUse);
   const [referralGraph, setReferralGraph] = useState<string | null>(initialReferralGraph && initialReferralGraph.length > 0 ? initialReferralGraph : (initialExpertSlug || null));
   const [isProfessionalServices, setIsProfessionalServices] = useState(false);
   const [promoTag] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('promo') || '' : '');
@@ -349,7 +332,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onAdminOpen, initialReferral
             company: isJoinTeam ? "" : company,
             jobTitle,
             apiUse,
-            signupIntent: isJoinTeam ? "account" : deriveIntent(apiUse),
+            signupIntent: isJoinTeam ? "account" : (apiUse === platformInfo.apiUse ? platformInfo.intent : deriveIntent(apiUse)),
+            signupSource: platformInfo.source,
             referralGraph: referralGraph || 'all',
             isProfessionalServices,
             promoTag,

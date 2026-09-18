@@ -3,6 +3,7 @@ import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react';
 import { GateFrame, Eyebrow, FieldRule, Btn, Masthead, WaxSeal } from './AuthGateAtoms';
 import { normalizeOAuthRedirectUrl } from '../../shared/redirectAllowlist';
 import { readPendingOAuthRedirect, getOAuthPending, clearOAuthPending } from '../../shared/oauthResumeStorage';
+import { derivePlatformFromUrl, deriveIntentFromApiUse } from '../../shared/platformDetection';
 
 /**
  * SsoCallbackPage
@@ -25,7 +26,10 @@ export const SsoCallbackPage: React.FC = () => {
 
   const [company, setCompany] = useState('');
   const [jobTitle, setJobTitle] = useState('');
-  const [apiUse, setApiUse] = useState('Mainly Claude');
+  const [apiUse, setApiUse] = useState(() => {
+    const platform = derivePlatformFromUrl();
+    return platform.apiUse;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,8 +48,43 @@ export const SsoCallbackPage: React.FC = () => {
     // Fast-path resume for connector consent if stashed or passed in query
     const pendingResume = getResumeTarget();
     if (pendingResume) {
-      clearOAuthPending();
-      window.location.replace(pendingResume);
+      const handleFastPathResume = async () => {
+        try {
+          const platform = derivePlatformFromUrl(pendingResume);
+          const currentMeta = user.unsafeMetadata || {};
+          const isGrok = platform.intent === 'grok' || platform.apiUse.startsWith('Grok Bot');
+          const isConnector = platform.source !== 'webapp';
+
+          // Patch metadata if connector origin detected
+          if (isGrok || isConnector) {
+            const updatedMeta = {
+              ...currentMeta,
+              apiUse: platform.apiUse,
+              signupIntent: platform.intent,
+              signupSource: platform.source,
+            };
+            await user.update({ unsafeMetadata: updatedMeta });
+
+            // Also call server PATCH to sync to Airtable Users record directly
+            await fetch('/api/auth/patch-oauth-metadata', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                apiUse: platform.apiUse,
+                signupIntent: platform.intent,
+                signupSource: platform.source,
+              }),
+            }).catch(e => console.warn('[SsoCallback] fast-path patch-oauth-metadata failed:', e));
+          }
+        } catch (err) {
+          console.error('[SsoCallback] fast-path attribution error:', err);
+        } finally {
+          clearOAuthPending();
+          window.location.replace(pendingResume);
+        }
+      };
+
+      handleFastPathResume();
       return;
     }
 
@@ -70,16 +109,22 @@ export const SsoCallbackPage: React.FC = () => {
     setError('');
 
     try {
+      const platform = derivePlatformFromUrl();
+      const currentMeta = user?.unsafeMetadata || {};
+      const intent = apiUse === platform.apiUse ? platform.intent : deriveIntentFromApiUse(apiUse);
+      const source = currentMeta.signupSource || platform.source;
+
       // Update Clerk unsafeMetadata so the webhook handler has the right fields
       // (for new users, user.created webhook fires before we get here, so we also
       //  call the server PATCH to update Airtable directly)
       await user?.update({
         unsafeMetadata: {
-          ...(user.unsafeMetadata || {}),
+          ...currentMeta,
           company,
           jobTitle,
           apiUse,
-          signupIntent: 'account',
+          signupIntent: intent,
+          signupSource: source,
         },
       });
 
@@ -87,7 +132,7 @@ export const SsoCallbackPage: React.FC = () => {
       const res = await fetch('/api/auth/patch-oauth-metadata', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company, jobTitle, apiUse }),
+        body: JSON.stringify({ company, jobTitle, apiUse, signupIntent: intent, signupSource: source }),
       });
 
       if (!res.ok) {
@@ -111,6 +156,7 @@ export const SsoCallbackPage: React.FC = () => {
   };
 
   const API_USE_OPTIONS: [string, string][] = [
+    ['Grok Bot', 'xAI Grok Bot via MCP connector'],
     ['Mainly Claude', 'Claude Desktop, Code, web'],
     ['ChatGPT', 'Desktop, web — via MCP'],
     ['Mainly Perplexity', 'Perplexity Pro, web'],
