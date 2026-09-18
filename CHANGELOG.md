@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 Format: newest entries at the top. Each entry should include the date, a short title, and bullet points describing what changed.
 
 
+## [2026-09-18] — CLAUDE.md: stale-Airtable-numbers note (stop coders "fixing" price mismatches)
+
+- Added a clarifying note under the AIRTABLE pricing non-negotiable in `CLAUDE.md`: Airtable is authoritative only for customer-visible **plan & offering USD prices** (Studio $2,500 etc.), NOT for per-API-call cost. The settled machine rate is 50¢ × the ACTUAL API-call count; stale Airtable/OpenAPI figures (per-call weights, `Price:` descriptions, `typical_calls`) must not be used to "correct" code. If Airtable and live disagree, ask Piers — don't silently reconcile.
+- Two API-repo briefs staged in `briefs/` for the api-agent: meter SPT by actual call count, and SPT settlement/failure Slack alerts.
+- Verification: doc-only; no build impact.
+
 ## [2026-09-18] — Fix OAuth Consent Allow Button Block for Grok & Desktop Clients (CSP form-action)
 
 ### Content Security Policy (`server/index.ts`)

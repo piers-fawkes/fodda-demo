@@ -49,6 +49,16 @@ Project-specific agents/workflows/rules live in that repo's `.agents/`.
   quote them exactly. Offering pricing is a SEPARATE rate from the SPT per-token rate — never compute
   a price from `TOKEN_COSTS` × `SPT_RATE_CENTS`. Never invent, round, or "correct" a price from
   memory; if one looks wrong, STOP and ask Piers.
+  - **⚠️ STALE-DATA NOTE (2026-09-18) — read before "fixing" any price mismatch, coders keep tripping on this:**
+    Airtable is authoritative ONLY for customer-visible **plan & offering published USD prices**
+    (e.g. Studio $2,500, Business $4,600, Top-Up $100 — verified live via `/api/account/plans`).
+    It is NOT authoritative for per-API-call cost. The settled machine rate is **50¢ × the ACTUAL
+    number of API calls a request consumes**. Several Airtable/OpenAPI number fields are OUT OF DATE —
+    per-call cost weights, per-endpoint `Price:` descriptions, `Offerings.typical_calls`, etc. (e.g.
+    earnings shows a stale "$2.50" in the OpenAPI while the live meter quotes 90 calls / $45 — BOTH
+    wrong; the fix is to meter the real call count × 50¢, in the API repo). **Do NOT change code or the
+    meter to match a stale Airtable/OpenAPI number.** If Airtable and the live value disagree, don't
+    silently reconcile either direction — ask Piers.
 - Supplemental clients never throw — always return `{ error, message, source }`; 10s timeout.
 - **SPT/token pricing is MACHINE-ONLY — humans never see it.** Every human-visible surface (tool
   descriptions, website, docs) shows the **published USD price from Airtable**. Never write "tokens"
