@@ -9,7 +9,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Content Security Policy (`server/index.ts`)
 - Added loopback addresses (`http://localhost:*`, `http://127.0.0.1:*`) and Grok/xAI web domains (`https://x.ai`, `https://*.x.ai`, `https://grok.com`, `https://*.grok.com`) to Helmet's CSP `formAction` directive.
 - Fixed indefinite hang on OAuth consent screen (`/oauth-consent`) when authorizing bots via Grok or desktop/CLI OAuth agents redirecting to local callback servers (e.g., `http://localhost:8787/callback`).
-- Per W3C Content Security Policy specifications, `form-action` governs the entire redirect chain initiated by form submission to `clerk.fodda.ai`. Permitting loopback addresses and xAI/Grok domains prevents browser CSP enforcement from terminating the redirect chain when clicking **Allow**.
+### Deployed
+- **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
+- **Active Revision:** `fodda-sandbox-00563-mbg` (100% traffic)
+- **Deployment URL:** `https://fodda-sandbox-p3uz7zw7ja-uc.a.run.app` (`https://app.fodda.ai`)
+- **Preflight & Smoke:** `npm run preflight` and `npm run smoke:oauth` passed cleanly. Verified live CSP on `https://app.fodda.ai/oauth-consent` includes `http://localhost:*`, `http://127.0.0.1:*`, `https://x.ai`, `https://*.x.ai`, `https://grok.com`, and `https://*.grok.com`. Health check returned HTTP 200 `{"status":"ok","uptime":...,"queryLogFailures":0}`.
 
 ## [2026-09-15] — Fix Gemini Schema Constraint Error in Web Chat Sandbox
 
