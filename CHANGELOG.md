@@ -6,6 +6,31 @@ Format: newest entries at the top. Each entry should include the date, a short t
 
 > Historical entries prior to August 22, 2026 are archived in [CHANGELOG_archive.md](./CHANGELOG_archive.md).
 
+## [2026-09-18] — Payment audit + local Stripe test-mode harness (all 3 rails)
+
+Audited Base upgrade / agentic-SPT / Lava end-to-end and added a way to test the full checkout→webhook→credit flow without real money or touching live Airtable pricing.
+
+### New — dev-only test harness
+- **`server/services/stripeTestMode.ts`**: in-memory Stripe TEST-mode price override. Hard no-op unless `NODE_ENV !== 'production'` AND `STRIPE_TEST_PRICE_MAP` is set (double-gated; prod deploy sets `NODE_ENV=production` and never sets the map). Lets local runs substitute test price ids so the webhook can credit without writing fake prices into the live Plans table.
+- **`server/routers/accountRouter.ts`** (4 surgical edits): import the helpers; `POST /checkout/subscribe` and `POST /checkout/agent-session` now pass the price through `overridePriceForCheckout(planCode, livePriceId)`; the Stripe webhook resolves the plan via `planCodeForTestPrice()` (falls back to the normal `{stripePriceId}` Airtable lookup when null). All paths are identical to before in production.
+- **`scripts/stripe-test-setup.mjs`**: creates/reuses TEST products+prices (Studio $2,500, Business $4,600, Top-Up $100) and prints a ready-to-paste `STRIPE_TEST_PRICE_MAP`. Refuses any key that isn't `sk_test_`.
+- **`scripts/spt-probe.mjs`**: exercises the agentic SPT rail — `discover` (402 challenge, no charge), `validate <spt>` (free), `settle <spt> --yes-charge-50-cents` (real 50¢, guarded).
+- **`PAYMENT_TESTING.md`**: full runbook (Part A local Stripe test-mode for Base/top-up; Part B Stripe SPT settlement), safety rules, and the Airtable-is-live caveat.
+
+### Findings (live-verified against production)
+- Base upgrade plumbing is live: `/plans` correct, **Studio now $2,500** (prior $1,500 link mismatch resolved), crediting webhook configured (both Stripe secrets set → unsigned POST returns 400, not 500).
+- Agentic SPT is live on the merchant side: any unpaid private API call returns `402` + `WWW-Authenticate: stripe-spt amount=50`; `/v1/spt/validate` really validates against Stripe (dummy token → real `SPT_INVALID` from Stripe). OpenAPI documents the `stripeSPT` bearer scheme ("SPT obtained from Stripe Link").
+- `POST /api/account/checkout/agent-session` mints a live `cs_live_…` $100/200-call checkout unauthenticated.
+- **Lava is not fully dropped**: `api.fodda.ai/api/checkout/lava-session` still mints live `css_live_` sessions; still wired in `App.tsx` / `UpgradeModal.tsx` / `AgentPaymentBanner.tsx` (only BillingPage removed it).
+- Never exercised on any rail: a real card/SPT actually settling and crediting an account (the "last mile").
+- Gaps: `402` docs link `https://fodda.ai/llms.txt` returns empty; `DISABLE_AGENT_PAYMENT_NUDGE=true` + unmounted `AgentPaymentBanner` mean the API `402` is the only agent pay signal.
+
+### Verification
+- `node --check` passes on both new scripts.
+- `tsc -p tsconfig.server.json`: 5 pre-existing errors, **0 new** — none reference `stripeTestMode`, the new helpers, or the edited lines.
+- New module typechecks clean in isolation (strict).
+- Not yet run end-to-end (requires Stripe test keys + a local `.env`, supplied by the operator per PAYMENT_TESTING.md).
+
 ## [2026-09-15] — Fix Gemini Schema Constraint Error in Web Chat Sandbox
 
 ### Agentic Calling Mode & Toolset Pruning (`server/services/mcpChatService.ts`)

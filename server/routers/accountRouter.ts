@@ -40,6 +40,10 @@ import {
 } from "../services/stripeOverageService.js";
 import { buildMcpConnection, revokeMcpConnection, regenerateMcpConnection, getActiveKeysForAccount } from "../services/mcpConnectionService.js";
 import { notifyPaymentSlack } from "../services/paymentSlackService.js";
+// DEV/LOCAL ONLY — no-op in production (NODE_ENV=production). Lets a local run test
+// the checkout->webhook->credit flow against Stripe TEST mode without touching the
+// live Airtable Plans table. See server/services/stripeTestMode.ts + PAYMENT_TESTING.md.
+import { overridePriceForCheckout, planCodeForTestPrice } from "../services/stripeTestMode.js";
 
 const router = Router();
 
@@ -1181,7 +1185,13 @@ router.post("/stripe/webhook", async (req: any, res) => {
       const stripePriceId = lineItems.data?.[0]?.price?.id || null;
       if (!stripePriceId) return res.status(400).json({ error: "No Price ID" });
 
-      const planQuery = await queryAirtable(PLANS_TABLE, `{stripePriceId} = '${stripePriceId}'`);
+      // DEV/LOCAL ONLY: if this is a Stripe TEST-mode price id, resolve the plan by
+      // planCode instead (test ids don't exist in Airtable). No-op in production.
+      const testPlanCode = planCodeForTestPrice(stripePriceId);
+      const planQuery = await queryAirtable(
+        PLANS_TABLE,
+        testPlanCode != null ? `{planCode} = ${testPlanCode}` : `{stripePriceId} = '${stripePriceId}'`
+      );
       const planRecord = planQuery.records?.[0];
       if (!planRecord) {
         notifyPaymentSlack('plan_not_found', { customerEmail: normalizedEmail, stripePriceId, sessionId: session.id });
@@ -1698,7 +1708,7 @@ router.post("/checkout/subscribe", async (req, res) => {
     const sessionParams: any = {
       mode: billingMode === 'one_time' ? 'payment' : 'subscription',
       customer_email: email,
-      line_items: [{ price: stripePriceId, quantity: 1 }],
+      line_items: [{ price: overridePriceForCheckout(planCode, String(stripePriceId)), quantity: 1 }],
       success_url: `${appUrl}?checkout=success`,
       cancel_url: `${appUrl}?checkout=cancelled`,
       metadata: { planCode: String(planCode), email },
@@ -2727,7 +2737,7 @@ router.post("/checkout/agent-session", async (req, res) => {
     // Build Checkout Session params targeting price_1TLaiOAYuoIyU8CG2rjxhylB ($100 for 200 API calls)
     const sessionParams: any = {
       mode: 'payment',
-      line_items: [{ price: TARGET_TOPUP_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: overridePriceForCheckout(7, TARGET_TOPUP_PRICE_ID), quantity: 1 }],
       success_url: return_url || 'https://app.fodda.ai?checkout=success',
       cancel_url: return_url || 'https://app.fodda.ai?checkout=cancelled',
       metadata: {
