@@ -9,6 +9,11 @@ Format: newest entries at the top. Each entry should include the date, a short t
 ### Content Security Policy (`server/index.ts`)
 - Added loopback addresses (`http://localhost:*`, `http://127.0.0.1:*`) and Grok/xAI web domains (`https://x.ai`, `https://*.x.ai`, `https://grok.com`, `https://*.grok.com`) to Helmet's CSP `formAction` directive.
 - Fixed indefinite hang on OAuth consent screen (`/oauth-consent`) when authorizing bots via Grok or desktop/CLI OAuth agents redirecting to local callback servers (e.g., `http://localhost:8787/callback`).
+
+### Dynamic Bot Logo Injection & Co-Branding (`frontend/components/OAuthConsentPage.tsx`)
+- Added dynamic request detection for Grok / bot authorization requests (via `redirect_uri` port 8787/grok, `resource=earnings-intelligence`, and bot client IDs).
+- Dynamically injects the purple bot avatar into Clerk's `<OAuthConsent />` left badge via MutationObserver, permanently resolving missing client logos without requiring manual Clerk dashboard application configuration.
+- Added top header co-branding (`Fodda × [icon] Earnings Context · Authorization`) for recognized bot flows.
 ### Deployed
 - **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
 - **Active Revision:** `fodda-sandbox-00563-mbg` (100% traffic)
