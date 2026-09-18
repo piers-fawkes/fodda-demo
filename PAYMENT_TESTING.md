@@ -89,15 +89,20 @@ Expect `HTTP 200` + graph data, and a ~$0.50 charge that lands in the `@fodda` p
 
 ### Getting an `spt_xxx` (buyer/agent side)
 An SPT is **scoped to ONE seller** — it must be minted against **Fodda's own Stripe profile**
-(`network_business_profile` = the `@fodda` profile enabled 2026-09-18). Find the profile id in
-Stripe Dashboard → Profiles. Mint via the Stripe API (preview):
+(`network_business_profile` = the live `@fodda` profile enabled 2026-09-18):
+
+```
+FODDA_PROFILE_ID = profile_61UkOZHFXofghS82UA6UkOZH2JSQENHoH2ygQe0sSBJw   (live; a seller id, shareable)
+```
+
+Mint via the Stripe API (preview):
 
 ```bash
 curl https://api.stripe.com/v1/shared_payment/issued_tokens \
   -u "$STRIPE_SECRET_KEY:" \
   -H "Stripe-Version: 2026-04-22.preview" \
   -d "payment_method=pm_xxx" \
-  -d "seller_details[network_business_profile]=<FODDA_PROFILE_ID>" \
+  -d "seller_details[network_business_profile]=profile_61UkOZHFXofghS82UA6UkOZH2JSQENHoH2ygQe0sSBJw" \
   -d "usage_limits[currency]=usd" \
   -d "usage_limits[max_amount]=200" \
   -d "usage_limits[expires_at]=<unix+1h>" \
