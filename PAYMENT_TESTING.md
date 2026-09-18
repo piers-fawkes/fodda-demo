@@ -89,22 +89,36 @@ Expect `HTTP 200` + graph data, and a ~$0.50 charge that lands in the `@fodda` p
 
 ### Getting an `spt_xxx` (buyer/agent side)
 An SPT is **scoped to ONE seller** — it must be minted against **Fodda's own Stripe profile**
-(`network_business_profile` = the `@fodda` profile enabled 2026-09-18). Find the profile id in
-Stripe Dashboard → Profiles. Mint via the Stripe API (preview):
+(`network_business_profile` = the live `@fodda` profile enabled 2026-09-18):
+
+```
+FODDA_PROFILE_ID = profile_61UkOZHFXofghS82UA6UkOZH2JSQENHoH2ygQe0sSBJw   (live; a seller id, shareable)
+```
+
+Mint via the Stripe API (preview):
 
 ```bash
 curl https://api.stripe.com/v1/shared_payment/issued_tokens \
   -u "$STRIPE_SECRET_KEY:" \
   -H "Stripe-Version: 2026-04-22.preview" \
   -d "payment_method=pm_xxx" \
-  -d "seller_details[network_business_profile]=<FODDA_PROFILE_ID>" \
+  -d "seller_details[network_business_profile]=profile_61UkOZHFXofghS82UA6UkOZH2JSQENHoH2ygQe0sSBJw" \
   -d "usage_limits[currency]=usd" \
   -d "usage_limits[max_amount]=200" \
   -d "usage_limits[expires_at]=<unix+1h>" \
   --data-urlencode "return_url=https://app.fodda.ai?checkout=return"
 ```
 Returns `spt_...`. The `pm_xxx` PaymentMethod comes from the buyer's card via Stripe.js
-Payment Element (browser). Shortcut: `npm i -g @stripe/cli && stripe agent setup`.
+Payment Element (browser).
+
+**One-click local mint (easiest):**
+```bash
+STRIPE_SECRET_KEY=sk_live_xxx VITE_STRIPE_PUBLISHABLE_KEY=pk_live_xxx node scripts/spt-mint/server.mjs
+```
+Open http://localhost:4242, enter a card → it mints the SPT (scoped to the `@fodda` profile,
+$2 cap by default) and prints the `spt_…` plus the exact `settle` command. Use matching **live**
+keys for a live settlement, or `sk_test_`/`pk_test_` to mint a test SPT. (Shortcut alternative:
+`npm i -g @stripe/cli && stripe agent setup`.)
 
 - **Test mode:** use test seller profile `profile_test_61TU90nIeGjU7NNVXA6TU90m7ISQWsBxpcx9lASWWXTk`
   + a test pm — BUT a test SPT only validates against a TEST-mode API, so it needs `fodda-api-v4`
@@ -114,8 +128,21 @@ Payment Element (browser). Shortcut: `npm i -g @stripe/cli && stripe agent setup
   `node scripts/spt-probe.mjs settle spt_xxx --yes-charge-50-cents` → ~50¢ lands in `@fodda`.
   Reconcile/refund; revoke leftover cap: `POST /v1/shared_payment/issued_tokens/spt_xxx/revoke`.
 
-**Key gotcha:** the SPT must carry Fodda's profile id, and `api.fodda.ai` runs LIVE keys — so a
+**Key gotcha #1 — the SPT must carry Fodda's profile id, and `api.fodda.ai` runs LIVE keys**, so a
 live settlement needs a live SPT. There is no way to settle against the live API for free.
+
+**Key gotcha #2 — the minting (agent) Stripe account MUST be different from Fodda's.** You cannot
+mint an SPT with Fodda's own `sk_live_` key scoped to Fodda's own profile — Stripe rejects it:
+"the network_id … is the same as the counterparty network_id." The agent side is a *separate*
+party. To run a real settlement you need one of:
+- a **second Stripe account** acting as the agent/buyer (its own `sk_`, a real card) minting an SPT
+  scoped to Fodda's profile, then settle against `api.fodda.ai` (~50¢); OR
+- the whole loop in **test mode** with `fodda-api-v4` running locally on test keys + Stripe's test
+  seller profile `profile_test_61TU…` (no money, but needs the API repo); OR
+- simplest real-world proof: let an **actual external agent** (a Grok bot / partner) hit
+  `api.fodda.ai` and pay — discovery + Fodda's receive side are already proven, so the first real
+  external agent payment *is* the end-to-end test.
+So `scripts/spt-mint/server.mjs` is only useful when run with a NON-Fodda Stripe account's keys.
 
 ---
 
