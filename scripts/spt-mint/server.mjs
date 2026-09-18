@@ -46,6 +46,11 @@ if (secretMode !== pubMode) {
   console.error(`❌ Key mode mismatch: secret=${secretMode}, publishable=${pubMode}. They must match.`);
   process.exit(1);
 }
+if (/x{3,}/i.test(SECRET) || /x{3,}/i.test(PUBLISHABLE) || SECRET.length < 20 || PUBLISHABLE.length < 20) {
+  console.error('❌ Those look like PLACEHOLDER keys (e.g. sk_live_xxx). Replace them with your REAL');
+  console.error('   keys from https://dashboard.stripe.com/apikeys (Test mode OFF for a live SPT).');
+  process.exit(1);
+}
 console.warn(`[spt-mint] ${secretMode.toUpperCase()} mode · seller ${PROFILE} · cap $${(MAX_AMOUNT / 100).toFixed(2)}`);
 if (secretMode === 'live') console.warn('[spt-mint] LIVE: the SPT will bind a real card (no charge until settled).');
 
