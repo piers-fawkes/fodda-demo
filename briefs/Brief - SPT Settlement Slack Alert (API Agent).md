@@ -9,7 +9,8 @@ Fodda's agentic (SPT) rail is live end-to-end on the merchant side: `api.fodda.a
 1. On a **successful SPT-settled request** (where the SPT PaymentIntent succeeds / the metered charge confirms), post a Slack message to the ops channel (reuse the existing Slack notifier if one exists; else `SLACK_BOT_TOKEN` → `#fodda-research` `C0AU0403M3M`). Include: amount (USD), endpoint/path, truncated SPT id, agent/customer identifier if available, `requestId`, timestamp.
 2. Add/confirm a Stripe webhook handler for **`shared_payment.issued_token.used`** (seller side) as a backstop notification in case the inline hook is missed.
 3. Make the **first-ever settlement extra-visible** — prefix e.g. `🎉 FIRST SPT PAYMENT` (detect via a persisted flag or a count of prior SPT charges).
-4. Optional: email the first settlement to `piers.fawkes@psfk.com` and `nathan@searchshop.ai` (the only allowed test/ops recipients per house rule).
+4. **Alert on SPT FAILURE too** — when an SPT-authenticated request fails to settle (PaymentIntent declined, SPT invalid/expired/insufficient, or a 5xx in the settlement path), post a Slack alert with the reason + endpoint + truncated SPT id. This is the "a bot tried to pay and couldn't" signal — critical while onboarding real Grok bots. Keep it rate-limited so a misbehaving agent can't flood the channel.
+5. Optional: email the first settlement to `piers.fawkes@psfk.com` and `nathan@searchshop.ai` (the only allowed test/ops recipients per house rule).
 
 ## Where to register
 - The SPT metering/settlement path (where the SPT PaymentIntent is created/confirmed).
