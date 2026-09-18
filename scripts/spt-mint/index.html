@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fodda SPT Mint (local test)</title>
+  <!-- Stripe.js "dahlia" build required for agentic-commerce Payment Element / preparePaymentMethod -->
+  <script src="https://js.stripe.com/dahlia/stripe.js"></script>
+  <style>
+    :root { color-scheme: light dark; --bg:#fff; --fg:#111; --muted:#666; --line:#e5e5e5; --brand:#635bff; }
+    @media (prefers-color-scheme: dark){ :root{ --bg:#0f0f11; --fg:#f2f2f2; --muted:#9a9a9a; --line:#2a2a2e; } }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--fg); max-width:520px; margin:40px auto; padding:0 16px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    .meta { color:var(--muted); font-size:13px; margin:0 0 20px; }
+    #payment-element { margin:16px 0; }
+    button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:12px 16px; font-size:15px; font-weight:600; cursor:pointer; width:100%; }
+    button:disabled { opacity:.5; cursor:default; }
+    #error-message { color:#d4351c; font-size:13px; margin-top:10px; min-height:1em; }
+    pre { background:rgba(127,127,127,.12); padding:12px; border-radius:8px; white-space:pre-wrap; word-break:break-all; font-size:12px; margin-top:16px; }
+    code { background:rgba(127,127,127,.15); padding:1px 5px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <h1>Mint a Fodda SPT — local test</h1>
+  <p class="meta">Seller <code>__PROFILE__</code> · spend cap $<span id="cap"></span>. Minting does not charge; a charge happens only when you run <code>spt-probe settle</code>.</p>
+
+  <form id="payment-form">
+    <div id="payment-element"></div>
+    <button id="submit" type="submit">Mint SPT</button>
+    <div id="error-message"></div>
+  </form>
+  <pre id="result" hidden></pre>
+
+  <script>
+    const stripe = Stripe('__PUBLISHABLE__');
+    const amount = Number('__AMOUNT__');
+    document.getElementById('cap').textContent = (amount / 100).toFixed(2);
+
+    const elements = stripe.elements({
+      mode: 'payment',
+      amount,
+      currency: 'usd',
+      paymentMethodCreation: 'manual',
+      sellerDetails: { networkBusinessProfile: '__PROFILE__' },
+    });
+    const paymentElement = elements.create('payment', { layout: 'accordion' });
+    paymentElement.mount('#payment-element');
+
+    const form = document.getElementById('payment-form');
+    const btn = document.getElementById('submit');
+    const err = document.getElementById('error-message');
+    const out = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btn.disabled = true; err.textContent = '';
+
+      const { error: submitError } = await elements.submit();
+      if (submitError) { err.textContent = submitError.message; btn.disabled = false; return; }
+
+      const { error, paymentMethod } = await stripe.preparePaymentMethod({
+        elements,
+        params: { billing_details: { name: 'Fodda Test' } },
+      });
+      if (error) { err.textContent = error.message; btn.disabled = false; return; }
+
+      const res = await fetch('/create-spt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethodId: paymentMethod.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        err.textContent = data.error || 'mint failed';
+        out.hidden = false; out.textContent = JSON.stringify(data, null, 2);
+        btn.disabled = false; return;
+      }
+
+      out.hidden = false;
+      out.textContent =
+        'SPT: ' + data.spt + '\nstatus: ' + data.status +
+        '\n\nNow settle (charges ~50¢):\n  node scripts/spt-probe.mjs settle ' + data.spt + ' --yes-charge-50-cents';
+      btn.disabled = false;
+    });
+  </script>
+</body>
+</html>

@@ -109,7 +109,16 @@ curl https://api.stripe.com/v1/shared_payment/issued_tokens \
   --data-urlencode "return_url=https://app.fodda.ai?checkout=return"
 ```
 Returns `spt_...`. The `pm_xxx` PaymentMethod comes from the buyer's card via Stripe.js
-Payment Element (browser). Shortcut: `npm i -g @stripe/cli && stripe agent setup`.
+Payment Element (browser).
+
+**One-click local mint (easiest):**
+```bash
+STRIPE_SECRET_KEY=sk_live_xxx VITE_STRIPE_PUBLISHABLE_KEY=pk_live_xxx node scripts/spt-mint/server.mjs
+```
+Open http://localhost:4242, enter a card → it mints the SPT (scoped to the `@fodda` profile,
+$2 cap by default) and prints the `spt_…` plus the exact `settle` command. Use matching **live**
+keys for a live settlement, or `sk_test_`/`pk_test_` to mint a test SPT. (Shortcut alternative:
+`npm i -g @stripe/cli && stripe agent setup`.)
 
 - **Test mode:** use test seller profile `profile_test_61TU90nIeGjU7NNVXA6TU90m7ISQWsBxpcx9lASWWXTk`
   + a test pm — BUT a test SPT only validates against a TEST-mode API, so it needs `fodda-api-v4`
