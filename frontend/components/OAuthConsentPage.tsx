@@ -43,6 +43,76 @@ export const OAuthConsentPage: React.FC = () => {
     }
   }, [isAuthLoaded, clerkUserId]);
 
+  // Identify if incoming OAuth request originates from Grok bot or local callback bridge
+  const isGrokBotRequest = typeof window !== 'undefined' && (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const redirectUri = params.get('redirect_uri') || '';
+      const resource = params.get('resource') || '';
+      const clientId = params.get('client_id') || '';
+      return (
+        redirectUri.includes(':8787') ||
+        redirectUri.includes('grok.com') ||
+        redirectUri.includes('x.ai') ||
+        resource.includes('earnings-intelligence') ||
+        resource.includes('mcp.fodda.ai') ||
+        clientId === 'MuPhVBpeyvvMn6re' ||
+        clientId === 'DOHTQ0pmgSKoD705' ||
+        params.has('grok')
+      );
+    } catch {
+      return false;
+    }
+  })();
+
+  // Dynamically inject the purple Grok bot icon into Clerk's OAuthConsent left badge
+  useEffect(() => {
+    if (!isGrokBotRequest || typeof window === 'undefined') return;
+
+    const updateClientBadge = () => {
+      const container = document.getElementById('clerk-oauth-consent-container');
+      if (!container) return;
+
+      const svgs = container.querySelectorAll('svg');
+      for (const svg of svgs) {
+        const parent = svg.parentElement;
+        if (!parent) continue;
+        const rect = parent.getBoundingClientRect();
+        // Client badge circle is typically ~30px-60px and roughly square
+        if (rect.width >= 20 && rect.width <= 80 && Math.abs(rect.width - rect.height) < 16) {
+          if (!parent.querySelector('img.grok-injected-logo')) {
+            svg.style.display = 'none';
+            const img = document.createElement('img');
+            img.className = 'grok-injected-logo';
+            img.src = '/fodda-grok-bot-logo.png';
+            img.alt = 'Earnings Context Analyst (Grok)';
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '50%';
+            img.style.display = 'block';
+            parent.appendChild(img);
+            parent.style.overflow = 'hidden';
+            parent.style.padding = '0';
+          }
+          break;
+        }
+      }
+    };
+
+    updateClientBadge();
+
+    const container = document.getElementById('clerk-oauth-consent-container');
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      updateClientBadge();
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [isGrokBotRequest]);
+
   // Loading state while Clerk initializes
   if (!isAuthLoaded) {
     return (
@@ -104,6 +174,19 @@ export const OAuthConsentPage: React.FC = () => {
         <span className="font-serif italic" style={{ fontSize: 20, fontWeight: 400, color: 'var(--ink, #1b1917)' }}>
           Fodda
         </span>
+        {isGrokBotRequest && (
+          <>
+            <span style={{ color: 'var(--line, #e2ded4)', margin: '0 2px' }}>×</span>
+            <img
+              src="/fodda-grok-bot-logo.png"
+              alt="Earnings Context Analyst"
+              style={{ width: 22, height: 22, borderRadius: 6, objectFit: 'cover' }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2, #44403c)', letterSpacing: '-0.01em' }}>
+              Earnings Context
+            </span>
+          </>
+        )}
         <span style={{ color: 'var(--line, #e2ded4)', margin: '0 2px' }}>·</span>
         <span
           className="font-mono uppercase"
@@ -120,6 +203,7 @@ export const OAuthConsentPage: React.FC = () => {
 
       {/* Clerk prebuilt <OAuthConsent /> card */}
       <div
+        id="clerk-oauth-consent-container"
         style={{
           width: '100%',
           maxWidth: 460,

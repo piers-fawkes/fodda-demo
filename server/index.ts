@@ -56,6 +56,8 @@ app.use(helmet({
       formAction: [
         "'self'",
         "https:",
+        "http://localhost:*",
+        "http://127.0.0.1:*",
         "https://clerk.fodda.ai",
         "https://*.clerk.fodda.ai",
         "https://accounts.fodda.ai",
@@ -71,6 +73,10 @@ app.use(helmet({
         "https://*.openai.com",
         "https://polarbrowser.com",
         "https://*.polarbrowser.com",
+        "https://x.ai",
+        "https://*.x.ai",
+        "https://grok.com",
+        "https://*.grok.com",
       ],
       scriptSrc: [
         "'self'", 
