@@ -16,9 +16,9 @@ Format: newest entries at the top. Each entry should include the date, a short t
 - Added top header co-branding (`Fodda × [icon] Earnings Context · Authorization`) for recognized bot flows.
 ### Deployed
 - **Cloud Run Service:** `fodda-sandbox` (`gen-lang-client-0472572023`, `us-central1`)
-- **Active Revision:** `fodda-sandbox-00563-mbg` (100% traffic)
+- **Active Revision:** `fodda-sandbox-00564-92b` (100% traffic)
 - **Deployment URL:** `https://fodda-sandbox-p3uz7zw7ja-uc.a.run.app` (`https://app.fodda.ai`)
-- **Preflight & Smoke:** `npm run preflight` and `npm run smoke:oauth` passed cleanly. Verified live CSP on `https://app.fodda.ai/oauth-consent` includes `http://localhost:*`, `http://127.0.0.1:*`, `https://x.ai`, `https://*.x.ai`, `https://grok.com`, and `https://*.grok.com`. Health check returned HTTP 200 `{"status":"ok","uptime":...,"queryLogFailures":0}`.
+- **Preflight & Smoke:** `npm run preflight` and `npm run smoke:oauth` passed cleanly. Verified live CSP on `https://app.fodda.ai/oauth-consent` and live asset delivery on `https://app.fodda.ai/fodda-grok-bot-logo.png` (HTTP 200). Health check returned HTTP 200 `{"status":"ok","uptime":...,"queryLogFailures":0}`.
 
 ## [2026-09-18] — Payment audit + local Stripe test-mode harness (all 3 rails)
 
